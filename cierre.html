@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -15,160 +14,159 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:var(--negro);color:var(--blanco);font-family:'DM Sans',sans-serif;font-size:15px;padding-bottom:80px;}
 
-/* HEADER */
-header{background:var(–negro);border-bottom:2px solid var(–verde);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-.logo{font-family:‘Syne’,sans-serif;font-size:16px;font-weight:800;}
-.logo span{color:var(–vc);}
-.logo small{display:block;font-size:10px;color:var(–gc);font-family:‘DM Mono’,monospace;margin-top:1px;}
-.ebadge{font-family:‘DM Mono’,monospace;font-size:11px;padding:5px 11px;border-radius:20px;color:#fff;white-space:nowrap;}
-.b1{background:var(–verde);}
-.b2{background:#1a5276;}
-.b3{background:#6c3483;}
-.b4{background:#784212;}
+  /* HEADER */
+  header{background:var(--negro);border-bottom:2px solid var(--verde);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;}
+  .logo span{color:var(--vc);}
+  .logo small{display:block;font-size:10px;color:var(--gc);font-family:'DM Mono',monospace;margin-top:1px;}
+  .ebadge{font-family:'DM Mono',monospace;font-size:11px;padding:5px 11px;border-radius:20px;color:#fff;white-space:nowrap;}
+  .b1{background:var(--verde);}
+  .b2{background:#1a5276;}
+  .b3{background:#6c3483;}
+  .b4{background:#784212;}
 
-/* LAYOUT */
-.container{max-width:640px;margin:0 auto;padding:16px 13px;}
-.sec{margin-bottom:18px;background:var(–gris);border-radius:12px;overflow:hidden;border:1px solid var(–ln);}
-.stit{font-family:‘Syne’,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;padding:8px 14px;}
-.sv{background:var(–vc);color:#000;}
-.sn{background:var(–naranja);color:#000;}
-.sr{background:var(–rojo);color:#fff;}
-.sg{background:#3a3a3a;color:#bbb;}
-.sbody{padding:13px 14px;}
+  /* LAYOUT */
+  .container{max-width:640px;margin:0 auto;padding:16px 13px;}
+  .sec{margin-bottom:18px;background:var(--gris);border-radius:12px;overflow:hidden;border:1px solid var(--ln);}
+  .stit{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;padding:8px 14px;}
+  .sv{background:var(--vc);color:#000;}
+  .sn{background:var(--naranja);color:#000;}
+  .sr{background:var(--rojo);color:#fff;}
+  .sg{background:#3a3a3a;color:#bbb;}
+  .sbody{padding:13px 14px;}
 
-/* CAMPOS */
-.campo{margin-bottom:12px;}
-.campo:last-child{margin-bottom:0;}
-.clabel{display:block;font-size:10px;font-weight:600;color:var(–gc);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
-.obl{color:var(–naranja);}
-.opt-tag{font-size:9px;background:rgba(119,119,119,0.2);color:var(–gc);border-radius:4px;padding:2px 5px;margin-left:4px;font-family:‘DM Mono’,monospace;}
+  /* CAMPOS */
+  .campo{margin-bottom:12px;}
+  .campo:last-child{margin-bottom:0;}
+  .clabel{display:block;font-size:10px;font-weight:600;color:var(--gc);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+  .obl{color:var(--naranja);}
+  .opt-tag{font-size:9px;background:rgba(119,119,119,0.2);color:var(--gc);border-radius:4px;padding:2px 5px;margin-left:4px;font-family:'DM Mono',monospace;}
 
-/* DATO FIJO */
-.dato-fijo{background:#111;border:1px solid #222;border-radius:8px;padding:10px 12px;font-size:13px;color:var(–vc);font-family:‘DM Mono’,monospace;min-height:40px;word-break:break-word;line-height:1.4;}
+  /* DATO FIJO */
+  .dato-fijo{background:#111;border:1px solid #222;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--vc);font-family:'DM Mono',monospace;min-height:40px;word-break:break-word;line-height:1.4;}
 
-/* INPUTS */
-input[type=“text”],input[type=“number”],select,textarea{
-width:100%;background:#141414;border:1px solid #333;border-radius:8px;
-color:var(–blanco);font-family:‘DM Sans’,sans-serif;font-size:15px;
-padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none;
-}
-input:focus,select:focus,textarea:focus{border-color:var(–vc);}
-textarea{resize:vertical;min-height:70px;}
-select option{background:#141414;}
-.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  /* INPUTS */
+  input[type="text"],input[type="number"],select,textarea{
+    width:100%;background:#141414;border:1px solid #333;border-radius:8px;
+    color:var(--blanco);font-family:'DM Sans',sans-serif;font-size:15px;
+    padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--vc);}
+  textarea{resize:vertical;min-height:70px;}
+  select option{background:#141414;}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 
-/* MATERIAL */
-.imat{background:#141414;border:1px solid #2a2a2a;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-.imat:last-child{margin-bottom:0;}
-.imat.af{border-color:rgba(82,183,136,0.25);}
-.inombre-wrap{display:flex;flex-direction:column;flex:1;min-width:0;gap:0;}
-.inombre-line{display:flex;align-items:center;gap:5px;}
-.inombre-txt{font-size:13px;font-weight:500;color:var(–blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.inombre-sub{display:block;font-size:10px;color:var(–gc);margin-top:2px;font-weight:400;line-height:1.4;}
-.inombre{font-size:13px;font-weight:500;color:var(–blanco);flex:1;line-height:1.4;}
-.inombre small{display:block;font-size:10px;color:var(–gc);margin-top:2px;font-weight:400;}
-.ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;margin-top:2px;}
-.ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:‘DM Mono’,monospace;font-size:17px;}
-.iunit{font-size:10px;color:var(–gc);white-space:nowrap;}
-.atag{font-size:9px;background:rgba(82,183,136,0.15);color:var(–vc);border-radius:4px;padding:2px 5px;margin-left:5px;font-family:‘DM Mono’,monospace;}
-.ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;}
-.ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:‘DM Mono’,monospace;font-size:17px;}
-.iunit{font-size:10px;color:var(–gc);white-space:nowrap;}
+  /* MATERIAL */
+  .imat{background:#141414;border:1px solid #2a2a2a;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .imat:last-child{margin-bottom:0;}
+  .imat.af{border-color:rgba(82,183,136,0.25);}
+  .inombre-wrap{display:flex;flex-direction:column;flex:1;min-width:0;gap:0;}
+  .inombre-line{display:flex;align-items:center;gap:5px;}
+  .inombre-txt{font-size:13px;font-weight:500;color:var(--blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .inombre-sub{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;line-height:1.4;}
+  .inombre{font-size:13px;font-weight:500;color:var(--blanco);flex:1;line-height:1.4;}
+  .inombre small{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;}
+  .ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;margin-top:2px;}
+  .ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:'DM Mono',monospace;font-size:17px;}
+  .iunit{font-size:10px;color:var(--gc);white-space:nowrap;}
+  .atag{font-size:9px;background:rgba(82,183,136,0.15);color:var(--vc);border-radius:4px;padding:2px 5px;margin-left:5px;font-family:'DM Mono',monospace;}
+  .ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+  .ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:'DM Mono',monospace;font-size:17px;}
+  .iunit{font-size:10px;color:var(--gc);white-space:nowrap;}
 
-/* RADIO */
-.rg{display:flex;flex-direction:column;gap:7px;}
-.rop{display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #333;border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color 0.2s;}
-.rop:has(input:checked){border-color:var(–vc);background:rgba(82,183,136,0.06);}
-.rop input[type=“radio”]{accent-color:var(–vc);width:16px;height:16px;flex-shrink:0;}
-.rop span{font-size:14px;}
+  /* RADIO */
+  .rg{display:flex;flex-direction:column;gap:7px;}
+  .rop{display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #333;border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color 0.2s;}
+  .rop:has(input:checked){border-color:var(--vc);background:rgba(82,183,136,0.06);}
+  .rop input[type="radio"]{accent-color:var(--vc);width:16px;height:16px;flex-shrink:0;}
+  .rop span{font-size:14px;}
 
-/* HITOS */
-.hito{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(–ln);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.hito:last-child{border-bottom:none;}
-.hcheck{width:26px;height:26px;border-radius:7px;border:2px solid #444;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
-.hcheck.ok{background:var(–vc);border-color:var(–vc);}
-.hcheck.ok::after{content:‘✓’;color:#000;font-size:15px;font-weight:700;}
-.htxt{font-size:13px;flex:1;line-height:1.4;}
+  /* HITOS */
+  .hito{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--ln);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .hito:last-child{border-bottom:none;}
+  .hcheck{width:26px;height:26px;border-radius:7px;border:2px solid #444;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+  .hcheck.ok{background:var(--vc);border-color:var(--vc);}
+  .hcheck.ok::after{content:'✓';color:#000;font-size:15px;font-weight:700;}
+  .htxt{font-size:13px;flex:1;line-height:1.4;}
 
-/* ALERTAS */
-.alerta{background:rgba(192,18,31,0.1);border:1px solid rgba(192,18,31,0.35);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffaaaa;margin-bottom:12px;line-height:1.5;}
-.alerta strong{color:#ff7070;}
-.info{background:rgba(82,183,136,0.08);border:1px solid rgba(82,183,136,0.2);border-radius:8px;padding:9px 12px;font-size:11px;color:var(–vc);margin-bottom:12px;line-height:1.5;}
+  /* ALERTAS */
+  .alerta{background:rgba(192,18,31,0.1);border:1px solid rgba(192,18,31,0.35);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffaaaa;margin-bottom:12px;line-height:1.5;}
+  .alerta strong{color:#ff7070;}
+  .info{background:rgba(82,183,136,0.08);border:1px solid rgba(82,183,136,0.2);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--vc);margin-bottom:12px;line-height:1.5;}
 
-/* FOTOS */
-.fzona{margin-bottom:11px;}
-.fzona:last-child{margin-bottom:0;}
-.uwrap{border:2px dashed #333;border-radius:10px;background:#141414;position:relative;overflow:hidden;transition:border-color 0.2s,background 0.2s;}
-.uwrap.ok{border-color:var(–vc);background:rgba(82,183,136,0.04);}
-.uwrap.skip{border-color:#333;background:#111;opacity:0.5;}
-.uwrap input[type=“file”]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
-.uinner{padding:15px 12px;text-align:center;pointer-events:none;}
-.uico{font-size:20px;margin-bottom:4px;}
-.uwrap.ok .uico{display:none;}
-.unombre{font-size:13px;font-weight:600;color:var(–blanco);margin-bottom:2px;}
-.udesc{font-size:11px;color:var(–gc);}
-.uok{display:none;font-size:11px;font-family:‘DM Mono’,monospace;color:var(–vc);margin-top:4px;}
-.uwrap.ok .uok{display:block;}
+  /* FOTOS */
+  .fzona{margin-bottom:11px;}
+  .fzona:last-child{margin-bottom:0;}
+  .uwrap{border:2px dashed #333;border-radius:10px;background:#141414;position:relative;overflow:hidden;transition:border-color 0.2s,background 0.2s;}
+  .uwrap.ok{border-color:var(--vc);background:rgba(82,183,136,0.04);}
+  .uwrap.skip{border-color:#333;background:#111;opacity:0.5;}
+  .uwrap input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
+  .uinner{padding:15px 12px;text-align:center;pointer-events:none;}
+  .uico{font-size:20px;margin-bottom:4px;}
+  .uwrap.ok .uico{display:none;}
+  .unombre{font-size:13px;font-weight:600;color:var(--blanco);margin-bottom:2px;}
+  .udesc{font-size:11px;color:var(--gc);}
+  .uok{display:none;font-size:11px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:4px;}
+  .uwrap.ok .uok{display:block;}
 
-/* SKIP OPCIONAL */
-.skip-btn{display:block;width:100%;margin-top:5px;background:transparent;border:1px solid #333;color:var(–gc);font-size:11px;padding:6px;border-radius:7px;cursor:pointer;font-family:‘DM Sans’,sans-serif;text-align:center;}
-.skip-btn:hover{border-color:#555;color:#aaa;}
-.skip-btn.activo{background:rgba(255,255,255,0.04);border-color:#555;color:#aaa;}
+  /* SKIP OPCIONAL */
+  .skip-btn{display:block;width:100%;margin-top:5px;background:transparent;border:1px solid #333;color:var(--gc);font-size:11px;padding:6px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;}
+  .skip-btn:hover{border-color:#555;color:#aaa;}
+  .skip-btn.activo{background:rgba(255,255,255,0.04);border-color:#555;color:#aaa;}
 
-/* ACTA PDF */
-.awrap{border:2px dashed var(–naranja);border-radius:12px;background:rgba(224,122,31,0.04);position:relative;overflow:hidden;transition:all 0.2s;}
-.awrap.ok{border-color:var(–vc);background:rgba(82,183,136,0.04);}
-.awrap input[type=“file”]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
-.ainner{padding:20px 14px;text-align:center;pointer-events:none;}
-.aico{font-size:30px;margin-bottom:6px;}
-.anombre{font-size:14px;font-weight:700;color:var(–naranja);margin-bottom:4px;}
-.awrap.ok .anombre{color:var(–vc);}
-.adesc{font-size:11px;color:var(–gc);line-height:1.5;}
-.apdf{display:inline-block;background:rgba(224,122,31,0.15);color:var(–naranja);font-family:‘DM Mono’,monospace;font-size:10px;padding:3px 8px;border-radius:4px;margin-top:5px;}
-.awrap.ok .apdf{background:rgba(82,183,136,0.15);color:var(–vc);}
-.aok{display:none;font-size:12px;font-family:‘DM Mono’,monospace;color:var(–vc);margin-top:6px;}
-.awrap.ok .aok{display:block;}
+  /* ACTA PDF */
+  .awrap{border:2px dashed var(--naranja);border-radius:12px;background:rgba(224,122,31,0.04);position:relative;overflow:hidden;transition:all 0.2s;}
+  .awrap.ok{border-color:var(--vc);background:rgba(82,183,136,0.04);}
+  .awrap input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
+  .ainner{padding:20px 14px;text-align:center;pointer-events:none;}
+  .aico{font-size:30px;margin-bottom:6px;}
+  .anombre{font-size:14px;font-weight:700;color:var(--naranja);margin-bottom:4px;}
+  .awrap.ok .anombre{color:var(--vc);}
+  .adesc{font-size:11px;color:var(--gc);line-height:1.5;}
+  .apdf{display:inline-block;background:rgba(224,122,31,0.15);color:var(--naranja);font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;margin-top:5px;}
+  .awrap.ok .apdf{background:rgba(82,183,136,0.15);color:var(--vc);}
+  .aok{display:none;font-size:12px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:6px;}
+  .awrap.ok .aok{display:block;}
 
-/* TOOLTIP INFO */
-.inombre-wrap{display:flex;flex-direction:column;flex:1;gap:0;}
-.inombre-line{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;}
-.inombre-txt{font-size:13px;font-weight:500;color:var(–blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.inombre-sub{display:block;font-size:10px;color:var(–gc);margin-top:2px;font-weight:400;}
-.info-btn{background:none;border:1px solid #444;color:var(–gc);min-width:18px;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:‘DM Mono’,monospace;}
-.info-btn:hover{border-color:var(–vc);color:var(–vc);}
-.tooltip{display:none;background:#1a1a1a;border:1px solid rgba(82,183,136,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#ccc;line-height:1.6;margin-top:6px;width:100%;}
-.tooltip.visible{display:block;}
+  /* TOOLTIP INFO */
+  .inombre-wrap{display:flex;flex-direction:column;flex:1;gap:0;}
+  .inombre-line{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;}
+  .inombre-txt{font-size:13px;font-weight:500;color:var(--blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .inombre-sub{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;}
+  .info-btn{background:none;border:1px solid #444;color:var(--gc);min-width:18px;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:'DM Mono',monospace;}
+  .info-btn:hover{border-color:var(--vc);color:var(--vc);}
+  .tooltip{display:none;background:#1a1a1a;border:1px solid rgba(82,183,136,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#ccc;line-height:1.6;margin-top:6px;width:100%;}
+  .tooltip.visible{display:block;}
 
-/* CHECKLIST */
-.chi{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(–ln);}
-.chi:last-child{border-bottom:none;}
-.chi input[type=“checkbox”]{width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:var(–vc);cursor:pointer;}
-.chi label{font-size:13px;line-height:1.5;cursor:pointer;color:var(–blanco);text-transform:none;letter-spacing:0;font-weight:400;}
+  /* CHECKLIST */
+  .chi{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--ln);}
+  .chi:last-child{border-bottom:none;}
+  .chi input[type="checkbox"]{width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:var(--vc);cursor:pointer;}
+  .chi label{font-size:13px;line-height:1.5;cursor:pointer;color:var(--blanco);text-transform:none;letter-spacing:0;font-weight:400;}
 
-/* WHATSAPP */
-.msgwa{background:#0d1117;border:1px solid #2a2a2a;border-radius:10px;padding:13px;font-family:‘DM Mono’,monospace;font-size:13px;color:var(–vc);line-height:1.7;margin-bottom:10px;min-height:50px;white-space:pre-wrap;word-break:break-word;}
-.bcopiar{width:100%;background:#2a2a2a;border:1px solid #3a3a3a;color:var(–blanco);padding:11px;border-radius:8px;font-size:13px;font-family:‘DM Sans’,sans-serif;cursor:pointer;}
-.bcopiar:hover{background:#333;}
+  /* WHATSAPP */
+  .msgwa{background:#0d1117;border:1px solid #2a2a2a;border-radius:10px;padding:13px;font-family:'DM Mono',monospace;font-size:13px;color:var(--vc);line-height:1.7;margin-bottom:10px;min-height:50px;white-space:pre-wrap;word-break:break-word;}
+  .bcopiar{width:100%;background:#2a2a2a;border:1px solid #3a3a3a;color:var(--blanco);padding:11px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;}
+  .bcopiar:hover{background:#333;}
 
-/* BOTÓN ENVIAR */
-.benviar{width:100%;background:var(–verde);color:#fff;border:none;border-radius:14px;font-family:‘Syne’,sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:17px;cursor:pointer;margin-bottom:12px;transition:background 0.2s;}
-.benviar:hover{background:#3a8a63;}
-.nota{text-align:center;font-size:12px;color:var(–gc);line-height:1.7;}
+  /* BOTÓN ENVIAR */
+  .benviar{width:100%;background:var(--verde);color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:17px;cursor:pointer;margin-bottom:12px;transition:background 0.2s;}
+  .benviar:hover{background:#3a8a63;}
+  .nota{text-align:center;font-size:12px;color:var(--gc);line-height:1.7;}
 
-/* SEPARADOR */
-.sublabel{font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:1px;margin:13px 0 7px;}
+  /* SEPARADOR */
+  .sublabel{font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:1px;margin:13px 0 7px;}
 
-/* ÉXITO */
-#exito{display:none;text-align:center;padding:50px 16px;}
-.exito-ico{font-size:52px;margin-bottom:14px;}
-.exito-tit{font-family:‘Syne’,sans-serif;font-size:22px;font-weight:800;color:var(–vc);margin-bottom:8px;}
-.exito-eq{font-family:‘DM Mono’,monospace;font-size:12px;color:var(–gc);margin-bottom:18px;}
-.exito-msg{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;font-size:13px;line-height:1.8;color:#ccc;text-align:left;}
-.exito-msg strong{color:var(–naranja);}
+  /* ÉXITO */
+  #exito{display:none;text-align:center;padding:50px 16px;}
+  .exito-ico{font-size:52px;margin-bottom:14px;}
+  .exito-tit{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--vc);margin-bottom:8px;}
+  .exito-eq{font-family:'DM Mono',monospace;font-size:12px;color:var(--gc);margin-bottom:18px;}
+  .exito-msg{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;font-size:13px;line-height:1.8;color:#ccc;text-align:left;}
+  .exito-msg strong{color:var(--naranja);}
 
-html{scroll-behavior:smooth;}
+  html{scroll-behavior:smooth;}
 </style>
-
 </head>
 <body>
 
@@ -180,7 +178,6 @@ html{scroll-behavior:smooth;}
 <div class="container" id="fwrap">
 
   <!-- 01 DATOS -->
-
   <div class="sec">
     <div class="stit sv">01 · Datos de la instalación</div>
     <div class="sbody">
@@ -198,7 +195,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 02 LÍNEA ELÉCTRICA -->
-
   <div class="sec">
     <div class="stit sv">02 · Línea eléctrica</div>
     <div class="sbody">
@@ -250,7 +246,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 03 CANALIZACIONES -->
-
   <div class="sec">
     <div class="stit sn">03 · Canalizaciones especiales</div>
     <div class="sbody">
@@ -288,164 +283,159 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 04 PROTECCIONES -->
-
   <div class="sec">
     <div class="stit sn">04 · Protecciones y extras</div>
     <div class="sbody">
 
-```
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Bornas centralización MONO</span><button class="info-btn" onclick="tip('t-bornas-m')">i</button></div>
-      <span class="inombre-sub">Kit: 1 neutro + 1 fase + tapa</span>
-      <div class="tooltip" id="t-bornas-m">Kit completo para centralización monofásica. Incluye: 1 neutro + 1 fase + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Bornas centralización MONO</span><button class="info-btn" onclick="tip('t-bornas-m')">i</button></div>
+          <span class="inombre-sub">Kit: 1 neutro + 1 fase + tapa</span>
+          <div class="tooltip" id="t-bornas-m">Kit completo para centralización monofásica. Incluye: 1 neutro + 1 fase + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Bornas centralización TRIF</span><button class="info-btn" onclick="tip('t-bornas-t')">i</button></div>
+          <span class="inombre-sub">Kit: 1 neutro + 3 fases + tapa</span>
+          <div class="tooltip" id="t-bornas-t">Kit completo para centralización trifásica. Incluye: 1 neutro + 3 fases + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Caja distribución 6 módulos</span><button class="info-btn" onclick="tip('t-caja6')">i</button></div>
+          <div class="tooltip" id="t-caja6">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Caja distribución 12 módulos</span><button class="info-btn" onclick="tip('t-caja12')">i</button></div>
+          <div class="tooltip" id="t-caja12">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Caja distribución 18 módulos</span><button class="info-btn" onclick="tip('t-caja18')">i</button></div>
+          <div class="tooltip" id="t-caja18">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Caja registro 100x100</span><button class="info-btn" onclick="tip('t-cajareg')">i</button></div>
+          <span class="inombre-sub">1 unidad cada 15 metros de línea</span>
+          <div class="tooltip" id="t-cajareg">Se debe instalar una caja de registro cada 15 metros de cable lineal instalado.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Cerradura + llave</span><button class="info-btn" onclick="tip('t-cerradura')">i</button></div>
+          <div class="tooltip" id="t-cerradura">Cerradura con llave para caja de distribución. Incluye el juego completo de llaves.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 10A–25A</span><button class="info-btn" onclick="tip('t-mag-peq')">i</button></div>
+          <div class="tooltip" id="t-mag-peq">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo, manteniendo los requisitos de seguridad, siempre que sea compatible con el cuadro y el poder de corte exigido.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 32A</span><button class="info-btn" onclick="tip('t-mag-32')">i</button></div>
+          <div class="tooltip" id="t-mag-32">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 40A</span><button class="info-btn" onclick="tip('t-mag-40')">i</button></div>
+          <div class="tooltip" id="t-mag-40">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Perforación forjado &lt;32mm</span><button class="info-btn" onclick="tip('t-perf-f')">i</button></div>
+          <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
+          <div class="tooltip" id="t-perf-f">Perforación para conducción de línea eléctrica a través de forjado. Diámetro máximo 32mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Perforación tabique &lt;40mm</span><button class="info-btn" onclick="tip('t-perf-t')">i</button></div>
+          <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
+          <div class="tooltip" id="t-perf-t">Perforación para conducción de línea eléctrica a través de tabique. Diámetro máximo 40mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Pica de tierra (kit completo)</span><button class="info-btn" onclick="tip('t-pica')">i</button></div>
+          <span class="inombre-sub">Pica 1500mm + grapa + cable 6mm² + arqueta + tapa</span>
+          <div class="tooltip" id="t-pica">Se aplica cuando la instalación no dispone de toma de tierra o la existente es inexistente o no utilizable. No se aceptan instalaciones de picas sin arqueta registrable.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Pre-instalación nuevo suministro</span><button class="info-btn" onclick="tip('t-preinst')">i</button></div>
+          <span class="inombre-sub">Portafusible + fusible + 1m cable + etiqueta</span>
+          <div class="tooltip" id="t-preinst">Operativa para dejar la futura ubicación del nuevo contador habilitada y etiquetada. Kit incluye: portafusible, fusible, 1m de cable y etiqueta identificativa.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — andamio</span><button class="info-btn" onclick="tip('t-altura-a')">i</button></div>
+          <div class="tooltip" id="t-altura-a">Solo aplica si se justifica y se acredita con foto la utilización del andamio, por la naturaleza especial de la instalación. Quedan excluidas las escaleras de gran formato. Obligatorio adjuntar foto del medio utilizado.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — elevadora</span><button class="info-btn" onclick="tip('t-altura-m')">i</button></div>
+          <span class="inombre-sub">Solo con autorización previa de ESMOVE</span>
+          <div class="tooltip" id="t-altura-m">Solo aplica con maquinaria elevadora (plataforma elevadora motorizada). Requiere autorización escrita previa de ESMOVE. No se puede ejecutar sin dicha autorización.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
+      </div>
+
+      <div class="imat">
+        <div class="inombre-wrap">
+          <div class="inombre-line"><span class="inombre-txt">Trabajo de soterramiento</span><button class="info-btn" onclick="tip('t-soterr')">i</button></div>
+          <span class="inombre-sub">Zanjas en tierra — incluye tapado</span>
+          <div class="tooltip" id="t-soterr">Trabajo de zanja en tierra para soterrar la línea. La tarifa incluye el posterior tapado de la zanja. Indicar metros totales ejecutados.</div>
+        </div>
+        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
+      </div>
+
     </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Bornas centralización TRIF</span><button class="info-btn" onclick="tip('t-bornas-t')">i</button></div>
-      <span class="inombre-sub">Kit: 1 neutro + 3 fases + tapa</span>
-      <div class="tooltip" id="t-bornas-t">Kit completo para centralización trifásica. Incluye: 1 neutro + 3 fases + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Caja distribución 6 módulos</span><button class="info-btn" onclick="tip('t-caja6')">i</button></div>
-      <div class="tooltip" id="t-caja6">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Caja distribución 12 módulos</span><button class="info-btn" onclick="tip('t-caja12')">i</button></div>
-      <div class="tooltip" id="t-caja12">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Caja distribución 18 módulos</span><button class="info-btn" onclick="tip('t-caja18')">i</button></div>
-      <div class="tooltip" id="t-caja18">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Caja registro 100x100</span><button class="info-btn" onclick="tip('t-cajareg')">i</button></div>
-      <span class="inombre-sub">1 unidad cada 15 metros de línea</span>
-      <div class="tooltip" id="t-cajareg">Se debe instalar una caja de registro cada 15 metros de cable lineal instalado.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Cerradura + llave</span><button class="info-btn" onclick="tip('t-cerradura')">i</button></div>
-      <div class="tooltip" id="t-cerradura">Cerradura con llave para caja de distribución. Incluye el juego completo de llaves.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 10A–25A</span><button class="info-btn" onclick="tip('t-mag-peq')">i</button></div>
-      <div class="tooltip" id="t-mag-peq">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo, manteniendo los requisitos de seguridad, siempre que sea compatible con el cuadro y el poder de corte exigido.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 32A</span><button class="info-btn" onclick="tip('t-mag-32')">i</button></div>
-      <div class="tooltip" id="t-mag-32">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 40A</span><button class="info-btn" onclick="tip('t-mag-40')">i</button></div>
-      <div class="tooltip" id="t-mag-40">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Perforación forjado &lt;32mm</span><button class="info-btn" onclick="tip('t-perf-f')">i</button></div>
-      <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
-      <div class="tooltip" id="t-perf-f">Perforación para conducción de línea eléctrica a través de forjado. Diámetro máximo 32mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Perforación tabique &lt;40mm</span><button class="info-btn" onclick="tip('t-perf-t')">i</button></div>
-      <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
-      <div class="tooltip" id="t-perf-t">Perforación para conducción de línea eléctrica a través de tabique. Diámetro máximo 40mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Pica de tierra (kit completo)</span><button class="info-btn" onclick="tip('t-pica')">i</button></div>
-      <span class="inombre-sub">Pica 1500mm + grapa + cable 6mm² + arqueta + tapa</span>
-      <div class="tooltip" id="t-pica">Se aplica cuando la instalación no dispone de toma de tierra o la existente es inexistente o no utilizable. No se aceptan instalaciones de picas sin arqueta registrable.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Pre-instalación nuevo suministro</span><button class="info-btn" onclick="tip('t-preinst')">i</button></div>
-      <span class="inombre-sub">Portafusible + fusible + 1m cable + etiqueta</span>
-      <div class="tooltip" id="t-preinst">Operativa para dejar la futura ubicación del nuevo contador habilitada y etiquetada. Kit incluye: portafusible, fusible, 1m de cable y etiqueta identificativa.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — andamio</span><button class="info-btn" onclick="tip('t-altura-a')">i</button></div>
-      <div class="tooltip" id="t-altura-a">Solo aplica si se justifica y se acredita con foto la utilización del andamio, por la naturaleza especial de la instalación. Quedan excluidas las escaleras de gran formato. Obligatorio adjuntar foto del medio utilizado.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — elevadora</span><button class="info-btn" onclick="tip('t-altura-m')">i</button></div>
-      <span class="inombre-sub">Solo con autorización previa de ESMOVE</span>
-      <div class="tooltip" id="t-altura-m">Solo aplica con maquinaria elevadora (plataforma elevadora motorizada). Requiere autorización escrita previa de ESMOVE. No se puede ejecutar sin dicha autorización.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-  </div>
-
-  <div class="imat">
-    <div class="inombre-wrap">
-      <div class="inombre-line"><span class="inombre-txt">Trabajo de soterramiento</span><button class="info-btn" onclick="tip('t-soterr')">i</button></div>
-      <span class="inombre-sub">Zanjas en tierra — incluye tapado</span>
-      <div class="tooltip" id="t-soterr">Trabajo de zanja en tierra para soterrar la línea. La tarifa incluye el posterior tapado de la zanja. Indicar metros totales ejecutados.</div>
-    </div>
-    <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-  </div>
-
-</div>
-```
-
   </div>
 
   <!-- 05 HARDWARE -->
-
   <div class="sec">
     <div class="stit sv">05 · Hardware y puesta en marcha</div>
     <div class="sbody">
@@ -457,7 +447,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 06 INCIDENCIAS -->
-
   <div class="sec">
     <div class="stit sg">06 · Incidencias</div>
     <div class="sbody">
@@ -476,7 +465,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 07 FOTOS -->
-
   <div class="sec">
     <div class="stit sr">07 · Reporte fotográfico</div>
     <div class="sbody">
@@ -486,7 +474,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 08 ACTA -->
-
   <div class="sec">
     <div class="stit sr">08 · Hoja de Finalización de Obra</div>
     <div class="sbody">
@@ -505,7 +492,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 09 CHECKLIST -->
-
   <div class="sec">
     <div class="stit sr">09 · Checklist obligatorio antes de irse</div>
     <div class="sbody">
@@ -523,7 +509,6 @@ html{scroll-behavior:smooth;}
   </div>
 
   <!-- 10 WHATSAPP -->
-
   <div class="sec">
     <div class="stit sg">10 · Mensaje cierre WhatsApp a ESMOVE</div>
     <div class="sbody">
@@ -532,14 +517,12 @@ html{scroll-behavior:smooth;}
     </div>
   </div>
 
-<button class="benviar" onclick="enviar()">✓ Registrar cierre de obra</button>
-
+  <button class="benviar" onclick="enviar()">✓ Registrar cierre de obra</button>
   <div class="nota">Comprueba que todas las fotos, el vídeo y la Hoja de Finalización están adjuntos.<br>Una vez enviado, el registro queda guardado.</div>
 
 </div>
 
 <!-- ÉXITO -->
-
 <div class="container" id="exito">
   <div class="exito-ico">✅</div>
   <div class="exito-tit">¡Obra registrada!</div>
@@ -567,10 +550,10 @@ function tip(id) {
 
 // ── EQUIPOS ──────────────────────────────────────────────────
 const EQ = {
-  '1':{ n:'Búfala 1', s:'Miguel Ángel Nogales + César Gamarra', b:'b1' },
-  '2':{ n:'Búfala 2', s:'Iván Saucedo + Carlos Aragón',         b:'b2' },
-  '3':{ n:'Búfala 3', s:'',                                      b:'b3' },
-  '4':{ n:'Búfala 4', s:'',                                      b:'b4' },
+  '1':{ n:'Búfala 1', b:'b1' },
+  '2':{ n:'Búfala 2', b:'b2' },
+  '3':{ n:'Búfala 3', b:'b3' },
+  '4':{ n:'Búfala 4', b:'b4' },
 };
 
 // ── PARÁMETROS URL ───────────────────────────────────────────
@@ -594,7 +577,7 @@ const hora    = ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit
 document.getElementById('hfecha').textContent   = fCorta + ' · ' + hora;
 document.getElementById('hequipo').textContent  = eq.n;
 document.getElementById('hequipo').className    = 'ebadge ' + eq.b;
-document.getElementById('d-equipo').textContent = eq.n + (eq.s ? ' — ' + eq.s : '');
+document.getElementById('d-equipo').textContent = eq.n;
 document.getElementById('d-fecha').textContent  = fLarga + ' · ' + hora;
 document.getElementById('d-inst').textContent   = instP;
 document.getElementById('d-cliente').textContent= cliP;
@@ -614,7 +597,7 @@ const FOTOS = [
   { id:'f7',  n:'APP CONTROL',        d:'Captura de pantalla APP con control de potencia dinámico activado', obl:true, video:false },
   { id:'f8',  n:'APP MENU',           d:'Captura de pantalla APP del menú principal de configuración e identificación', obl:true, video:false },
   { id:'f9',  n:'PICA DE TIERRA',     d:'Foto de la pica de tierra instalada con arqueta y tapa (si aplica)', obl:false, video:false },
-  { id:'f10', n:'VIDEO RESUMEN',      d:'Vídeo final de la instalación mostrando la totalidad al detalle. Recorrido continuo con explicación verbal.', obl:true, video:true },
+  { id:'f10', n:'VIDEO RESUMEN',      d:'Vídeo final de la instalación mostrando la totalidad al detalle. Puedes adjuntar más de un vídeo.', obl:true, video:true },
 ];
 
 const subidas = {};
@@ -625,8 +608,9 @@ FOTOS.forEach(f => {
   const oblTag = f.obl
     ? '<span class="obl"> *</span>'
     : '<span class="opt-tag">opcional</span>';
-  const accept = f.video ? 'video/*,image/*' : 'image/*';
+  const accept = f.video ? 'video/*' : 'image/*';
   const capture = f.video ? '' : 'capture="environment"';
+  const multiple = f.video ? 'multiple' : '';
   const ico = f.video ? '🎥' : '📷';
   const instruccion = f.video ? 'Grabar vídeo' : 'Hacer foto';
 
@@ -634,7 +618,7 @@ FOTOS.forEach(f => {
     <div class="fzona">
       <span class="clabel">${f.id.replace('f','').padStart(2,'0')}. ${f.n}${oblTag}</span>
       <div class="uwrap" id="w${f.id}">
-        <input type="file" accept="${accept}" ${capture} onchange="sf(this,'${f.id}','${f.n}',${f.obl})">
+        <input type="file" accept="${accept}" ${capture} ${multiple} onchange="sf(this,'${f.id}','${f.n}',${f.obl})">
         <div class="uinner">
           <div class="uico">${ico}</div>
           <div class="unombre">${f.n}</div>
@@ -647,9 +631,15 @@ FOTOS.forEach(f => {
 });
 
 function sf(inp, id, nombre, obl) {
-  if (inp.files && inp.files[0]) {
+  if (inp.files && inp.files.length > 0) {
     subidas[id] = { ok:true, nombre:nombre };
     document.getElementById('w'+id).classList.add('ok');
+    const okMsg = document.getElementById('ok'+id);
+    if (inp.files.length > 1) {
+      okMsg.textContent = '✓ ' + inp.files.length + ' archivos adjuntados';
+    } else {
+      okMsg.textContent = '✓ ' + nombre + ' adjuntado';
+    }
     const sb = document.getElementById('skip'+id);
     if (sb) { sb.classList.remove('activo'); sb.textContent = 'No aplica en esta instalación'; }
   }
@@ -757,6 +747,5 @@ function enviar() {
   window.scrollTo(0,0);
 }
 </script>
-
 </body>
 </html>
