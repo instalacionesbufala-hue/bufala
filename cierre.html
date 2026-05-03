@@ -832,7 +832,9 @@ async function subirArchivosDrive() {
 
       const base64 = await fileToBase64(file);
       const ext    = file.name.split('.').pop().toLowerCase();
-      const key    = inputsArchivos.length > 1 && id !== 'acta' ? id + '_' + idx : id;
+      // Solo añadir sufijo _N si hay múltiples archivos del MISMO campo (ej: varios vídeos)
+      const inputDelCampo = inputsArchivos.filter(x => x.id === id);
+      const key = inputDelCampo.length > 1 ? id + '_' + idx : id;
       archivos[key] = { data: base64, mime: file.type, ext, nombre: file.name };
     }
 
