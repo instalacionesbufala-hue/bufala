@@ -165,6 +165,18 @@
   .exito-msg{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;font-size:13px;line-height:1.8;color:#ccc;text-align:left;}
   .exito-msg strong{color:var(--naranja);}
 
+  /* BARRA DE PROGRESO */
+  #progreso-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
+  #progreso-wrap.visible{display:flex;}
+  .prog-box{background:var(--gris);border:1px solid var(--ln);border-radius:16px;padding:28px 24px;width:100%;max-width:340px;text-align:center;}
+  .prog-titulo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--blanco);margin-bottom:6px;}
+  .prog-subtitulo{font-size:12px;color:var(--gc);margin-bottom:20px;font-family:'DM Mono',monospace;}
+  .prog-archivo{font-size:12px;color:var(--vc);margin-bottom:12px;font-family:'DM Mono',monospace;min-height:18px;}
+  .prog-barra-wrap{background:#111;border-radius:20px;height:10px;overflow:hidden;margin-bottom:10px;}
+  .prog-barra{height:100%;background:linear-gradient(90deg,var(--verde),var(--vc));border-radius:20px;width:0%;transition:width 0.3s ease;}
+  .prog-pct{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--blanco);}
+  .prog-total{font-size:11px;color:var(--gc);margin-top:4px;}
+
   html{scroll-behavior:smooth;}
 </style>
 </head>
@@ -522,17 +534,28 @@
 
 </div>
 
+<!-- BARRA DE PROGRESO -->
+<div id="progreso-wrap">
+  <div class="prog-box">
+    <div class="prog-titulo">Subiendo archivos</div>
+    <div class="prog-subtitulo">No cierres la aplicación</div>
+    <div class="prog-archivo" id="prog-archivo">Preparando...</div>
+    <div class="prog-barra-wrap">
+      <div class="prog-barra" id="prog-barra"></div>
+    </div>
+    <div class="prog-pct" id="prog-pct">0%</div>
+    <div class="prog-total" id="prog-total">0 de 0 archivos</div>
+  </div>
+</div>
+
 <!-- ÉXITO -->
 <div class="container" id="exito">
   <div class="exito-ico">✅</div>
   <div class="exito-tit">¡Obra registrada!</div>
   <div class="exito-eq" id="exito-eq">—</div>
   <div class="exito-msg">
-    Cierre registrado correctamente.<br><br>
-    <strong>⚠ Recuerda ahora:</strong><br>
-    1. Envía el mensaje de WhatsApp al grupo de ESMOVE.<br>
-    2. La Hoja de Finalización debe llegar a ESMOVE hoy mismo.<br>
-    3. Sube las fotos y el vídeo a la carpeta Drive del cliente.
+    Cierre registrado y archivos subidos correctamente.<br><br>
+    <strong>⚠ Recuerda:</strong> Envía el mensaje de WhatsApp al grupo de ESMOVE.
   </div>
 </div>
 
@@ -760,33 +783,61 @@ function enviar() {
   });
 }
 
+function mostrarProgreso(archivo, actual, total) {
+  document.getElementById('progreso-wrap').classList.add('visible');
+  const pct = Math.round((actual / total) * 100);
+  document.getElementById('prog-barra').style.width  = pct + '%';
+  document.getElementById('prog-pct').textContent    = pct + '%';
+  document.getElementById('prog-archivo').textContent = archivo;
+  document.getElementById('prog-total').textContent  = actual + ' de ' + total + ' archivos';
+}
+
+function ocultarProgreso() {
+  document.getElementById('progreso-wrap').classList.remove('visible');
+}
+
 async function subirArchivosDrive() {
   try {
     const archivos = {};
+    const inputsArchivos = [];
 
-    // Convertir cada archivo subido a base64
+    // Recopilar todos los archivos con sus IDs
     for (const id in subidas) {
-      if (!subidas[id].ok) continue;
-      const input = document.querySelector(`#w${id} input[type="file"]`) ||
-                    document.querySelector(`#wacta input[type="file"]`);
+      if (!subidas[id] || !subidas[id].ok) continue;
+      const wrap = id === 'acta'
+        ? document.getElementById('wacta')
+        : document.getElementById('w' + id);
+      if (!wrap) continue;
+      const input = wrap.querySelector('input[type="file"]');
       if (!input || !input.files || !input.files.length) continue;
-
-      // Para vídeos puede haber varios archivos
       for (let i = 0; i < input.files.length; i++) {
-        const file = input.files[i];
-        const base64 = await fileToBase64(file);
-        const ext = file.name.split('.').pop().toLowerCase();
-        const fileKey = input.files.length > 1 ? id + '_' + i : id;
-        archivos[fileKey] = {
-          data: base64,
-          mime: file.type,
-          ext:  ext,
-          nombre: file.name
-        };
+        inputsArchivos.push({ id, idx: i, file: input.files[i] });
       }
     }
 
-    // Datos de la instalación
+    const total = inputsArchivos.length;
+
+    // Convertir cada archivo a base64 mostrando progreso
+    for (let n = 0; n < inputsArchivos.length; n++) {
+      const { id, idx, file } = inputsArchivos[n];
+      const nombreMostrar = id === 'acta'
+        ? 'Hoja de Finalización de Obra'
+        : (FOTOS.find(f => f.id === id)?.n || id);
+
+      mostrarProgreso(
+        '📎 ' + nombreMostrar,
+        n,
+        total
+      );
+
+      const base64 = await fileToBase64(file);
+      const ext    = file.name.split('.').pop().toLowerCase();
+      const key    = inputsArchivos.length > 1 && id !== 'acta' ? id + '_' + idx : id;
+      archivos[key] = { data: base64, mime: file.type, ext, nombre: file.name };
+    }
+
+    mostrarProgreso('☁️ Enviando a Drive...', total, total);
+
     const payload = {
       equipo:   eId,
       cliente:  cliP,
@@ -803,10 +854,12 @@ async function subirArchivosDrive() {
     });
 
     const result = await resp.json();
+    ocultarProgreso();
     return result.ok === true;
 
   } catch(e) {
     console.error('Error subiendo archivos:', e);
+    ocultarProgreso();
     return false;
   }
 }
