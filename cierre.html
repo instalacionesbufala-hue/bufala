@@ -692,7 +692,7 @@ function subirActa(inp) {
     inp.value = '';
     return;
   }
-  subidas['acta'] = true;
+  subidas['acta'] = { ok: true, nombre: 'HF' };
   document.getElementById('wacta').classList.add('ok');
   document.getElementById('aok').textContent = '✓ ' + f.name + ' adjuntado';
 }
@@ -755,7 +755,7 @@ function enviar() {
   }
 
   // 4. Acta PDF
-  if (!subidas['acta'])
+  if (!subidas['acta'] || !subidas['acta'].ok)
     return alert('Falta adjuntar la Hoja de Finalización de Obra en PDF (Sección 08).');
 
   // 5. Checklist completo
