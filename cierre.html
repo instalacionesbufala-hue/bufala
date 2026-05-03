@@ -517,7 +517,7 @@
     </div>
   </div>
 
-  <button class="benviar" onclick="enviar()">✓ Registrar cierre de obra</button>
+  <button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
   <div class="nota">Comprueba que todas las fotos, el vídeo y la Hoja de Finalización están adjuntos.<br>Una vez enviado, el registro queda guardado.</div>
 
 </div>
@@ -705,6 +705,10 @@ function copiarWA() {
 }
 
 // ── VALIDACIÓN Y ENVÍO ───────────────────────────────────────
+// ── URL DEL SCRIPT DE DRIVE ──────────────────────────────────
+// Sustituye esta URL por la que obtengas al implementar bufala_drive_script.js
+const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbyXEnuX-F1Aoe2xKL0VPVMFpo0uq6QphyC8kJKUHMfLgIowgudawrNS01jorekqlXkcBw/exec";
+
 function enviar() {
 
   // 1. Tipo línea, fase y sección
@@ -737,14 +741,83 @@ function enviar() {
       return alert('Debes marcar todos los puntos del checklist antes de enviar (Sección 09).');
   }
 
-  // TODO: Aquí irá la llamada a Google Sheets cuando esté configurado
-  // El script de Google Apps Script enviará los datos automáticamente
+  // 6. Mostrar pantalla de carga
+  document.getElementById('btn-enviar').disabled = true;
+  document.getElementById('btn-enviar').textContent = '⏳ Subiendo archivos...';
 
-  // Mostrar pantalla de éxito
-  document.getElementById('fwrap').style.display = 'none';
-  document.getElementById('exito').style.display  = 'block';
-  document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
-  window.scrollTo(0,0);
+  // 7. Convertir archivos a base64 y enviar al script de Drive
+  subirArchivosDrive().then(function(ok) {
+    if (ok) {
+      document.getElementById('fwrap').style.display = 'none';
+      document.getElementById('exito').style.display  = 'block';
+      document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
+      window.scrollTo(0,0);
+    } else {
+      document.getElementById('btn-enviar').disabled = false;
+      document.getElementById('btn-enviar').textContent = '✓ Registrar cierre de obra';
+      alert('Error al subir los archivos. Comprueba tu conexión e inténtalo de nuevo.');
+    }
+  });
+}
+
+async function subirArchivosDrive() {
+  try {
+    const archivos = {};
+
+    // Convertir cada archivo subido a base64
+    for (const id in subidas) {
+      if (!subidas[id].ok) continue;
+      const input = document.querySelector(`#w${id} input[type="file"]`) ||
+                    document.querySelector(`#wacta input[type="file"]`);
+      if (!input || !input.files || !input.files.length) continue;
+
+      // Para vídeos puede haber varios archivos
+      for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        const base64 = await fileToBase64(file);
+        const ext = file.name.split('.').pop().toLowerCase();
+        const fileKey = input.files.length > 1 ? id + '_' + i : id;
+        archivos[fileKey] = {
+          data: base64,
+          mime: file.type,
+          ext:  ext,
+          nombre: file.name
+        };
+      }
+    }
+
+    // Datos de la instalación
+    const payload = {
+      equipo:   eId,
+      cliente:  cliP,
+      inst:     instP,
+      dir:      dirP,
+      fecha:    fCorta,
+      metros:   document.getElementById('m-linea').value || '0',
+      archivos: archivos
+    };
+
+    const resp = await fetch(UPLOAD_URL, {
+      method: 'POST',
+      body:   JSON.stringify(payload)
+    });
+
+    const result = await resp.json();
+    return result.ok === true;
+
+  } catch(e) {
+    console.error('Error subiendo archivos:', e);
+    return false;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 </script>
 </body>
