@@ -840,14 +840,46 @@ async function subirArchivosDrive() {
 
     mostrarProgreso('☁️ Enviando a Drive...', total, total);
 
+    // Recopilar todos los materiales introducidos
+    function nv(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+
+    const materiales = {
+      // Línea eléctrica
+      tipoLinea:    document.querySelector('input[name="tl"]:checked')?.value || '',
+      fase:         document.querySelector('input[name="fase"]:checked')?.value || '',
+      seccion:      document.getElementById('sec-cable')?.value || '',
+      metrosLinea:  nv('m-linea'),
+      metrosUtp:    nv('m-utp'),
+      udRj45:       nv('ud-rj45'),
+    };
+
+    // Recopilar todos los inputs numéricos de las secciones 03 y 04
+    document.querySelectorAll('.imat input[type="number"]').forEach(inp => {
+      if (inp.id) materiales[inp.id] = parseFloat(inp.value) || 0;
+    });
+
+    // Hitos hardware
+    const hitos = { h1: H.h1, h2: H.h2, h3: H.h3 };
+
+    // Desplazamiento fallido
+    const despFallido = document.querySelector('input[name="desp"]:checked')?.value === 'si';
+
+    // Observaciones
+    const observaciones = document.getElementById('obs')?.value || '';
+
     const payload = {
-      equipo:   eId,
-      cliente:  cliP,
-      inst:     instP,
-      dir:      dirP,
-      fecha:    fCorta,
-      metros:   document.getElementById('m-linea').value || '0',
-      archivos: archivos
+      equipo:        eId,
+      cliente:       cliP,
+      inst:          instP,
+      dir:           dirP,
+      tipo:          tipoP,
+      hardware:      hwP,
+      fecha:         fCorta,
+      materiales:    materiales,
+      hitos:         hitos,
+      despFallido:   despFallido,
+      observaciones: observaciones,
+      archivos:      archivos
     };
 
     const resp = await fetch(UPLOAD_URL, {
