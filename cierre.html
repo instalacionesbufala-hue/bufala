@@ -557,6 +557,9 @@
     Cierre registrado y archivos subidos correctamente.<br><br>
     <strong>⚠ Recuerda:</strong> Envía el mensaje de WhatsApp al grupo de ESMOVE.
   </div>
+  <div id="video-progreso" style="display:none;margin-top:14px;background:#1a1a1a;border:1px solid var(--vc);border-radius:10px;padding:12px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--vc);text-align:center;">
+    🎥 Subiendo vídeo en segundo plano...
+  </div>
 </div>
 
 <script>
@@ -730,11 +733,10 @@ function copiarWA() {
 // ── VALIDACIÓN Y ENVÍO ───────────────────────────────────────
 // ── URL DEL SCRIPT DE DRIVE ──────────────────────────────────
 // Sustituye esta URL por la que obtengas al implementar bufala_drive_script.js
-const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbyXEnuX-F1Aoe2xKL0VPVMFpo0uq6QphyC8kJKUHMfLgIowgudawrNS01jorekqlXkcBw/exec";
+const UPLOAD_URL  = "https://script.google.com/macros/s/AKfycbyXEnuX-F1Aoe2xKL0VPVMFpo0uq6QphyC8kJKUHMfLgIowgudawrNS01jorekqlXkcBw/exec";
+const DRIVE_APIKEY = "AIzaSyDo56f-R9RGHGB1jX-FMf4Hb3glUvPmoK8";
 
 function enviar() {
-
-  // 1. Tipo línea, fase y sección
   if (!document.querySelector('input[name="tl"]:checked'))
     return alert('Selecciona el tipo de instalación (Sección 02).');
   if (!document.querySelector('input[name="fase"]:checked'))
@@ -743,159 +745,171 @@ function enviar() {
     return alert('Selecciona la sección del cable (Sección 02).');
   if (!document.getElementById('m-linea').value || document.getElementById('m-linea').value == '0')
     return alert('Introduce los metros de línea eléctrica (Sección 02).');
-
-  // 2. Hitos hardware — los 3 obligatorios
   if (!H.h1 || !H.h2 || !H.h3)
     return alert('Debes marcar los 3 hitos del hardware como completados (Sección 05).');
-
-  // 3. Fotos obligatorias
   for (const f of FOTOS.filter(x => x.obl)) {
     if (!subidas[f.id] || !subidas[f.id].ok)
       return alert('Falta la foto obligatoria: "' + f.n + '" (Sección 07).');
   }
-
-  // 4. Acta PDF
   if (!subidas['acta'] || !subidas['acta'].ok)
     return alert('Falta adjuntar la Hoja de Finalización de Obra en PDF (Sección 08).');
-
-  // 5. Checklist completo
   for (let i = 1; i <= 9; i++) {
     if (!document.getElementById('c'+i).checked)
       return alert('Debes marcar todos los puntos del checklist antes de enviar (Sección 09).');
   }
 
-  // 6. Mostrar pantalla de carga
   document.getElementById('btn-enviar').disabled = true;
-  document.getElementById('btn-enviar').textContent = '⏳ Subiendo archivos...';
+  document.getElementById('btn-enviar').textContent = '⏳ Preparando...';
 
-  // 7. Convertir archivos a base64 y enviar al script de Drive
-  subirArchivosDrive().then(function(ok) {
-    if (ok) {
-      document.getElementById('fwrap').style.display = 'none';
-      document.getElementById('exito').style.display  = 'block';
-      document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
-      window.scrollTo(0,0);
-    } else {
-      document.getElementById('btn-enviar').disabled = false;
-      document.getElementById('btn-enviar').textContent = '✓ Registrar cierre de obra';
-      alert('Error al subir los archivos. Comprueba tu conexión e inténtalo de nuevo.');
+  procesarEnvio().then(function(carpetaVideoId) {
+    // Mostrar pantalla de éxito inmediatamente
+    document.getElementById('fwrap').style.display  = 'none';
+    document.getElementById('exito').style.display  = 'block';
+    document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
+    window.scrollTo(0,0);
+    ocultarProgreso();
+
+    // Subir vídeo en segundo plano si existe y tenemos carpeta ID
+    if (carpetaVideoId && subidas['f10'] && subidas['f10'].ok) {
+      subirVideoSegundoPlano(carpetaVideoId);
     }
+  }).catch(function(err) {
+    console.error(err);
+    document.getElementById('btn-enviar').disabled = false;
+    document.getElementById('btn-enviar').textContent = '✓ Registrar cierre de obra';
+    ocultarProgreso();
+    alert('Error al enviar. Comprueba tu conexión e inténtalo de nuevo.');
   });
 }
 
+
+async function procesarEnvio() {
+  // ── FASE 1: Recopilar fotos + PDF (sin vídeo) ──
+  const archivos     = {};
+  const inputsFotos  = [];
+
+  for (const id in subidas) {
+    if (!subidas[id] || !subidas[id].ok) continue;
+    if (id === 'f10') continue; // vídeo va aparte
+
+    const wrap  = id === 'acta' ? document.getElementById('wacta') : document.getElementById('w'+id);
+    if (!wrap) continue;
+    const input = wrap.querySelector('input[type="file"]');
+    if (!input || !input.files || !input.files.length) continue;
+    for (let i = 0; i < input.files.length; i++) {
+      inputsFotos.push({ id, idx:i, file:input.files[i] });
+    }
+  }
+
+  const total = inputsFotos.length;
+
+  // Convertir fotos+PDF a base64 con progreso
+  for (let n = 0; n < inputsFotos.length; n++) {
+    const { id, idx, file } = inputsFotos[n];
+    const nombre = id === 'acta' ? 'Hoja de Finalización' : (FOTOS.find(f=>f.id===id)?.n||id);
+    mostrarProgreso('📎 ' + nombre, n, total);
+    const base64 = await fileToBase64(file);
+    const ext    = file.name.split('.').pop().toLowerCase();
+    const campo  = inputsFotos.filter(x=>x.id===id);
+    const key    = campo.length > 1 ? id+'_'+idx : id;
+    archivos[key] = { data:base64, mime:file.type, ext, nombre:file.name };
+  }
+
+  mostrarProgreso('☁️ Enviando a ESMOVE Drive...', total, total);
+
+  // Materiales
+  function nv(id) { return parseFloat(document.getElementById(id)?.value)||0; }
+  const materiales = {
+    tipoLinea:   document.querySelector('input[name="tl"]:checked')?.value||'',
+    fase:        document.querySelector('input[name="fase"]:checked')?.value||'',
+    seccion:     document.getElementById('sec-cable')?.value||'',
+    metrosLinea: nv('m-linea'), metrosUtp: nv('m-utp'), udRj45: nv('ud-rj45'),
+  };
+  document.querySelectorAll('.imat input[type="number"]').forEach(inp => {
+    if (inp.id) materiales[inp.id] = parseFloat(inp.value)||0;
+  });
+
+  const payload = {
+    equipo: eId, cliente: cliP, inst: instP, dir: dirP,
+    tipo: tipoP, hardware: hwP, fecha: fCorta,
+    materiales, hitos:{h1:H.h1,h2:H.h2,h3:H.h3},
+    despFallido: document.querySelector('input[name="desp"]:checked')?.value==='si',
+    observaciones: document.getElementById('obs')?.value||'',
+    archivos
+  };
+
+  // ── FASE 2: Enviar al Apps Script ──
+  const resp   = await fetch(UPLOAD_URL, { method:'POST', body:JSON.stringify(payload) });
+  const result = await resp.json();
+
+  if (!result.ok) throw new Error(result.error || 'Error en el servidor');
+
+  // Apps Script devuelve el ID de la carpeta de fotos para subir el vídeo
+  return result.carpetaVideoId || null;
+}
+
+
+// ── VÍDEO EN SEGUNDO PLANO ────────────────────────────────────
+
+async function subirVideoSegundoPlano(carpetaId) {
+  const indicador = document.getElementById('video-progreso');
+  if (indicador) indicador.style.display = 'block';
+
+  try {
+    const wrap  = document.getElementById('wf10');
+    if (!wrap) return;
+    const input = wrap.querySelector('input[type="file"]');
+    if (!input || !input.files || !input.files.length) return;
+
+    for (let i = 0; i < input.files.length; i++) {
+      const file   = input.files[i];
+      const nombre = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
+      const ext    = file.name.split('.').pop().toLowerCase();
+
+      if (indicador) indicador.textContent = '🎥 Subiendo vídeo' + (i>0?' '+(i+1):'') + '...';
+
+      await subirArchivoDriveAPI(file, nombre + '.' + ext, carpetaId);
+    }
+
+    if (indicador) indicador.textContent = '✅ Vídeo subido correctamente';
+    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 4000);
+
+  } catch(e) {
+    console.error('Error subiendo vídeo:', e);
+    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Súbelo manualmente a Drive.';
+  }
+}
+
+
+async function subirArchivoDriveAPI(file, nombre, carpetaId) {
+  const metadata = { name: nombre, parents: [carpetaId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+  form.append('file', file);
+
+  const resp = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&key=' + DRIVE_APIKEY,
+    { method:'POST', body:form }
+  );
+
+  if (!resp.ok) throw new Error('Drive API error: ' + resp.status);
+  return await resp.json();
+}
+
+
+// ── PROGRESO ──────────────────────────────────────────────────
+
 function mostrarProgreso(archivo, actual, total) {
   document.getElementById('progreso-wrap').classList.add('visible');
-  const pct = Math.round((actual / total) * 100);
-  document.getElementById('prog-barra').style.width  = pct + '%';
-  document.getElementById('prog-pct').textContent    = pct + '%';
+  const pct = total > 0 ? Math.round((actual/total)*100) : 0;
+  document.getElementById('prog-barra').style.width   = pct + '%';
+  document.getElementById('prog-pct').textContent     = pct + '%';
   document.getElementById('prog-archivo').textContent = archivo;
-  document.getElementById('prog-total').textContent  = actual + ' de ' + total + ' archivos';
+  document.getElementById('prog-total').textContent   = actual + ' de ' + total + ' archivos';
 }
 
 function ocultarProgreso() {
   document.getElementById('progreso-wrap').classList.remove('visible');
-}
-
-async function subirArchivosDrive() {
-  try {
-    const archivos = {};
-    const inputsArchivos = [];
-
-    // Recopilar todos los archivos con sus IDs
-    for (const id in subidas) {
-      if (!subidas[id] || !subidas[id].ok) continue;
-      const wrap = id === 'acta'
-        ? document.getElementById('wacta')
-        : document.getElementById('w' + id);
-      if (!wrap) continue;
-      const input = wrap.querySelector('input[type="file"]');
-      if (!input || !input.files || !input.files.length) continue;
-      for (let i = 0; i < input.files.length; i++) {
-        inputsArchivos.push({ id, idx: i, file: input.files[i] });
-      }
-    }
-
-    const total = inputsArchivos.length;
-
-    // Convertir cada archivo a base64 mostrando progreso
-    for (let n = 0; n < inputsArchivos.length; n++) {
-      const { id, idx, file } = inputsArchivos[n];
-      const nombreMostrar = id === 'acta'
-        ? 'Hoja de Finalización de Obra'
-        : (FOTOS.find(f => f.id === id)?.n || id);
-
-      mostrarProgreso(
-        '📎 ' + nombreMostrar,
-        n,
-        total
-      );
-
-      const base64 = await fileToBase64(file);
-      const ext    = file.name.split('.').pop().toLowerCase();
-      // Solo añadir sufijo _N si hay múltiples archivos del MISMO campo (ej: varios vídeos)
-      const inputDelCampo = inputsArchivos.filter(x => x.id === id);
-      const key = inputDelCampo.length > 1 ? id + '_' + idx : id;
-      archivos[key] = { data: base64, mime: file.type, ext, nombre: file.name };
-    }
-
-    mostrarProgreso('☁️ Enviando a Drive...', total, total);
-
-    // Recopilar todos los materiales introducidos
-    function nv(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
-
-    const materiales = {
-      // Línea eléctrica
-      tipoLinea:    document.querySelector('input[name="tl"]:checked')?.value || '',
-      fase:         document.querySelector('input[name="fase"]:checked')?.value || '',
-      seccion:      document.getElementById('sec-cable')?.value || '',
-      metrosLinea:  nv('m-linea'),
-      metrosUtp:    nv('m-utp'),
-      udRj45:       nv('ud-rj45'),
-    };
-
-    // Recopilar todos los inputs numéricos de las secciones 03 y 04
-    document.querySelectorAll('.imat input[type="number"]').forEach(inp => {
-      if (inp.id) materiales[inp.id] = parseFloat(inp.value) || 0;
-    });
-
-    // Hitos hardware
-    const hitos = { h1: H.h1, h2: H.h2, h3: H.h3 };
-
-    // Desplazamiento fallido
-    const despFallido = document.querySelector('input[name="desp"]:checked')?.value === 'si';
-
-    // Observaciones
-    const observaciones = document.getElementById('obs')?.value || '';
-
-    const payload = {
-      equipo:        eId,
-      cliente:       cliP,
-      inst:          instP,
-      dir:           dirP,
-      tipo:          tipoP,
-      hardware:      hwP,
-      fecha:         fCorta,
-      materiales:    materiales,
-      hitos:         hitos,
-      despFallido:   despFallido,
-      observaciones: observaciones,
-      archivos:      archivos
-    };
-
-    const resp = await fetch(UPLOAD_URL, {
-      method: 'POST',
-      body:   JSON.stringify(payload)
-    });
-
-    const result = await resp.json();
-    ocultarProgreso();
-    return result.ok === true;
-
-  } catch(e) {
-    console.error('Error subiendo archivos:', e);
-    ocultarProgreso();
-    return false;
-  }
 }
 
 function fileToBase64(file) {
