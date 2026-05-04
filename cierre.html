@@ -13,161 +13,88 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:var(--negro);color:var(--blanco);font-family:'DM Sans',sans-serif;font-size:15px;padding-bottom:80px;}
-
-  /* HEADER */
   header{background:var(--negro);border-bottom:2px solid var(--verde);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
   .logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;}
   .logo span{color:var(--vc);}
   .logo small{display:block;font-size:10px;color:var(--gc);font-family:'DM Mono',monospace;margin-top:1px;}
   .ebadge{font-family:'DM Mono',monospace;font-size:11px;padding:5px 11px;border-radius:20px;color:#fff;white-space:nowrap;}
-  .b1{background:var(--verde);}
-  .b2{background:#1a5276;}
-  .b3{background:#6c3483;}
-  .b4{background:#784212;}
-
-  /* LAYOUT */
+  .b1{background:var(--verde);} .b2{background:#1a5276;} .b3{background:#6c3483;} .b4{background:#784212;}
   .container{max-width:640px;margin:0 auto;padding:16px 13px;}
   .sec{margin-bottom:18px;background:var(--gris);border-radius:12px;overflow:hidden;border:1px solid var(--ln);}
   .stit{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;padding:8px 14px;}
-  .sv{background:var(--vc);color:#000;}
-  .sn{background:var(--naranja);color:#000;}
-  .sr{background:var(--rojo);color:#fff;}
-  .sg{background:#3a3a3a;color:#bbb;}
+  .sv{background:var(--vc);color:#000;} .sn{background:var(--naranja);color:#000;} .sr{background:var(--rojo);color:#fff;} .sg{background:#3a3a3a;color:#bbb;}
   .sbody{padding:13px 14px;}
-
-  /* CAMPOS */
-  .campo{margin-bottom:12px;}
-  .campo:last-child{margin-bottom:0;}
+  .campo{margin-bottom:12px;} .campo:last-child{margin-bottom:0;}
   .clabel{display:block;font-size:10px;font-weight:600;color:var(--gc);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
   .obl{color:var(--naranja);}
   .opt-tag{font-size:9px;background:rgba(119,119,119,0.2);color:var(--gc);border-radius:4px;padding:2px 5px;margin-left:4px;font-family:'DM Mono',monospace;}
-
-  /* DATO FIJO */
   .dato-fijo{background:#111;border:1px solid #222;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--vc);font-family:'DM Mono',monospace;min-height:40px;word-break:break-word;line-height:1.4;}
-
-  /* INPUTS */
-  input[type="text"],input[type="number"],select,textarea{
-    width:100%;background:#141414;border:1px solid #333;border-radius:8px;
-    color:var(--blanco);font-family:'DM Sans',sans-serif;font-size:15px;
-    padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none;
-  }
+  input[type="text"],input[type="number"],select,textarea{width:100%;background:#141414;border:1px solid #333;border-radius:8px;color:var(--blanco);font-family:'DM Sans',sans-serif;font-size:15px;padding:10px 12px;outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
   input:focus,select:focus,textarea:focus{border-color:var(--vc);}
   textarea{resize:vertical;min-height:70px;}
   select option{background:#141414;}
   .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-
-  /* MATERIAL */
   .imat{background:#141414;border:1px solid #2a2a2a;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-  .imat:last-child{margin-bottom:0;}
-  .imat.af{border-color:rgba(82,183,136,0.25);}
+  .imat:last-child{margin-bottom:0;} .imat.af{border-color:rgba(82,183,136,0.25);}
   .inombre-wrap{display:flex;flex-direction:column;flex:1;min-width:0;gap:0;}
-  .inombre-line{display:flex;align-items:center;gap:5px;}
+  .inombre-line{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;}
   .inombre-txt{font-size:13px;font-weight:500;color:var(--blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .inombre-sub{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;line-height:1.4;}
-  .inombre{font-size:13px;font-weight:500;color:var(--blanco);flex:1;line-height:1.4;}
-  .inombre small{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;}
-  .ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;margin-top:2px;}
-  .ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:'DM Mono',monospace;font-size:17px;}
-  .iunit{font-size:10px;color:var(--gc);white-space:nowrap;}
-  .atag{font-size:9px;background:rgba(82,183,136,0.15);color:var(--vc);border-radius:4px;padding:2px 5px;margin-left:5px;font-family:'DM Mono',monospace;}
   .ictrl{display:flex;align-items:center;gap:5px;flex-shrink:0;}
   .ictrl input{width:66px;text-align:center;padding:8px 6px;font-family:'DM Mono',monospace;font-size:17px;}
   .iunit{font-size:10px;color:var(--gc);white-space:nowrap;}
-
-  /* RADIO */
+  .atag{font-size:9px;background:rgba(82,183,136,0.15);color:var(--vc);border-radius:4px;padding:2px 5px;margin-left:5px;font-family:'DM Mono',monospace;}
   .rg{display:flex;flex-direction:column;gap:7px;}
   .rop{display:flex;align-items:center;gap:10px;background:#141414;border:1px solid #333;border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color 0.2s;}
   .rop:has(input:checked){border-color:var(--vc);background:rgba(82,183,136,0.06);}
   .rop input[type="radio"]{accent-color:var(--vc);width:16px;height:16px;flex-shrink:0;}
   .rop span{font-size:14px;}
-
-  /* HITOS */
   .hito{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--ln);cursor:pointer;-webkit-tap-highlight-color:transparent;}
   .hito:last-child{border-bottom:none;}
   .hcheck{width:26px;height:26px;border-radius:7px;border:2px solid #444;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
-  .hcheck.ok{background:var(--vc);border-color:var(--vc);}
-  .hcheck.ok::after{content:'✓';color:#000;font-size:15px;font-weight:700;}
+  .hcheck.ok{background:var(--vc);border-color:var(--vc);} .hcheck.ok::after{content:'✓';color:#000;font-size:15px;font-weight:700;}
   .htxt{font-size:13px;flex:1;line-height:1.4;}
-
-  /* ALERTAS */
   .alerta{background:rgba(192,18,31,0.1);border:1px solid rgba(192,18,31,0.35);border-radius:8px;padding:10px 12px;font-size:12px;color:#ffaaaa;margin-bottom:12px;line-height:1.5;}
   .alerta strong{color:#ff7070;}
   .info{background:rgba(82,183,136,0.08);border:1px solid rgba(82,183,136,0.2);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--vc);margin-bottom:12px;line-height:1.5;}
-
-  /* FOTOS */
-  .fzona{margin-bottom:11px;}
-  .fzona:last-child{margin-bottom:0;}
+  .fzona{margin-bottom:11px;} .fzona:last-child{margin-bottom:0;}
   .uwrap{border:2px dashed #333;border-radius:10px;background:#141414;position:relative;overflow:hidden;transition:border-color 0.2s,background 0.2s;}
   .uwrap.ok{border-color:var(--vc);background:rgba(82,183,136,0.04);}
   .uwrap.skip{border-color:#333;background:#111;opacity:0.5;}
   .uwrap input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
   .uinner{padding:15px 12px;text-align:center;pointer-events:none;}
-  .uico{font-size:20px;margin-bottom:4px;}
-  .uwrap.ok .uico{display:none;}
+  .uico{font-size:20px;margin-bottom:4px;} .uwrap.ok .uico{display:none;}
   .unombre{font-size:13px;font-weight:600;color:var(--blanco);margin-bottom:2px;}
   .udesc{font-size:11px;color:var(--gc);}
-  .uok{display:none;font-size:11px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:4px;}
-  .uwrap.ok .uok{display:block;}
-
-  /* SKIP OPCIONAL */
+  .uok{display:none;font-size:11px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:4px;} .uwrap.ok .uok{display:block;}
   .skip-btn{display:block;width:100%;margin-top:5px;background:transparent;border:1px solid #333;color:var(--gc);font-size:11px;padding:6px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;text-align:center;}
-  .skip-btn:hover{border-color:#555;color:#aaa;}
-  .skip-btn.activo{background:rgba(255,255,255,0.04);border-color:#555;color:#aaa;}
-
-  /* ACTA PDF */
+  .skip-btn:hover{border-color:#555;color:#aaa;} .skip-btn.activo{background:rgba(255,255,255,0.04);border-color:#555;color:#aaa;}
   .awrap{border:2px dashed var(--naranja);border-radius:12px;background:rgba(224,122,31,0.04);position:relative;overflow:hidden;transition:all 0.2s;}
   .awrap.ok{border-color:var(--vc);background:rgba(82,183,136,0.04);}
   .awrap input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;}
   .ainner{padding:20px 14px;text-align:center;pointer-events:none;}
   .aico{font-size:30px;margin-bottom:6px;}
-  .anombre{font-size:14px;font-weight:700;color:var(--naranja);margin-bottom:4px;}
-  .awrap.ok .anombre{color:var(--vc);}
+  .anombre{font-size:14px;font-weight:700;color:var(--naranja);margin-bottom:4px;} .awrap.ok .anombre{color:var(--vc);}
   .adesc{font-size:11px;color:var(--gc);line-height:1.5;}
   .apdf{display:inline-block;background:rgba(224,122,31,0.15);color:var(--naranja);font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;margin-top:5px;}
   .awrap.ok .apdf{background:rgba(82,183,136,0.15);color:var(--vc);}
-  .aok{display:none;font-size:12px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:6px;}
-  .awrap.ok .aok{display:block;}
-
-  /* TOOLTIP INFO */
-  .inombre-wrap{display:flex;flex-direction:column;flex:1;gap:0;}
-  .inombre-line{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;}
-  .inombre-txt{font-size:13px;font-weight:500;color:var(--blanco);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .inombre-sub{display:block;font-size:10px;color:var(--gc);margin-top:2px;font-weight:400;}
+  .aok{display:none;font-size:12px;font-family:'DM Mono',monospace;color:var(--vc);margin-top:6px;} .awrap.ok .aok{display:block;}
   .info-btn{background:none;border:1px solid #444;color:var(--gc);min-width:18px;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;font-family:'DM Mono',monospace;}
   .info-btn:hover{border-color:var(--vc);color:var(--vc);}
-  .tooltip{display:none;background:#1a1a1a;border:1px solid rgba(82,183,136,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#ccc;line-height:1.6;margin-top:6px;width:100%;}
-  .tooltip.visible{display:block;}
-
-  /* CHECKLIST */
-  .chi{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--ln);}
-  .chi:last-child{border-bottom:none;}
+  .tooltip{display:none;background:#1a1a1a;border:1px solid rgba(82,183,136,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#ccc;line-height:1.6;margin-top:6px;width:100%;} .tooltip.visible{display:block;}
+  .chi{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--ln);} .chi:last-child{border-bottom:none;}
   .chi input[type="checkbox"]{width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:var(--vc);cursor:pointer;}
   .chi label{font-size:13px;line-height:1.5;cursor:pointer;color:var(--blanco);text-transform:none;letter-spacing:0;font-weight:400;}
-
-  /* WHATSAPP */
   .msgwa{background:#0d1117;border:1px solid #2a2a2a;border-radius:10px;padding:13px;font-family:'DM Mono',monospace;font-size:13px;color:var(--vc);line-height:1.7;margin-bottom:10px;min-height:50px;white-space:pre-wrap;word-break:break-word;}
-  .bcopiar{width:100%;background:#2a2a2a;border:1px solid #3a3a3a;color:var(--blanco);padding:11px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;}
-  .bcopiar:hover{background:#333;}
-
-  /* BOTÓN ENVIAR */
-  .benviar{width:100%;background:var(--verde);color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:17px;cursor:pointer;margin-bottom:12px;transition:background 0.2s;}
-  .benviar:hover{background:#3a8a63;}
+  .bcopiar{width:100%;background:#2a2a2a;border:1px solid #3a3a3a;color:var(--blanco);padding:11px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;} .bcopiar:hover{background:#333;}
+  .benviar{width:100%;background:var(--verde);color:#fff;border:none;border-radius:14px;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:17px;cursor:pointer;margin-bottom:12px;transition:background 0.2s;} .benviar:hover{background:#3a8a63;}
   .nota{text-align:center;font-size:12px;color:var(--gc);line-height:1.7;}
-
-  /* SEPARADOR */
-  .sublabel{font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:1px;margin:13px 0 7px;}
-
-  /* ÉXITO */
   #exito{display:none;text-align:center;padding:50px 16px;}
   .exito-ico{font-size:52px;margin-bottom:14px;}
   .exito-tit{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--vc);margin-bottom:8px;}
   .exito-eq{font-family:'DM Mono',monospace;font-size:12px;color:var(--gc);margin-bottom:18px;}
-  .exito-msg{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;font-size:13px;line-height:1.8;color:#ccc;text-align:left;}
-  .exito-msg strong{color:var(--naranja);}
-
-  /* BARRA DE PROGRESO */
-  #progreso-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
-  #progreso-wrap.visible{display:flex;}
+  .exito-msg{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;font-size:13px;line-height:1.8;color:#ccc;text-align:left;} .exito-msg strong{color:var(--naranja);}
+  #progreso-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:30px;} #progreso-wrap.visible{display:flex;}
   .prog-box{background:var(--gris);border:1px solid var(--ln);border-radius:16px;padding:28px 24px;width:100%;max-width:340px;text-align:center;}
   .prog-titulo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--blanco);margin-bottom:6px;}
   .prog-subtitulo{font-size:12px;color:var(--gc);margin-bottom:20px;font-family:'DM Mono',monospace;}
@@ -176,379 +103,177 @@
   .prog-barra{height:100%;background:linear-gradient(90deg,var(--verde),var(--vc));border-radius:20px;width:0%;transition:width 0.3s ease;}
   .prog-pct{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--blanco);}
   .prog-total{font-size:11px;color:var(--gc);margin-top:4px;}
-
   html{scroll-behavior:smooth;}
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">BÚ<span>FALA</span> · CIERRE DE OBRA<small id="hfecha">—</small></div>
   <div class="ebadge" id="hequipo">—</div>
 </header>
-
 <div class="container" id="fwrap">
-
-  <!-- 01 DATOS -->
-  <div class="sec">
-    <div class="stit sv">01 · Datos de la instalación</div>
-    <div class="sbody">
-      <div class="info">Todos los datos se han cargado automáticamente desde tu calendario.</div>
-      <div class="f2">
-        <div class="campo"><span class="clabel">Equipo</span><div class="dato-fijo" id="d-equipo">—</div></div>
-        <div class="campo"><span class="clabel">Fecha y hora</span><div class="dato-fijo" id="d-fecha">—</div></div>
-      </div>
-      <div class="campo"><span class="clabel">Nº Instalación</span><div class="dato-fijo" id="d-inst">—</div></div>
-      <div class="campo"><span class="clabel">Cliente</span><div class="dato-fijo" id="d-cliente">—</div></div>
-      <div class="campo"><span class="clabel">Dirección</span><div class="dato-fijo" id="d-dir">—</div></div>
-      <div class="campo"><span class="clabel">Tipo de instalación</span><div class="dato-fijo" id="d-tipo">—</div></div>
-      <div class="campo"><span class="clabel">Hardware</span><div class="dato-fijo" id="d-hw">—</div></div>
+  <div class="sec"><div class="stit sv">01 · Datos de la instalación</div><div class="sbody">
+    <div class="info">Todos los datos se han cargado automáticamente desde tu calendario.</div>
+    <div class="f2">
+      <div class="campo"><span class="clabel">Equipo</span><div class="dato-fijo" id="d-equipo">—</div></div>
+      <div class="campo"><span class="clabel">Fecha y hora</span><div class="dato-fijo" id="d-fecha">—</div></div>
     </div>
-  </div>
+    <div class="campo"><span class="clabel">Nº Instalación</span><div class="dato-fijo" id="d-inst">—</div></div>
+    <div class="campo"><span class="clabel">Cliente</span><div class="dato-fijo" id="d-cliente">—</div></div>
+    <div class="campo"><span class="clabel">Dirección</span><div class="dato-fijo" id="d-dir">—</div></div>
+    <div class="campo"><span class="clabel">Tipo de instalación</span><div class="dato-fijo" id="d-tipo">—</div></div>
+    <div class="campo"><span class="clabel">Hardware</span><div class="dato-fijo" id="d-hw">—</div></div>
+  </div></div>
 
-  <!-- 02 LÍNEA ELÉCTRICA -->
-  <div class="sec">
-    <div class="stit sv">02 · Línea eléctrica</div>
-    <div class="sbody">
-      <div class="campo">
-        <span class="clabel">Tipo de instalación <span class="obl">*</span> <button class="info-btn" onclick="tip('t-tipo-linea')">i</button></span>
-        <div class="tooltip" id="t-tipo-linea" style="margin-bottom:8px;">Bajo tubo PVC: siempre se usará PVC para canalizar, incluso en exteriores, salvo excepciones puntuales. Solo en el tramo necesario para salvar zonas expuestas o con peligro de impacto se podrá usar tubo de acero. En instalaciones comunitarias presupuestadas bajo tubo, si el techo tiene preinstalación, se usará cable unifiliar bajo corrugado sobre la bandeja. Manguera: se usa cuando ya existe una canalización por donde pasar el cable, sin necesidad de instalar tubo nuevo.</div>
-        <div class="rg">
-          <label class="rop"><input type="radio" name="tl" value="tubo"><span>Bajo tubo PVC (nueva canalización)</span></label>
-          <label class="rop"><input type="radio" name="tl" value="manguera"><span>Manguera por canalización existente</span></label>
-        </div>
-      </div>
-      <div class="campo">
-        <span class="clabel">Fase <span class="obl">*</span> <button class="info-btn" onclick="tip('t-fase')">i</button></span>
-        <div class="tooltip" id="t-fase" style="margin-bottom:8px;">En instalaciones unifamiliares el partner empezará tarificando 15 metros aunque la longitud de la instalación sea el menor (el ítem a facturar será siempre manguera eléctrica, aunque se instale cable unifiliar bajo canalización existente).</div>
-        <div class="rg">
-          <label class="rop"><input type="radio" name="fase" value="mono"><span>Monofásica</span></label>
-          <label class="rop"><input type="radio" name="fase" value="trif"><span>Trifásica</span></label>
-        </div>
-      </div>
-      <div class="campo">
-        <span class="clabel">Sección del cable <span class="obl">*</span> <button class="info-btn" onclick="tip('t-seccion')">i</button></span>
-        <div class="tooltip" id="t-seccion" style="margin-bottom:8px;">Normativa de sección ESMOVE — Monofásica: 6mm² (1-40m) · 10mm² (41-90m) · 16mm² (91-140m) · 25mm² (141-215m). Trifásica: 6mm² (1-80m) · 10mm² (81-140m) · 16mm² (141-215m). Todos usan tubo Ø32mm salvo trifásica 16mm que usa Ø40mm.</div>
-        <select id="sec-cable">
-          <option value="">Seleccionar...</option>
-          <option value="6">6 mm²</option>
-          <option value="10">10 mm²</option>
-          <option value="16">16 mm²</option>
-          <option value="25" id="opt25">25 mm² (solo mono / bajo tubo)</option>
-        </select>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Metros de línea eléctrica <span class="obl">*</span></span><button class="info-btn" onclick="tip('t-metros')">i</button></div>
-        <span class="inombre-sub">Según lectura UTP Tester — se redondea al entero más próximo</span>
-        <div class="tooltip" id="t-metros">ESMOVE abona exclusivamente los metros efectivamente instalados. En el primer tramo se cobran íntegros los primeros 10 metros. Redondeo: decimales ≤0,5 se redondea a la baja (12,4m=12m) · decimales ≥0,6 se redondea al alza (12,6m=13m). Antes de iniciar, si la medición difiere de la OT, paralizar e informar a ESMOVE. Metros no autorizados no serán abonados.</div></div>
-        <div class="ictrl"><input type="number" id="m-linea" min="0" step="1" placeholder="0" oninput="autoUTP();updWA()"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Cable UTP (datos)</span><button class="info-btn" onclick="tip('t-utp')">i</button></div>
-        <div class="tooltip" id="t-utp">Cable UTP para comunicación del hardware. Se factura por metro efectivamente instalado. Normativa de sección ESMOVE — Monofásica: 6mm (1-40m), 10mm (41-90m), 16mm (91-140m), 25mm (141-215m). Trifásica: 6mm (1-80m), 10mm (81-140m), 16mm (141-215m). Tubo Ø32mm en todos los casos salvo trifásica 16mm que usa Ø40mm.</div></div>
-        <div class="ictrl"><input type="number" id="m-utp" min="0" step="1" placeholder="0" oninput="this.dataset.editado='1';autoRJ()"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat af">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Conector RJ45 <span class="atag">AUTO</span></span><button class="info-btn" onclick="tip('t-rj45')">i</button></div>
-        <span class="inombre-sub">Se añaden 2 automáticamente si hay UTP</span>
-        <div class="tooltip" id="t-rj45">Conector RJ45 para terminación del cable UTP. Se añaden automáticamente 2 unidades cuando hay cable UTP en la instalación (un conector en cada extremo).</div></div>
-        <div class="ictrl"><input type="number" id="ud-rj45" min="0" step="1" value="0"><span class="iunit">ud</span></div>
+  <div class="sec"><div class="stit sv">02 · Línea eléctrica</div><div class="sbody">
+    <div class="campo">
+      <span class="clabel">Tipo de instalación <span class="obl">*</span> <button class="info-btn" onclick="tip('t-tipo-linea')">i</button></span>
+      <div class="tooltip" id="t-tipo-linea" style="margin-bottom:8px;">Bajo tubo PVC: siempre se usará PVC para canalizar, incluso en exteriores, salvo excepciones puntuales. Manguera: se usa cuando ya existe una canalización por donde pasar el cable, sin necesidad de instalar tubo nuevo.</div>
+      <div class="rg">
+        <label class="rop"><input type="radio" name="tl" value="tubo"><span>Bajo tubo PVC (nueva canalización)</span></label>
+        <label class="rop"><input type="radio" name="tl" value="manguera"><span>Manguera por canalización existente</span></label>
       </div>
     </div>
-  </div>
-
-  <!-- 03 CANALIZACIONES -->
-  <div class="sec">
-    <div class="stit sn">03 · Canalizaciones especiales</div>
-    <div class="sbody">
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo corrugado 32mm</span><button class="info-btn" onclick="tip('t-corr32')">i</button></div>
-        <div class="tooltip" id="t-corr32">Se usará de forma excepcional, únicamente en los casos señalados por ESMOVE, para salvar una dificultad técnica o de naturaleza física. Precio por metro lineal instalado.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo acero 32mm</span><button class="info-btn" onclick="tip('t-acero32')">i</button></div>
-        <div class="tooltip" id="t-acero32">Se usará de forma excepcional, únicamente en los casos señalados por ESMOVE, para salvar una dificultad técnica o de naturaleza física. Solo en el tramo necesario para salvar zonas expuestas o con peligro de impacto. Precio por metro lineal instalado.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo acero 40mm</span><button class="info-btn" onclick="tip('t-acero40')">i</button></div>
-        <div class="tooltip" id="t-acero40">Se usará de forma excepcional, únicamente en los casos señalados por ESMOVE, para salvar una dificultad técnica o de naturaleza física. Solo en el tramo necesario para salvar zonas expuestas o con peligro de impacto. Precio por metro lineal instalado.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Canaleta eléctrica 35x20mm</span><button class="info-btn" onclick="tip('t-canaleta')">i</button></div>
-        <div class="tooltip" id="t-canaleta">Canalización a usar bajo normativa ESMOVE en el interior de viviendas unifamiliares, cuando sea inviable por las canalizaciones existentes. Precio por metro lineal instalado. Incluye todas las curvas necesarias.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo soterrado 50mm</span><button class="info-btn" onclick="tip('t-soterr50')">i</button></div>
-        <div class="tooltip" id="t-soterr50">Tubo corrugado rojo de PVC especial para soterrar, utilizado para canalizar la línea en instalaciones que requieran zanja. Precio por metro lineal instalado.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-      <div class="imat">
-        <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo soterrado 90mm</span><button class="info-btn" onclick="tip('t-soterr90')">i</button></div>
-        <div class="tooltip" id="t-soterr90">Tubo corrugado rojo de PVC especial para soterrar de mayor diámetro, utilizado para canalizar la línea en instalaciones que requieran zanja de mayor sección. Precio por metro lineal instalado.</div></div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
+    <div class="campo">
+      <span class="clabel">Fase <span class="obl">*</span> <button class="info-btn" onclick="tip('t-fase')">i</button></span>
+      <div class="tooltip" id="t-fase" style="margin-bottom:8px;">En instalaciones unifamiliares el partner empezará tarificando 15 metros aunque la longitud de la instalación sea menor.</div>
+      <div class="rg">
+        <label class="rop"><input type="radio" name="fase" value="mono"><span>Monofásica</span></label>
+        <label class="rop"><input type="radio" name="fase" value="trif"><span>Trifásica</span></label>
       </div>
     </div>
-  </div>
-
-  <!-- 04 PROTECCIONES -->
-  <div class="sec">
-    <div class="stit sn">04 · Protecciones y extras</div>
-    <div class="sbody">
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Bornas centralización MONO</span><button class="info-btn" onclick="tip('t-bornas-m')">i</button></div>
-          <span class="inombre-sub">Kit: 1 neutro + 1 fase + tapa</span>
-          <div class="tooltip" id="t-bornas-m">Kit completo para centralización monofásica. Incluye: 1 neutro + 1 fase + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Bornas centralización TRIF</span><button class="info-btn" onclick="tip('t-bornas-t')">i</button></div>
-          <span class="inombre-sub">Kit: 1 neutro + 3 fases + tapa</span>
-          <div class="tooltip" id="t-bornas-t">Kit completo para centralización trifásica. Incluye: 1 neutro + 3 fases + tapa. Se instala en el cuadro de contadores para centralizar la conexión del cargador.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Caja distribución 6 módulos</span><button class="info-btn" onclick="tip('t-caja6')">i</button></div>
-          <div class="tooltip" id="t-caja6">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Caja distribución 12 módulos</span><button class="info-btn" onclick="tip('t-caja12')">i</button></div>
-          <div class="tooltip" id="t-caja12">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Caja distribución 18 módulos</span><button class="info-btn" onclick="tip('t-caja18')">i</button></div>
-          <div class="tooltip" id="t-caja18">Se utilizan de manera excepcional, cuando la instalación demande una ubicación no habitual de las protecciones, o cuando se necesite implementar protecciones adicionales.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Caja registro 100x100</span><button class="info-btn" onclick="tip('t-cajareg')">i</button></div>
-          <span class="inombre-sub">1 unidad cada 15 metros de línea</span>
-          <div class="tooltip" id="t-cajareg">Se debe instalar una caja de registro cada 15 metros de cable lineal instalado.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Cerradura + llave</span><button class="info-btn" onclick="tip('t-cerradura')">i</button></div>
-          <div class="tooltip" id="t-cerradura">Cerradura con llave para caja de distribución. Incluye el juego completo de llaves.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 10A–25A</span><button class="info-btn" onclick="tip('t-mag-peq')">i</button></div>
-          <div class="tooltip" id="t-mag-peq">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo, manteniendo los requisitos de seguridad, siempre que sea compatible con el cuadro y el poder de corte exigido.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 32A</span><button class="info-btn" onclick="tip('t-mag-32')">i</button></div>
-          <div class="tooltip" id="t-mag-32">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 40A</span><button class="info-btn" onclick="tip('t-mag-40')">i</button></div>
-          <div class="tooltip" id="t-mag-40">Se utiliza en instalaciones de vivienda unifamiliar cuando el cuadro general está muy saturado y es necesario liberar espacio para integrar las protecciones del cargador VE. Permite proteger y seccionar fase + neutro ocupando un solo módulo.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Perforación forjado &lt;32mm</span><button class="info-btn" onclick="tip('t-perf-f')">i</button></div>
-          <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
-          <div class="tooltip" id="t-perf-f">Perforación para conducción de línea eléctrica a través de forjado. Diámetro máximo 32mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Perforación tabique &lt;40mm</span><button class="info-btn" onclick="tip('t-perf-t')">i</button></div>
-          <span class="inombre-sub">Desde la 2ª unidad ejecutada</span>
-          <div class="tooltip" id="t-perf-t">Perforación para conducción de línea eléctrica a través de tabique. Diámetro máximo 40mm. Se empieza a abonar unitariamente desde la 2ª unidad ejecutada.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Pica de tierra (kit completo)</span><button class="info-btn" onclick="tip('t-pica')">i</button></div>
-          <span class="inombre-sub">Pica 1500mm + grapa + cable 6mm² + arqueta + tapa</span>
-          <div class="tooltip" id="t-pica">Se aplica cuando la instalación no dispone de toma de tierra o la existente es inexistente o no utilizable. No se aceptan instalaciones de picas sin arqueta registrable.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Pre-instalación nuevo suministro</span><button class="info-btn" onclick="tip('t-preinst')">i</button></div>
-          <span class="inombre-sub">Portafusible + fusible + 1m cable + etiqueta</span>
-          <div class="tooltip" id="t-preinst">Operativa para dejar la futura ubicación del nuevo contador habilitada y etiquetada. Kit incluye: portafusible, fusible, 1m de cable y etiqueta identificativa.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — andamio</span><button class="info-btn" onclick="tip('t-altura-a')">i</button></div>
-          <div class="tooltip" id="t-altura-a">Solo aplica si se justifica y se acredita con foto la utilización del andamio, por la naturaleza especial de la instalación. Quedan excluidas las escaleras de gran formato. Obligatorio adjuntar foto del medio utilizado.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Trabajo en altura — elevadora</span><button class="info-btn" onclick="tip('t-altura-m')">i</button></div>
-          <span class="inombre-sub">Solo con autorización previa de ESMOVE</span>
-          <div class="tooltip" id="t-altura-m">Solo aplica con maquinaria elevadora (plataforma elevadora motorizada). Requiere autorización escrita previa de ESMOVE. No se puede ejecutar sin dicha autorización.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div>
-      </div>
-
-      <div class="imat">
-        <div class="inombre-wrap">
-          <div class="inombre-line"><span class="inombre-txt">Trabajo de soterramiento</span><button class="info-btn" onclick="tip('t-soterr')">i</button></div>
-          <span class="inombre-sub">Zanjas en tierra — incluye tapado</span>
-          <div class="tooltip" id="t-soterr">Trabajo de zanja en tierra para soterrar la línea. La tarifa incluye el posterior tapado de la zanja. Indicar metros totales ejecutados.</div>
-        </div>
-        <div class="ictrl"><input type="number" min="0" step="1" placeholder="0"><span class="iunit">m</span></div>
-      </div>
-
+    <div class="campo">
+      <span class="clabel">Sección del cable <span class="obl">*</span> <button class="info-btn" onclick="tip('t-seccion')">i</button></span>
+      <div class="tooltip" id="t-seccion" style="margin-bottom:8px;">Normativa sección ESMOVE — Mono: 6mm²(1-40m) · 10mm²(41-90m) · 16mm²(91-140m) · 25mm²(141-215m). Trif: 6mm²(1-80m) · 10mm²(81-140m) · 16mm²(141-215m).</div>
+      <select id="sec-cable">
+        <option value="">Seleccionar...</option>
+        <option value="6">6 mm²</option>
+        <option value="10">10 mm²</option>
+        <option value="16">16 mm²</option>
+        <option value="25">25 mm² (solo mono / bajo tubo)</option>
+      </select>
     </div>
-  </div>
-
-  <!-- 05 HARDWARE -->
-  <div class="sec">
-    <div class="stit sv">05 · Hardware y puesta en marcha</div>
-    <div class="sbody">
-      <div class="alerta"><strong>⚠ Obligatorio:</strong> Los 3 hitos deben estar completados para poder enviar el formulario.</div>
-      <div class="hito" onclick="tog('h1')"><div class="hcheck" id="hc1"></div><div class="htxt">Montaje, conexionado, configuración y vinculación App</div></div>
-      <div class="hito" onclick="tog('h2')"><div class="hcheck" id="hc2"></div><div class="htxt">Explicación de uso al cliente (presencial o videollamada)</div></div>
-      <div class="hito" onclick="tog('h3')"><div class="hcheck" id="hc3"></div><div class="htxt">Documentación: fotos + Acta enviada hoy</div></div>
+    <div class="imat">
+      <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Metros de línea eléctrica <span class="obl">*</span></span><button class="info-btn" onclick="tip('t-metros')">i</button></div>
+      <span class="inombre-sub">Según lectura UTP Tester — se redondea al entero más próximo</span>
+      <div class="tooltip" id="t-metros">ESMOVE abona los metros efectivamente instalados. En el primer tramo se cobran íntegros los primeros 10 metros. Redondeo: ≤0.5 a la baja · ≥0.6 al alza.</div></div>
+      <div class="ictrl"><input type="number" id="m-linea" min="0" step="1" placeholder="0" oninput="autoUTP();updWA()"><span class="iunit">m</span></div>
     </div>
-  </div>
+    <div class="imat">
+      <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Cable UTP (datos)</span><button class="info-btn" onclick="tip('t-utp')">i</button></div>
+      <div class="tooltip" id="t-utp">Cable UTP para comunicación del hardware. Se factura por metro efectivamente instalado.</div></div>
+      <div class="ictrl"><input type="number" id="m-utp" min="0" step="1" placeholder="0" oninput="this.dataset.editado='1';autoRJ()"><span class="iunit">m</span></div>
+    </div>
+    <div class="imat af">
+      <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Conector RJ45 <span class="atag">AUTO</span></span><button class="info-btn" onclick="tip('t-rj45')">i</button></div>
+      <span class="inombre-sub">Se añaden 2 automáticamente si hay UTP</span>
+      <div class="tooltip" id="t-rj45">2 conectores RJ45 cuando hay cable UTP (uno en cada extremo).</div></div>
+      <div class="ictrl"><input type="number" id="ud-rj45" min="0" step="1" value="0"><span class="iunit">ud</span></div>
+    </div>
+  </div></div>
 
-  <!-- 06 INCIDENCIAS -->
-  <div class="sec">
-    <div class="stit sg">06 · Incidencias</div>
-    <div class="sbody">
-      <div class="campo">
-        <span class="clabel">¿Desplazamiento fallido? (causa no imputable a Búfala)</span>
-        <div class="rg">
-          <label class="rop"><input type="radio" name="desp" value="no" checked><span>No — instalación ejecutada</span></label>
-          <label class="rop"><input type="radio" name="desp" value="si"><span>Sí — desplazamiento fallido</span></label>
-        </div>
-      </div>
-      <div class="campo">
-        <span class="clabel">Observaciones</span>
-        <textarea id="obs" placeholder="Incidencias, dificultades técnicas, situaciones especiales..."></textarea>
+  <div class="sec"><div class="stit sn">03 · Canalizaciones especiales</div><div class="sbody">
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo corrugado 32mm</span><button class="info-btn" onclick="tip('t-corr32')">i</button></div><div class="tooltip" id="t-corr32">Uso excepcional por indicación de ESMOVE. Precio por metro lineal instalado.</div></div><div class="ictrl"><input type="number" id="corr32" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo acero 32mm</span><button class="info-btn" onclick="tip('t-acero32')">i</button></div><div class="tooltip" id="t-acero32">Solo en zonas expuestas o con peligro de impacto. Precio por metro lineal.</div></div><div class="ictrl"><input type="number" id="acero32" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo acero 40mm</span><button class="info-btn" onclick="tip('t-acero40')">i</button></div><div class="tooltip" id="t-acero40">Solo en zonas expuestas o con peligro de impacto. Precio por metro lineal.</div></div><div class="ictrl"><input type="number" id="acero40" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Canaleta eléctrica 35x20mm</span><button class="info-btn" onclick="tip('t-canaleta')">i</button></div><div class="tooltip" id="t-canaleta">Interior viviendas unifamiliares cuando sea inviable por canalizaciones existentes. Incluye curvas.</div></div><div class="ictrl"><input type="number" id="canaleta" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo soterrado 50mm</span></div></div><div class="ictrl"><input type="number" id="soterr50" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Tubo soterrado 90mm</span></div></div><div class="ictrl"><input type="number" id="soterr90" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+  </div></div>
+
+  <div class="sec"><div class="stit sn">04 · Protecciones y extras</div><div class="sbody">
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Bornas centralización MONO</span></div><span class="inombre-sub">Kit: 1 neutro + 1 fase + tapa</span></div><div class="ictrl"><input type="number" id="bornas-m" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Bornas centralización TRIF</span></div><span class="inombre-sub">Kit: 1 neutro + 3 fases + tapa</span></div><div class="ictrl"><input type="number" id="bornas-t" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Caja distribución 6 módulos</span></div></div><div class="ictrl"><input type="number" id="caja6" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Caja distribución 12 módulos</span></div></div><div class="ictrl"><input type="number" id="caja12" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Caja distribución 18 módulos</span></div></div><div class="ictrl"><input type="number" id="caja18" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Caja registro 100x100</span></div><span class="inombre-sub">1 unidad cada 15 metros de línea</span></div><div class="ictrl"><input type="number" id="cajareg" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Cerradura + llave</span></div></div><div class="ictrl"><input type="number" id="cerradura" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 10A–25A</span></div></div><div class="ictrl"><input type="number" id="mag-peq" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 32A</span></div></div><div class="ictrl"><input type="number" id="mag-32" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Magnetotérmico DPN 40A</span></div></div><div class="ictrl"><input type="number" id="mag-40" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Perforación forjado &lt;32mm</span></div><span class="inombre-sub">Desde la 2ª unidad ejecutada</span></div><div class="ictrl"><input type="number" id="perf-f" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Perforación tabique &lt;40mm</span></div><span class="inombre-sub">Desde la 2ª unidad ejecutada</span></div><div class="ictrl"><input type="number" id="perf-t" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Pica de tierra (kit completo)</span></div><span class="inombre-sub">Pica 1500mm + grapa + cable 6mm² + arqueta + tapa</span></div><div class="ictrl"><input type="number" id="pica" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Pre-instalación nuevo suministro</span></div><span class="inombre-sub">Portafusible + fusible + 1m cable + etiqueta</span></div><div class="ictrl"><input type="number" id="preinst" min="0" step="1" placeholder="0"><span class="iunit">kit</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Trabajo en altura — andamio</span></div></div><div class="ictrl"><input type="number" id="altura-a" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Trabajo en altura — elevadora</span></div><span class="inombre-sub">Solo con autorización previa de ESMOVE</span></div><div class="ictrl"><input type="number" id="altura-m" min="0" step="1" placeholder="0"><span class="iunit">ud</span></div></div>
+    <div class="imat"><div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Trabajo de soterramiento</span></div><span class="inombre-sub">Zanjas en tierra — incluye tapado</span></div><div class="ictrl"><input type="number" id="soterr" min="0" step="1" placeholder="0"><span class="iunit">m</span></div></div>
+  </div></div>
+
+  <div class="sec"><div class="stit sv">05 · Hardware y puesta en marcha</div><div class="sbody">
+    <div class="alerta"><strong>⚠ Obligatorio:</strong> Los 3 hitos deben estar completados para poder enviar el formulario.</div>
+    <div class="hito" onclick="tog('h1')"><div class="hcheck" id="hc1"></div><div class="htxt">Montaje, conexionado, configuración y vinculación App</div></div>
+    <div class="hito" onclick="tog('h2')"><div class="hcheck" id="hc2"></div><div class="htxt">Explicación de uso al cliente (presencial o videollamada)</div></div>
+    <div class="hito" onclick="tog('h3')"><div class="hcheck" id="hc3"></div><div class="htxt">Documentación: fotos + Acta enviada hoy</div></div>
+  </div></div>
+
+  <div class="sec"><div class="stit sg">06 · Incidencias</div><div class="sbody">
+    <div class="campo">
+      <span class="clabel">¿Desplazamiento fallido? (causa no imputable a Búfala)</span>
+      <div class="rg">
+        <label class="rop"><input type="radio" name="desp" value="no" checked><span>No — instalación ejecutada</span></label>
+        <label class="rop"><input type="radio" name="desp" value="si"><span>Sí — desplazamiento fallido</span></label>
       </div>
     </div>
-  </div>
-
-  <!-- 07 FOTOS -->
-  <div class="sec">
-    <div class="stit sr">07 · Reporte fotográfico</div>
-    <div class="sbody">
-      <div class="alerta"><strong>⚠ Nomenclatura obligatoria:</strong> Las fotos se renombran automáticamente. Sin todas las obligatorias no se puede enviar.</div>
-      <div id="zfotos"></div>
+    <div class="campo">
+      <span class="clabel">Observaciones</span>
+      <textarea id="obs" placeholder="Incidencias, dificultades técnicas, situaciones especiales..."></textarea>
     </div>
-  </div>
+  </div></div>
 
-  <!-- 08 ACTA -->
-  <div class="sec">
-    <div class="stit sr">08 · Hoja de Finalización de Obra</div>
-    <div class="sbody">
-      <div class="alerta"><strong>⚠ Obligatorio:</strong> Adjunta la Hoja de Finalización de Obra firmada por el cliente. Solo se admite PDF. Debe enviarse el mismo día laborable.</div>
-      <div class="awrap" id="wacta">
-        <input type="file" accept=".pdf" onchange="subirActa(this)">
-        <div class="ainner">
-          <div class="aico">📄</div>
-          <div class="anombre">Hoja de Finalización de Obra</div>
-          <div class="adesc">Firmada por el cliente — solo PDF</div>
-          <div class="apdf">Solo se admite .PDF</div>
-          <div class="aok" id="aok">—</div>
-        </div>
+  <div class="sec"><div class="stit sr">07 · Reporte fotográfico</div><div class="sbody">
+    <div class="alerta"><strong>⚠ Nomenclatura obligatoria:</strong> Las fotos se renombran automáticamente. Sin todas las obligatorias no se puede enviar.</div>
+    <div id="zfotos"></div>
+  </div></div>
+
+  <div class="sec"><div class="stit sr">08 · Hoja de Finalización de Obra</div><div class="sbody">
+    <div class="alerta"><strong>⚠ Obligatorio:</strong> Adjunta la Hoja de Finalización de Obra firmada por el cliente. Solo se admite PDF.</div>
+    <div class="awrap" id="wacta">
+      <input type="file" accept=".pdf" onchange="subirActa(this)">
+      <div class="ainner">
+        <div class="aico">📄</div>
+        <div class="anombre">Hoja de Finalización de Obra</div>
+        <div class="adesc">Firmada por el cliente — solo PDF</div>
+        <div class="apdf">Solo se admite .PDF</div>
+        <div class="aok" id="aok">—</div>
       </div>
     </div>
-  </div>
+  </div></div>
 
-  <!-- 09 CHECKLIST -->
-  <div class="sec">
-    <div class="stit sr">09 · Checklist obligatorio antes de irse</div>
-    <div class="sbody">
-      <div class="alerta"><strong>⚠ Obligatorio:</strong> Todos los puntos deben estar marcados para poder enviar.</div>
-      <div class="chi"><input type="checkbox" id="c1"><label for="c1">Cables con punteras correctamente terminados</label></div>
-      <div class="chi"><input type="checkbox" id="c2"><label for="c2">Fases correctas, tierra bien conectada</label></div>
-      <div class="chi"><input type="checkbox" id="c3"><label for="c3">Cargador carga correctamente (prueba realizada)</label></div>
-      <div class="chi"><input type="checkbox" id="c4"><label for="c4">App vinculada y funcionando</label></div>
-      <div class="chi"><input type="checkbox" id="c5"><label for="c5">Número de serie correcto (asignado por ESMOVE)</label></div>
-      <div class="chi"><input type="checkbox" id="c6"><label for="c6">Llaves entregadas al cliente (no dentro del equipo)</label></div>
-      <div class="chi"><input type="checkbox" id="c7"><label for="c7">Zona de trabajo limpia, sin residuos</label></div>
-      <div class="chi"><input type="checkbox" id="c8"><label for="c8">Indumentaria corporativa ESMOVE durante toda la instalación</label></div>
-      <div class="chi"><input type="checkbox" id="c9"><label for="c9">Foto de medición con UTP Tester realizada y subida</label></div>
-    </div>
-  </div>
+  <div class="sec"><div class="stit sr">09 · Checklist obligatorio antes de irse</div><div class="sbody">
+    <div class="alerta"><strong>⚠ Obligatorio:</strong> Todos los puntos deben estar marcados para poder enviar.</div>
+    <div class="chi"><input type="checkbox" id="c1"><label for="c1">Cables con punteras correctamente terminados</label></div>
+    <div class="chi"><input type="checkbox" id="c2"><label for="c2">Fases correctas, tierra bien conectada</label></div>
+    <div class="chi"><input type="checkbox" id="c3"><label for="c3">Cargador carga correctamente (prueba realizada)</label></div>
+    <div class="chi"><input type="checkbox" id="c4"><label for="c4">App vinculada y funcionando</label></div>
+    <div class="chi"><input type="checkbox" id="c5"><label for="c5">Número de serie correcto (asignado por ESMOVE)</label></div>
+    <div class="chi"><input type="checkbox" id="c6"><label for="c6">Llaves entregadas al cliente (no dentro del equipo)</label></div>
+    <div class="chi"><input type="checkbox" id="c7"><label for="c7">Zona de trabajo limpia, sin residuos</label></div>
+    <div class="chi"><input type="checkbox" id="c8"><label for="c8">Indumentaria corporativa ESMOVE durante toda la instalación</label></div>
+    <div class="chi"><input type="checkbox" id="c9"><label for="c9">Foto de medición con UTP Tester realizada y subida</label></div>
+  </div></div>
 
-  <!-- 10 WHATSAPP -->
-  <div class="sec">
-    <div class="stit sg">10 · Mensaje cierre WhatsApp a ESMOVE</div>
-    <div class="sbody">
-      <div class="msgwa" id="msgwa">—</div>
-      <button class="bcopiar" onclick="copiarWA()">📋 Copiar mensaje</button>
-    </div>
-  </div>
+  <div class="sec"><div class="stit sg">10 · Mensaje cierre WhatsApp a ESMOVE</div><div class="sbody">
+    <div class="msgwa" id="msgwa">—</div>
+    <button class="bcopiar" onclick="copiarWA()">📋 Copiar mensaje</button>
+  </div></div>
 
   <button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
   <div class="nota">Comprueba que todas las fotos, el vídeo y la Hoja de Finalización están adjuntos.<br>Una vez enviado, el registro queda guardado.</div>
-
 </div>
 
-<!-- BARRA DE PROGRESO -->
 <div id="progreso-wrap">
   <div class="prog-box">
     <div class="prog-titulo">Subiendo archivos</div>
     <div class="prog-subtitulo">No cierres la aplicación</div>
     <div class="prog-archivo" id="prog-archivo">Preparando...</div>
-    <div class="prog-barra-wrap">
-      <div class="prog-barra" id="prog-barra"></div>
-    </div>
+    <div class="prog-barra-wrap"><div class="prog-barra" id="prog-barra"></div></div>
     <div class="prog-pct" id="prog-pct">0%</div>
     <div class="prog-total" id="prog-total">0 de 0 archivos</div>
   </div>
 </div>
 
-<!-- ÉXITO -->
 <div class="container" id="exito">
   <div class="exito-ico">✅</div>
   <div class="exito-tit">¡Obra registrada!</div>
@@ -567,84 +292,64 @@
 function tip(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  // Cerrar todos los demás
-  document.querySelectorAll('.tooltip.visible').forEach(t => {
-    if (t.id !== id) t.classList.remove('visible');
-  });
+  document.querySelectorAll('.tooltip.visible').forEach(t => { if (t.id !== id) t.classList.remove('visible'); });
   el.classList.toggle('visible');
 }
 
 // ── EQUIPOS ──────────────────────────────────────────────────
-const EQ = {
-  '1':{ n:'Búfala 1', b:'b1' },
-  '2':{ n:'Búfala 2', b:'b2' },
-  '3':{ n:'Búfala 3', b:'b3' },
-  '4':{ n:'Búfala 4', b:'b4' },
-};
+const EQ = { '1':{n:'Búfala 1',b:'b1'}, '2':{n:'Búfala 2',b:'b2'}, '3':{n:'Búfala 3',b:'b3'}, '4':{n:'Búfala 4',b:'b4'} };
+const P     = new URLSearchParams(window.location.search);
+const eId   = P.get('equipo') || '1';
+const eq    = EQ[eId] || EQ['1'];
+const instP = P.get('inst')     || '—';
+const cliP  = P.get('cliente')  || '—';
+const dirP  = P.get('dir')      || '—';
+const tipoP = P.get('tipo')     || '—';
+const hwP   = P.get('hardware') || '—';
 
-// ── PARÁMETROS URL ───────────────────────────────────────────
-// Uso: cierre.html?equipo=1&inst=E2626526&cliente=Pablo+García&dir=C/Mayor+5&tipo=UNIFAMILIAR&hardware=V2C+TRYDAN
-const P      = new URLSearchParams(window.location.search);
-const eId    = P.get('equipo') || '1';
-const eq     = EQ[eId] || EQ['1'];
-const instP  = P.get('inst')     || '—';
-const cliP   = P.get('cliente')  || '—';
-const dirP   = P.get('dir')      || '—';
-const tipoP  = P.get('tipo')     || '—';
-const hwP    = P.get('hardware') || '—';
+const ahora  = new Date();
+const fLarga = ahora.toLocaleDateString('es-ES',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+const fCorta = ahora.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+const hora   = ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 
-// ── FECHA Y HORA AUTOMÁTICAS ─────────────────────────────────
-const ahora   = new Date();
-const fLarga  = ahora.toLocaleDateString('es-ES',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-const fCorta  = ahora.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
-const hora    = ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+document.getElementById('hfecha').textContent    = fCorta + ' · ' + hora;
+document.getElementById('hequipo').textContent   = eq.n;
+document.getElementById('hequipo').className     = 'ebadge ' + eq.b;
+document.getElementById('d-equipo').textContent  = eq.n;
+document.getElementById('d-fecha').textContent   = fLarga + ' · ' + hora;
+document.getElementById('d-inst').textContent    = instP;
+document.getElementById('d-cliente').textContent = cliP;
+document.getElementById('d-dir').textContent     = dirP;
+document.getElementById('d-tipo').textContent    = tipoP;
+document.getElementById('d-hw').textContent      = hwP;
 
-// ── RELLENAR CABECERA Y DATOS ────────────────────────────────
-document.getElementById('hfecha').textContent   = fCorta + ' · ' + hora;
-document.getElementById('hequipo').textContent  = eq.n;
-document.getElementById('hequipo').className    = 'ebadge ' + eq.b;
-document.getElementById('d-equipo').textContent = eq.n;
-document.getElementById('d-fecha').textContent  = fLarga + ' · ' + hora;
-document.getElementById('d-inst').textContent   = instP;
-document.getElementById('d-cliente').textContent= cliP;
-document.getElementById('d-dir').textContent    = dirP;
-document.getElementById('d-tipo').textContent   = tipoP;
-document.getElementById('d-hw').textContent     = hwP;
-
-// ── DEFINICIÓN DE FOTOS ──────────────────────────────────────
-// Las 9 fotos del contrato con nomenclatura exacta
+// ── FOTOS ─────────────────────────────────────────────────────
+// Sin capture="environment" → el móvil muestra selector con Cámara + Galería
 const FOTOS = [
-  { id:'f1',  n:'FRONTAL CARGADOR',   d:'Visible número de plaza (si aplica) y pegatina ESMOVE', obl:true,  video:false },
-  { id:'f2',  n:'NUM. SERIE Y MODELO',d:'Legible el número de serie y modelo del cargador',      obl:true,  video:false },
-  { id:'f3',  n:'INTERIOR CARGADOR',  d:'Protecciones, punteras eléctricas, crimpado UTP, limpieza interior', obl:true, video:false },
-  { id:'f4',  n:'UTP TESTER',         d:'Medición final — en instal. con medidor bidireccional, foto del cable con metraje', obl:true, video:false },
-  { id:'f5',  n:'CUADRO UNIFAMILIAR', d:'Vivienda con protecciones eléctricas instaladas (solo unifamiliares)', obl:false, video:false },
-  { id:'f6',  n:'APP POTENCIA',       d:'Captura de pantalla APP con la potencia contratada por el cliente', obl:true, video:false },
-  { id:'f7',  n:'APP CONTROL',        d:'Captura de pantalla APP con control de potencia dinámico activado', obl:true, video:false },
-  { id:'f8',  n:'APP MENU',           d:'Captura de pantalla APP del menú principal de configuración e identificación', obl:true, video:false },
-  { id:'f9',  n:'PICA DE TIERRA',     d:'Foto de la pica de tierra instalada con arqueta y tapa (si aplica)', obl:false, video:false },
-  { id:'f10', n:'VIDEO RESUMEN',      d:'Vídeo final de la instalación mostrando la totalidad al detalle. Puedes adjuntar más de un vídeo.', obl:true, video:true },
+  {id:'f1', n:'FRONTAL CARGADOR',   d:'Visible número de plaza (si aplica) y pegatina ESMOVE',                         obl:true,  video:false},
+  {id:'f2', n:'NUM. SERIE Y MODELO',d:'Legible el número de serie y modelo del cargador',                              obl:true,  video:false},
+  {id:'f3', n:'INTERIOR CARGADOR',  d:'Protecciones, punteras eléctricas, crimpado UTP, limpieza interior',            obl:true,  video:false},
+  {id:'f4', n:'UTP TESTER',         d:'Medición final — en instal. con medidor bidireccional, foto del cable con metraje', obl:true, video:false},
+  {id:'f5', n:'CUADRO UNIFAMILIAR', d:'Vivienda con protecciones eléctricas instaladas (solo unifamiliares)',           obl:false, video:false},
+  {id:'f6', n:'APP POTENCIA',       d:'Captura de pantalla APP con la potencia contratada por el cliente',             obl:true,  video:false},
+  {id:'f7', n:'APP CONTROL',        d:'Captura de pantalla APP con control de potencia dinámico activado',             obl:true,  video:false},
+  {id:'f8', n:'APP MENU',           d:'Captura de pantalla APP del menú principal de configuración e identificación',  obl:true,  video:false},
+  {id:'f9', n:'PICA DE TIERRA',     d:'Foto de la pica de tierra instalada con arqueta y tapa (si aplica)',            obl:false, video:false},
+  {id:'f10',n:'VIDEO RESUMEN',      d:'Vídeo final de la instalación mostrando la totalidad al detalle. Puedes adjuntar más de un vídeo.', obl:true, video:true},
 ];
 
 const subidas = {};
-
-// ── RENDERIZAR FOTOS ─────────────────────────────────────────
 const zf = document.getElementById('zfotos');
 FOTOS.forEach(f => {
-  const oblTag = f.obl
-    ? '<span class="obl"> *</span>'
-    : '<span class="opt-tag">opcional</span>';
-  const accept = f.video ? 'video/*' : 'image/*';
-  const capture = f.video ? '' : 'capture="environment"';
+  const oblTag   = f.obl ? '<span class="obl"> *</span>' : '<span class="opt-tag">opcional</span>';
+  const accept   = f.video ? 'video/*' : 'image/*';
   const multiple = f.video ? 'multiple' : '';
-  const ico = f.video ? '🎥' : '📷';
-  const instruccion = f.video ? 'Grabar vídeo' : 'Hacer foto';
-
+  const ico      = f.video ? '🎥' : '📷';
   zf.innerHTML += `
     <div class="fzona">
       <span class="clabel">${f.id.replace('f','').padStart(2,'0')}. ${f.n}${oblTag}</span>
       <div class="uwrap" id="w${f.id}">
-        <input type="file" accept="${accept}" ${capture} ${multiple} onchange="sf(this,'${f.id}','${f.n}',${f.obl})">
+        <input type="file" accept="${accept}" ${multiple} onchange="sf(this,'${f.id}','${f.n}',${f.obl})">
         <div class="uinner">
           <div class="uico">${ico}</div>
           <div class="unombre">${f.n}</div>
@@ -658,14 +363,10 @@ FOTOS.forEach(f => {
 
 function sf(inp, id, nombre, obl) {
   if (inp.files && inp.files.length > 0) {
-    subidas[id] = { ok:true, nombre:nombre };
+    subidas[id] = {ok:true, nombre:nombre};
     document.getElementById('w'+id).classList.add('ok');
     const okMsg = document.getElementById('ok'+id);
-    if (inp.files.length > 1) {
-      okMsg.textContent = '✓ ' + inp.files.length + ' archivos adjuntados';
-    } else {
-      okMsg.textContent = '✓ ' + nombre + ' adjuntado';
-    }
+    okMsg.textContent = inp.files.length > 1 ? '✓ ' + inp.files.length + ' archivos adjuntados' : '✓ ' + nombre + ' adjuntado';
     const sb = document.getElementById('skip'+id);
     if (sb) { sb.classList.remove('activo'); sb.textContent = 'No aplica en esta instalación'; }
   }
@@ -679,62 +380,55 @@ function skipFoto(id) {
     btn.classList.remove('activo');
     btn.textContent = 'No aplica en esta instalación';
   } else {
-    subidas[id] = { ok:true, skip:true };
+    subidas[id] = {ok:true, skip:true};
     document.getElementById('w'+id).classList.add('skip');
     btn.classList.add('activo');
     btn.textContent = '✓ Marcado como no aplica';
   }
 }
 
-// ── ACTA PDF ─────────────────────────────────────────────────
+// ── ACTA ──────────────────────────────────────────────────────
 function subirActa(inp) {
   if (!inp.files || !inp.files[0]) return;
   const f = inp.files[0];
   if (!f.name.toLowerCase().endsWith('.pdf')) {
     alert('Solo se admite formato PDF para la Hoja de Finalización de Obra.');
-    inp.value = '';
-    return;
+    inp.value = ''; return;
   }
-  subidas['acta'] = { ok: true, nombre: 'HF' };
+  subidas['acta'] = {ok:true, nombre:'HF'};
   document.getElementById('wacta').classList.add('ok');
   document.getElementById('aok').textContent = '✓ ' + f.name + ' adjuntado';
 }
 
-// ── HITOS ────────────────────────────────────────────────────
+// ── HITOS ─────────────────────────────────────────────────────
 const H = {h1:false, h2:false, h3:false};
 function tog(id) {
   H[id] = !H[id];
   document.getElementById('hc'+id.slice(1)).classList.toggle('ok', H[id]);
 }
 
-// ── AUTO RJ45 ────────────────────────────────────────────────
-// ── AUTO UTP Y RJ45 ──────────────────────────────────────────
-// Cuando el técnico escribe metros de línea, UTP se rellena igual (editable)
+// ── AUTO UTP Y RJ45 ───────────────────────────────────────────
 function autoUTP() {
   const mLinea = parseFloat(document.getElementById('m-linea').value) || 0;
   const utpInput = document.getElementById('m-utp');
-  // Solo auto-rellenar si el técnico no ha tocado el campo manualmente
   if (!utpInput.dataset.editado) {
     utpInput.value = mLinea > 0 ? mLinea : '';
     autoRJ();
   }
   updWA();
 }
-
 function autoRJ() {
   const v = parseFloat(document.getElementById('m-utp').value) || 0;
   document.getElementById('ud-rj45').value = v > 0 ? 2 : 0;
   updWA();
 }
 
-// ── WHATSAPP ─────────────────────────────────────────────────
+// ── WHATSAPP ──────────────────────────────────────────────────
 function updWA() {
   const m = document.getElementById('m-linea').value || '0';
-  document.getElementById('msgwa').textContent =
-    'INSTALACIÓN FINALIZADA – TODO OK – ' + cliP + ' – ' + m + ' METROS FINALES INSTALADOS';
+  document.getElementById('msgwa').textContent = 'INSTALACIÓN FINALIZADA – TODO OK – ' + cliP + ' – ' + m + ' METROS FINALES INSTALADOS';
 }
 updWA();
-
 function copiarWA() {
   navigator.clipboard.writeText(document.getElementById('msgwa').textContent).then(() => {
     const b = document.querySelector('.bcopiar');
@@ -743,48 +437,32 @@ function copiarWA() {
   });
 }
 
-// ── VALIDACIÓN Y ENVÍO ───────────────────────────────────────
-// ── URL DEL SCRIPT DE DRIVE ──────────────────────────────────
-// Sustituye esta URL por la que obtengas al implementar bufala_drive_script.js
-const UPLOAD_URL  = "https://script.google.com/macros/s/AKfycbyXEnuX-F1Aoe2xKL0VPVMFpo0uq6QphyC8kJKUHMfLgIowgudawrNS01jorekqlXkcBw/exec";
-const DRIVE_APIKEY = "AIzaSyDo56f-R9RGHGB1jX-FMf4Hb3glUvPmoK8";
+// ── CONFIG ────────────────────────────────────────────────────
+const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbyXEnuX-F1Aoe2xKL0VPVMFpo0uq6QphyC8kJKUHMfLgIowgudawrNS01jorekqlXkcBw/exec";
 
+// ── ENVÍO ─────────────────────────────────────────────────────
 function enviar() {
-  if (!document.querySelector('input[name="tl"]:checked'))
-    return alert('Selecciona el tipo de instalación (Sección 02).');
-  if (!document.querySelector('input[name="fase"]:checked'))
-    return alert('Selecciona la fase (Sección 02).');
-  if (!document.getElementById('sec-cable').value)
-    return alert('Selecciona la sección del cable (Sección 02).');
-  if (!document.getElementById('m-linea').value || document.getElementById('m-linea').value == '0')
-    return alert('Introduce los metros de línea eléctrica (Sección 02).');
-  if (!H.h1 || !H.h2 || !H.h3)
-    return alert('Debes marcar los 3 hitos del hardware como completados (Sección 05).');
+  if (!document.querySelector('input[name="tl"]:checked'))  return alert('Selecciona el tipo de instalación (Sección 02).');
+  if (!document.querySelector('input[name="fase"]:checked')) return alert('Selecciona la fase (Sección 02).');
+  if (!document.getElementById('sec-cable').value)           return alert('Selecciona la sección del cable (Sección 02).');
+  if (!document.getElementById('m-linea').value || document.getElementById('m-linea').value == '0') return alert('Introduce los metros de línea eléctrica (Sección 02).');
+  if (!H.h1 || !H.h2 || !H.h3) return alert('Debes marcar los 3 hitos del hardware como completados (Sección 05).');
   for (const f of FOTOS.filter(x => x.obl)) {
-    if (!subidas[f.id] || !subidas[f.id].ok)
-      return alert('Falta la foto obligatoria: "' + f.n + '" (Sección 07).');
+    if (!subidas[f.id] || !subidas[f.id].ok) return alert('Falta la foto obligatoria: "' + f.n + '" (Sección 07).');
   }
-  if (!subidas['acta'] || !subidas['acta'].ok)
-    return alert('Falta adjuntar la Hoja de Finalización de Obra en PDF (Sección 08).');
+  if (!subidas['acta'] || !subidas['acta'].ok) return alert('Falta adjuntar la Hoja de Finalización de Obra en PDF (Sección 08).');
   for (let i = 1; i <= 9; i++) {
-    if (!document.getElementById('c'+i).checked)
-      return alert('Debes marcar todos los puntos del checklist antes de enviar (Sección 09).');
+    if (!document.getElementById('c'+i).checked) return alert('Debes marcar todos los puntos del checklist antes de enviar (Sección 09).');
   }
-
   document.getElementById('btn-enviar').disabled = true;
   document.getElementById('btn-enviar').textContent = '⏳ Preparando...';
-
   procesarEnvio().then(function() {
-    document.getElementById('fwrap').style.display  = 'none';
-    document.getElementById('exito').style.display  = 'block';
+    document.getElementById('fwrap').style.display = 'none';
+    document.getElementById('exito').style.display = 'block';
     document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
     window.scrollTo(0,0);
     ocultarProgreso();
-
-    // Subir vídeo en segundo plano si existe
-    if (subidas['f10'] && subidas['f10'].ok) {
-      subirVideoSegundoPlano();
-    }
+    if (subidas['f10'] && subidas['f10'].ok) subirVideoSegundoPlano();
   }).catch(function(err) {
     console.error(err);
     document.getElementById('btn-enviar').disabled = false;
@@ -794,76 +472,73 @@ function enviar() {
   });
 }
 
-
 async function procesarEnvio() {
-  // ── FASE 1: Recopilar fotos + PDF (sin vídeo) ──
-  const archivos     = {};
-  const inputsFotos  = [];
-
+  const archivos    = {};
+  const inputsFotos = [];
   for (const id in subidas) {
     if (!subidas[id] || !subidas[id].ok) continue;
-    if (id === 'f10') continue; // vídeo va aparte
-
+    if (id === 'f10') continue;
     const wrap  = id === 'acta' ? document.getElementById('wacta') : document.getElementById('w'+id);
     if (!wrap) continue;
     const input = wrap.querySelector('input[type="file"]');
     if (!input || !input.files || !input.files.length) continue;
-    for (let i = 0; i < input.files.length; i++) {
-      inputsFotos.push({ id, idx:i, file:input.files[i] });
-    }
+    for (let i = 0; i < input.files.length; i++) inputsFotos.push({id, idx:i, file:input.files[i]});
   }
-
   const total = inputsFotos.length;
-
-  // Convertir fotos+PDF a base64 con progreso
   for (let n = 0; n < inputsFotos.length; n++) {
-    const { id, idx, file } = inputsFotos[n];
+    const {id, idx, file} = inputsFotos[n];
     const nombre = id === 'acta' ? 'Hoja de Finalización' : (FOTOS.find(f=>f.id===id)?.n||id);
     mostrarProgreso('📎 ' + nombre, n, total);
     const base64 = await fileToBase64(file);
     const ext    = file.name.split('.').pop().toLowerCase();
     const campo  = inputsFotos.filter(x=>x.id===id);
     const key    = campo.length > 1 ? id+'_'+idx : id;
-    archivos[key] = { data:base64, mime:file.type, ext, nombre:file.name };
+    archivos[key] = {data:base64, mime:file.type, ext, nombre:file.name};
   }
+  mostrarProgreso('☁️ Enviando a Drive...', total, total);
 
-  mostrarProgreso('☁️ Enviando a ESMOVE Drive...', total, total);
-
-  // Materiales
   function nv(id) { return parseFloat(document.getElementById(id)?.value)||0; }
+  // Detectar si es unifamiliar (foto f5 adjuntada y no marcada como skip)
+  const esUnifamiliar = !!(subidas['f5'] && subidas['f5'].ok && !subidas['f5'].skip);
   const materiales = {
     tipoLinea:   document.querySelector('input[name="tl"]:checked')?.value||'',
     fase:        document.querySelector('input[name="fase"]:checked')?.value||'',
     seccion:     document.getElementById('sec-cable')?.value||'',
-    metrosLinea: nv('m-linea'), metrosUtp: nv('m-utp'), udRj45: nv('ud-rj45'),
+    metrosLinea: nv('m-linea'), metrosUtp: nv('m-utp'), 'ud-rj45': nv('ud-rj45'),
+    esUnifamiliar: esUnifamiliar,
+    corr32: nv('corr32'), acero32: nv('acero32'), acero40: nv('acero40'),
+    canaleta: nv('canaleta'), soterr50: nv('soterr50'), soterr90: nv('soterr90'),
+    'bornas-m': nv('bornas-m'), 'bornas-t': nv('bornas-t'),
+    caja6: nv('caja6'), caja12: nv('caja12'), caja18: nv('caja18'),
+    cajareg: nv('cajareg'), cerradura: nv('cerradura'),
+    'mag-peq': nv('mag-peq'), 'mag-32': nv('mag-32'), 'mag-40': nv('mag-40'),
+    'perf-f': nv('perf-f'), 'perf-t': nv('perf-t'),
+    pica: nv('pica'), preinst: nv('preinst'),
+    'altura-a': nv('altura-a'), 'altura-m': nv('altura-m'), soterr: nv('soterr'),
   };
-  document.querySelectorAll('.imat input[type="number"]').forEach(inp => {
-    if (inp.id) materiales[inp.id] = parseFloat(inp.value)||0;
-  });
 
   const payload = {
     equipo: eId, cliente: cliP, inst: instP, dir: dirP,
     tipo: tipoP, hardware: hwP, fecha: fCorta,
-    materiales, hitos:{h1:H.h1,h2:H.h2,h3:H.h3},
-    despFallido: document.querySelector('input[name="desp"]:checked')?.value==='si',
+    materiales, hitos:{h1:H.h1, h2:H.h2, h3:H.h3},
+    despFallido: document.querySelector('input[name="desp"]:checked')?.value === 'si',
     observaciones: document.getElementById('obs')?.value||'',
     archivos
   };
 
-  // ── FASE 2: Enviar al Apps Script ──
-  const resp = await fetch(UPLOAD_URL, {
-    method: 'POST',
-    mode:   'no-cors',
-    body:   JSON.stringify(payload)
+  return new Promise(function(resolve, reject) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', UPLOAD_URL, true);
+    xhr.onload  = function() { resolve(); };
+    xhr.onerror = function() { reject(new Error('Error de red')); };
+    xhr.send(JSON.stringify(payload));
   });
-
-  // Con no-cors no podemos leer la respuesta, asumimos éxito si no hay error
-  return 'background';
 }
 
-
-// ── VÍDEO POR TROZOS VIA APPS SCRIPT ─────────────────────────
-const CHUNK_SIZE = 35 * 1024 * 1024; // 35MB por trozo
+// ── VÍDEO POR TROZOS ─────────────────────────────────────────
+// 4MB raw → ~5.3MB base64 → muy por debajo del límite de Apps Script (50MB)
+// Cada trozo se guarda como archivo Drive independiente (sin ensamblaje en memoria)
+const CHUNK_SIZE = 4 * 1024 * 1024;
 
 async function subirVideoSegundoPlano() {
   const indicador = document.getElementById('video-progreso');
@@ -878,7 +553,7 @@ async function subirVideoSegundoPlano() {
     for (let i = 0; i < input.files.length; i++) {
       const file        = input.files[i];
       const ext         = file.name.split('.').pop().toLowerCase();
-      const nombre      = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
+      const nombre      = i === 0 ? 'VIDEO RESUMEN.' + ext : 'VIDEO RESUMEN ' + (i+1) + '.' + ext;
       const totalTrozos = Math.ceil(file.size / CHUNK_SIZE);
 
       for (let t = 0; t < totalTrozos; t++) {
@@ -889,22 +564,27 @@ async function subirVideoSegundoPlano() {
         const pct    = Math.round(((t+1) / totalTrozos) * 100);
 
         if (indicador) indicador.textContent =
-          '🎥 Subiendo vídeo' + (i>0?' '+(i+1):'') +
+          '🎥 ' + (i > 0 ? 'Vídeo '+(i+1) : 'Vídeo') +
           (totalTrozos > 1 ? ' — parte ' + (t+1) + ' de ' + totalTrozos : '') +
           ' (' + pct + '%)';
 
-        await enviarXHR(JSON.stringify({
-          esVideo: true, cliente: cliP, inst: instP,
-          nombre: nombre + '.' + ext, trozo: t,
-          totalTrozos: totalTrozos, mime: file.type, data: base64
-        }));
+        // 3 intentos por trozo para mayor fiabilidad
+        let enviado = false;
+        for (let intento = 0; intento < 3 && !enviado; intento++) {
+          enviado = await enviarXHR(JSON.stringify({
+            esVideo:true, cliente:cliP, inst:instP,
+            nombre:nombre, trozo:t, totalTrozos:totalTrozos,
+            mime:file.type, data:base64
+          }));
+          if (!enviado) await new Promise(r => setTimeout(r, 2000));
+        }
 
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 1000)); // pausa entre trozos
       }
     }
 
     if (indicador) indicador.textContent = '✅ Vídeo subido correctamente';
-    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 5000);
+    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 6000);
 
   } catch(e) {
     console.error('Error subiendo vídeo:', e);
@@ -912,20 +592,21 @@ async function subirVideoSegundoPlano() {
   }
 }
 
-// XMLHttpRequest evita interferencias de extensiones del navegador
+// XHR evita interferencias de extensiones del navegador
+// Devuelve true si el envío fue exitoso
 function enviarXHR(body) {
   return new Promise(function(resolve) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', UPLOAD_URL, true);
-    xhr.onload  = function() { resolve(); };
-    xhr.onerror = function() { resolve(); }; // Continuar aunque falle un trozo
+    xhr.timeout = 60000; // 60s timeout por trozo
+    xhr.onload    = function() { resolve(true); };
+    xhr.onerror   = function() { resolve(false); };
+    xhr.ontimeout = function() { resolve(false); };
     xhr.send(body);
   });
 }
 
-
 // ── PROGRESO ──────────────────────────────────────────────────
-
 function mostrarProgreso(archivo, actual, total) {
   document.getElementById('progreso-wrap').classList.add('visible');
   const pct = total > 0 ? Math.round((actual/total)*100) : 0;
@@ -934,11 +615,9 @@ function mostrarProgreso(archivo, actual, total) {
   document.getElementById('prog-archivo').textContent = archivo;
   document.getElementById('prog-total').textContent   = actual + ' de ' + total + ' archivos';
 }
-
 function ocultarProgreso() {
   document.getElementById('progreso-wrap').classList.remove('visible');
 }
-
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
