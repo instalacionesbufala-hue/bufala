@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -259,7 +260,8 @@
     <button class="bcopiar" onclick="copiarWA()">📋 Copiar mensaje</button>
   </div></div>
 
-  <button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
+<button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
+
   <div class="nota">Comprueba que todas las fotos, el vídeo y la Hoja de Finalización están adjuntos.<br>Una vez enviado, el registro queda guardado.</div>
 </div>
 
@@ -326,17 +328,43 @@ document.getElementById('d-hw').textContent      = hwP;
 // ── FOTOS ─────────────────────────────────────────────────────
 // Sin capture="environment" → el móvil muestra selector con Cámara + Galería
 const FOTOS = [
-  {id:'f1', n:'FRONTAL CARGADOR',   d:'Visible número de plaza (si aplica) y pegatina ESMOVE',                         obl:true,  video:false},
-  {id:'f2', n:'NUM. SERIE Y MODELO',d:'Legible el número de serie y modelo del cargador',                              obl:true,  video:false},
-  {id:'f3', n:'INTERIOR CARGADOR',  d:'Protecciones, punteras eléctricas, crimpado UTP, limpieza interior',            obl:true,  video:false},
-  {id:'f4', n:'UTP TESTER',         d:'Medición final — en instal. con medidor bidireccional, foto del cable con metraje', obl:true, video:false},
-  {id:'f5', n:'CUADRO UNIFAMILIAR', d:'Vivienda con protecciones eléctricas instaladas (solo unifamiliares)',           obl:false, video:false},
-  {id:'f6', n:'APP POTENCIA',       d:'Captura de pantalla APP con la potencia contratada por el cliente',             obl:true,  video:false},
-  {id:'f7', n:'APP CONTROL',        d:'Captura de pantalla APP con control de potencia dinámico activado',             obl:true,  video:false},
-  {id:'f8', n:'APP MENU',           d:'Captura de pantalla APP del menú principal de configuración e identificación',  obl:true,  video:false},
-  {id:'f9', n:'PICA DE TIERRA',     d:'Foto de la pica de tierra instalada con arqueta y tapa (si aplica)',            obl:false, video:false},
-  {id:'f10',n:'VIDEO RESUMEN',      d:'Vídeo final de la instalación mostrando la totalidad al detalle. Puedes adjuntar más de un vídeo.', obl:true, video:true},
+  {id:'f1',  n:'FRONTAL CARGADOR',         d:'Visible número de plaza (si aplica) y pegatina ESMOVE',                         obl:true,  video:false},
+  {id:'f2',  n:'NUM. SERIE Y MODELO',      d:'Legible el número de serie y modelo del cargador',                              obl:true,  video:false},
+  {id:'f3',  n:'INTERIOR CARGADOR',        d:'Protecciones, punteras eléctricas, crimpado UTP, limpieza interior',            obl:true,  video:false},
+  {id:'f4',  n:'UTP TESTER',               d:'Medición final — en instal. con medidor bidireccional, foto del cable con metraje', obl:true, video:false},
+  {id:'f5',  n:'CUADRO UNIFAMILIAR',       d:'Vivienda con protecciones eléctricas instaladas (solo unifamiliares)',           obl:false, video:false},
+  {id:'f6',  n:'APP POTENCIA',             d:'Captura de pantalla APP con la potencia contratada por el cliente',             obl:true,  video:false},
+  {id:'f7',  n:'APP CONTROL',              d:'Captura de pantalla APP con control de potencia dinámico activado',             obl:true,  video:false},
+  {id:'f8',  n:'APP MENU',                 d:'Captura de pantalla APP del menú principal de configuración e identificación',  obl:true,  video:false},
+  {id:'f9',  n:'PICA DE TIERRA',           d:'Foto de la pica de tierra instalada con arqueta y tapa (si aplica)',            obl:false, video:false},
+  {id:'f11', n:'BORNA DOBLE EN CONTADORES',d:'Foto de la borna doble instalada en contadores (uso interno Búfala)',           obl:false, video:false},
+  {id:'f10', n:'VIDEO RESUMEN',            d:'Vídeo final de la instalación mostrando la totalidad al detalle. Puedes adjuntar más de un vídeo.', obl:true, video:true},
 ];
+
+// ── DESPLAZAMIENTO FALLIDO → fotos opcionales ─────────────────
+function actualizarObligatoriedadFotos() {
+  const fallido = document.querySelector('input[name="desp"]:checked')?.value === 'si';
+  FOTOS.forEach(f => {
+    const zona = document.querySelector('#w'+f.id)?.closest('.fzona');
+    if (!zona) return;
+    const oblSpan = zona.querySelector('.obl');
+    if (oblSpan) oblSpan.style.display = fallido ? 'none' : '';
+    let skipBtn = document.getElementById('skipdf'+f.id);
+    if (fallido && f.obl && !f.video) {
+      if (!skipBtn) {
+        skipBtn = document.createElement('button');
+        skipBtn.className = 'skip-btn';
+        skipBtn.id = 'skipdf'+f.id;
+        skipBtn.textContent = 'No aplica en esta instalación';
+        skipBtn.onclick = function(){ skipFoto(f.id); };
+        zona.appendChild(skipBtn);
+      }
+    } else if (!fallido && skipBtn) {
+      skipBtn.remove();
+    }
+  });
+}
+document.querySelectorAll('input[name="desp"]').forEach(r => r.addEventListener('change', actualizarObligatoriedadFotos));
 
 const subidas = {};
 const zf = document.getElementById('zfotos');
@@ -447,8 +475,11 @@ function enviar() {
   if (!document.getElementById('sec-cable').value)           return alert('Selecciona la sección del cable (Sección 02).');
   if (!document.getElementById('m-linea').value || document.getElementById('m-linea').value == '0') return alert('Introduce los metros de línea eléctrica (Sección 02).');
   if (!H.h1 || !H.h2 || !H.h3) return alert('Debes marcar los 3 hitos del hardware como completados (Sección 05).');
-  for (const f of FOTOS.filter(x => x.obl)) {
-    if (!subidas[f.id] || !subidas[f.id].ok) return alert('Falta la foto obligatoria: "' + f.n + '" (Sección 07).');
+  const esFallido = document.querySelector('input[name="desp"]:checked')?.value === 'si';
+  if (!esFallido) {
+    for (const f of FOTOS.filter(x => x.obl)) {
+      if (!subidas[f.id] || !subidas[f.id].ok) return alert('Falta la foto obligatoria: "' + f.n + '" (Sección 07).');
+    }
   }
   if (!subidas['acta'] || !subidas['acta'].ok) return alert('Falta adjuntar la Hoja de Finalización de Obra en PDF (Sección 08).');
   for (let i = 1; i <= 9; i++) {
@@ -627,5 +658,6 @@ function fileToBase64(file) {
   });
 }
 </script>
+
 </body>
 </html>
