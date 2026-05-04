@@ -241,12 +241,12 @@
         <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Metros de línea eléctrica <span class="obl">*</span></span><button class="info-btn" onclick="tip('t-metros')">i</button></div>
         <span class="inombre-sub">Según lectura UTP Tester — se redondea al entero más próximo</span>
         <div class="tooltip" id="t-metros">ESMOVE abona exclusivamente los metros efectivamente instalados. En el primer tramo se cobran íntegros los primeros 10 metros. Redondeo: decimales ≤0,5 se redondea a la baja (12,4m=12m) · decimales ≥0,6 se redondea al alza (12,6m=13m). Antes de iniciar, si la medición difiere de la OT, paralizar e informar a ESMOVE. Metros no autorizados no serán abonados.</div></div>
-        <div class="ictrl"><input type="number" id="m-linea" min="0" step="1" placeholder="0" oninput="updWA()"><span class="iunit">m</span></div>
+        <div class="ictrl"><input type="number" id="m-linea" min="0" step="1" placeholder="0" oninput="autoUTP();updWA()"><span class="iunit">m</span></div>
       </div>
       <div class="imat">
         <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Cable UTP (datos)</span><button class="info-btn" onclick="tip('t-utp')">i</button></div>
         <div class="tooltip" id="t-utp">Cable UTP para comunicación del hardware. Se factura por metro efectivamente instalado. Normativa de sección ESMOVE — Monofásica: 6mm (1-40m), 10mm (41-90m), 16mm (91-140m), 25mm (141-215m). Trifásica: 6mm (1-80m), 10mm (81-140m), 16mm (141-215m). Tubo Ø32mm en todos los casos salvo trifásica 16mm que usa Ø40mm.</div></div>
-        <div class="ictrl"><input type="number" id="m-utp" min="0" step="1" placeholder="0" oninput="autoRJ()"><span class="iunit">m</span></div>
+        <div class="ictrl"><input type="number" id="m-utp" min="0" step="1" placeholder="0" oninput="this.dataset.editado='1';autoRJ()"><span class="iunit">m</span></div>
       </div>
       <div class="imat af">
         <div class="inombre-wrap"><div class="inombre-line"><span class="inombre-txt">Conector RJ45 <span class="atag">AUTO</span></span><button class="info-btn" onclick="tip('t-rj45')">i</button></div>
@@ -708,6 +708,19 @@ function tog(id) {
 }
 
 // ── AUTO RJ45 ────────────────────────────────────────────────
+// ── AUTO UTP Y RJ45 ──────────────────────────────────────────
+// Cuando el técnico escribe metros de línea, UTP se rellena igual (editable)
+function autoUTP() {
+  const mLinea = parseFloat(document.getElementById('m-linea').value) || 0;
+  const utpInput = document.getElementById('m-utp');
+  // Solo auto-rellenar si el técnico no ha tocado el campo manualmente
+  if (!utpInput.dataset.editado) {
+    utpInput.value = mLinea > 0 ? mLinea : '';
+    autoRJ();
+  }
+  updWA();
+}
+
 function autoRJ() {
   const v = parseFloat(document.getElementById('m-utp').value) || 0;
   document.getElementById('ud-rj45').value = v > 0 ? 2 : 0;
@@ -863,9 +876,9 @@ async function subirVideoSegundoPlano() {
     if (!input || !input.files || !input.files.length) return;
 
     for (let i = 0; i < input.files.length; i++) {
-      const file   = input.files[i];
-      const ext    = file.name.split('.').pop().toLowerCase();
-      const nombre = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
+      const file        = input.files[i];
+      const ext         = file.name.split('.').pop().toLowerCase();
+      const nombre      = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
       const totalTrozos = Math.ceil(file.size / CHUNK_SIZE);
 
       for (let t = 0; t < totalTrozos; t++) {
@@ -873,40 +886,41 @@ async function subirVideoSegundoPlano() {
         const end    = Math.min(start + CHUNK_SIZE, file.size);
         const trozo  = file.slice(start, end);
         const base64 = await fileToBase64(trozo);
+        const pct    = Math.round(((t+1) / totalTrozos) * 100);
 
-        const pct = Math.round(((t+1) / totalTrozos) * 100);
         if (indicador) indicador.textContent =
           '🎥 Subiendo vídeo' + (i>0?' '+(i+1):'') +
           (totalTrozos > 1 ? ' — parte ' + (t+1) + ' de ' + totalTrozos : '') +
           ' (' + pct + '%)';
 
-        await fetch(UPLOAD_URL, {
-          method: 'POST',
-          mode:   'no-cors',
-          body:   JSON.stringify({
-            esVideo:    true,
-            cliente:    cliP,
-            inst:       instP,
-            nombre:     nombre + '.' + ext,
-            trozo:      t,
-            totalTrozos:totalTrozos,
-            mime:       file.type,
-            data:       base64
-          })
-        });
+        await enviarXHR(JSON.stringify({
+          esVideo: true, cliente: cliP, inst: instP,
+          nombre: nombre + '.' + ext, trozo: t,
+          totalTrozos: totalTrozos, mime: file.type, data: base64
+        }));
 
-        // Pausa entre trozos para no saturar
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 800));
       }
     }
 
-    if (indicador) { indicador.textContent = '✅ Vídeo subido correctamente'; }
+    if (indicador) indicador.textContent = '✅ Vídeo subido correctamente';
     setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 5000);
 
   } catch(e) {
     console.error('Error subiendo vídeo:', e);
-    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Inténtalo de nuevo más tarde.';
+    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Inténtalo de nuevo.';
   }
+}
+
+// XMLHttpRequest evita interferencias de extensiones del navegador
+function enviarXHR(body) {
+  return new Promise(function(resolve) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', UPLOAD_URL, true);
+    xhr.onload  = function() { resolve(); };
+    xhr.onerror = function() { resolve(); }; // Continuar aunque falle un trozo
+    xhr.send(body);
+  });
 }
 
 
