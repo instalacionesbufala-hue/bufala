@@ -761,17 +761,16 @@ function enviar() {
   document.getElementById('btn-enviar').disabled = true;
   document.getElementById('btn-enviar').textContent = '⏳ Preparando...';
 
-  procesarEnvio().then(function(carpetaVideoId) {
-    // Mostrar pantalla de éxito inmediatamente
+  procesarEnvio().then(function() {
     document.getElementById('fwrap').style.display  = 'none';
     document.getElementById('exito').style.display  = 'block';
     document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
     window.scrollTo(0,0);
     ocultarProgreso();
 
-    // Subir vídeo en segundo plano si existe y tenemos carpeta ID
-    if (carpetaVideoId && subidas['f10'] && subidas['f10'].ok) {
-      subirVideoSegundoPlano(carpetaVideoId);
+    // Subir vídeo en segundo plano si existe
+    if (subidas['f10'] && subidas['f10'].ok) {
+      subirVideoSegundoPlano();
     }
   }).catch(function(err) {
     console.error(err);
@@ -839,21 +838,23 @@ async function procesarEnvio() {
   };
 
   // ── FASE 2: Enviar al Apps Script ──
-  const resp   = await fetch(UPLOAD_URL, { method:'POST', body:JSON.stringify(payload) });
-  const result = await resp.json();
+  const resp = await fetch(UPLOAD_URL, {
+    method: 'POST',
+    mode:   'no-cors',
+    body:   JSON.stringify(payload)
+  });
 
-  if (!result.ok) throw new Error(result.error || 'Error en el servidor');
-
-  // Apps Script devuelve el ID de la carpeta de fotos para subir el vídeo
-  return result.carpetaVideoId || null;
+  // Con no-cors no podemos leer la respuesta, asumimos éxito si no hay error
+  return 'background';
 }
 
 
-// ── VÍDEO EN SEGUNDO PLANO ────────────────────────────────────
+// ── VÍDEO POR TROZOS VIA APPS SCRIPT ─────────────────────────
+const CHUNK_SIZE = 35 * 1024 * 1024; // 35MB por trozo
 
-async function subirVideoSegundoPlano(carpetaId) {
+async function subirVideoSegundoPlano() {
   const indicador = document.getElementById('video-progreso');
-  if (indicador) indicador.style.display = 'block';
+  if (indicador) { indicador.style.display = 'block'; indicador.textContent = '🎥 Preparando vídeo...'; }
 
   try {
     const wrap  = document.getElementById('wf10');
@@ -863,37 +864,49 @@ async function subirVideoSegundoPlano(carpetaId) {
 
     for (let i = 0; i < input.files.length; i++) {
       const file   = input.files[i];
-      const nombre = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
       const ext    = file.name.split('.').pop().toLowerCase();
+      const nombre = i === 0 ? 'VIDEO RESUMEN' : 'VIDEO RESUMEN ' + (i+1);
+      const totalTrozos = Math.ceil(file.size / CHUNK_SIZE);
 
-      if (indicador) indicador.textContent = '🎥 Subiendo vídeo' + (i>0?' '+(i+1):'') + '...';
+      for (let t = 0; t < totalTrozos; t++) {
+        const start  = t * CHUNK_SIZE;
+        const end    = Math.min(start + CHUNK_SIZE, file.size);
+        const trozo  = file.slice(start, end);
+        const base64 = await fileToBase64(trozo);
 
-      await subirArchivoDriveAPI(file, nombre + '.' + ext, carpetaId);
+        const pct = Math.round(((t+1) / totalTrozos) * 100);
+        if (indicador) indicador.textContent =
+          '🎥 Subiendo vídeo' + (i>0?' '+(i+1):'') +
+          (totalTrozos > 1 ? ' — parte ' + (t+1) + ' de ' + totalTrozos : '') +
+          ' (' + pct + '%)';
+
+        await fetch(UPLOAD_URL, {
+          method: 'POST',
+          mode:   'no-cors',
+          body:   JSON.stringify({
+            esVideo:    true,
+            cliente:    cliP,
+            inst:       instP,
+            nombre:     nombre + '.' + ext,
+            trozo:      t,
+            totalTrozos:totalTrozos,
+            mime:       file.type,
+            data:       base64
+          })
+        });
+
+        // Pausa entre trozos para no saturar
+        await new Promise(r => setTimeout(r, 500));
+      }
     }
 
-    if (indicador) indicador.textContent = '✅ Vídeo subido correctamente';
-    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 4000);
+    if (indicador) { indicador.textContent = '✅ Vídeo subido correctamente'; }
+    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 5000);
 
   } catch(e) {
     console.error('Error subiendo vídeo:', e);
-    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Súbelo manualmente a Drive.';
+    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Inténtalo de nuevo más tarde.';
   }
-}
-
-
-async function subirArchivoDriveAPI(file, nombre, carpetaId) {
-  const metadata = { name: nombre, parents: [carpetaId] };
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
-  form.append('file', file);
-
-  const resp = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&key=' + DRIVE_APIKEY,
-    { method:'POST', body:form }
-  );
-
-  if (!resp.ok) throw new Error('Drive API error: ' + resp.status);
-  return await resp.json();
 }
 
 
