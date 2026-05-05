@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -260,8 +259,7 @@
     <button class="bcopiar" onclick="copiarWA()">📋 Copiar mensaje</button>
   </div></div>
 
-<button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
-
+  <button class="benviar" id="btn-enviar" onclick="enviar()">✓ Registrar cierre de obra</button>
   <div class="nota">Comprueba que todas las fotos, el vídeo y la Hoja de Finalización están adjuntos.<br>Una vez enviado, el registro queda guardado.</div>
 </div>
 
@@ -284,8 +282,11 @@
     Cierre registrado y archivos subidos correctamente.<br><br>
     <strong>⚠ Recuerda:</strong> Envía el mensaje de WhatsApp al grupo de ESMOVE.
   </div>
-  <div id="video-progreso" style="display:none;margin-top:14px;background:#1a1a1a;border:1px solid var(--vc);border-radius:10px;padding:12px 16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--vc);text-align:center;">
-    🎥 Subiendo vídeo en segundo plano...
+  <div id="video-progreso" style="display:none;margin-top:14px;background:#1a1a1a;border:1px solid var(--vc);border-radius:10px;padding:12px 16px;">
+    <div id="vprog-txt" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--vc);text-align:center;margin-bottom:8px;">🎥 Subiendo vídeo...</div>
+    <div style="background:#111;border-radius:20px;height:6px;overflow:hidden;">
+      <div id="vprog-barra" style="height:100%;background:linear-gradient(90deg,var(--verde),var(--vc));border-radius:20px;width:0%;transition:width 0.25s ease;"></div>
+    </div>
   </div>
 </div>
 
@@ -487,13 +488,13 @@ function enviar() {
   }
   document.getElementById('btn-enviar').disabled = true;
   document.getElementById('btn-enviar').textContent = '⏳ Preparando...';
-  procesarEnvio().then(function() {
+  procesarEnvio().then(function(resp) {
     document.getElementById('fwrap').style.display = 'none';
     document.getElementById('exito').style.display = 'block';
     document.getElementById('exito-eq').textContent = eq.n + ' · ' + fLarga + ' · ' + hora;
     window.scrollTo(0,0);
     ocultarProgreso();
-    if (subidas['f10'] && subidas['f10'].ok) subirVideoSegundoPlano();
+    if (subidas['f10'] && subidas['f10'].ok) subirVideoSegundoPlano(resp && resp.carpetaFotosId);
   }).catch(function(err) {
     console.error(err);
     document.getElementById('btn-enviar').disabled = false;
@@ -560,80 +561,100 @@ async function procesarEnvio() {
   return new Promise(function(resolve, reject) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', UPLOAD_URL, true);
-    xhr.onload  = function() { resolve(); };
+    xhr.onload = function() {
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e) { resolve({ ok: true }); }
+    };
     xhr.onerror = function() { reject(new Error('Error de red')); };
     xhr.send(JSON.stringify(payload));
   });
 }
 
-// ── VÍDEO POR TROZOS ─────────────────────────────────────────
-// 4MB raw → ~5.3MB base64 → muy por debajo del límite de Apps Script (50MB)
-// Cada trozo se guarda como archivo Drive independiente (sin ensamblaje en memoria)
-const CHUNK_SIZE = 4 * 1024 * 1024;
+// ── VÍDEO — SUBIDA DIRECTA A DRIVE ───────────────────────────
+// Apps Script genera una URL de sesión resumable con su propio OAuth.
+// El navegador sube el archivo directo a Google Drive, sin límite de tamaño.
+// El técnico nunca tiene acceso a Drive.
 
-async function subirVideoSegundoPlano() {
+async function subirVideoSegundoPlano(carpetaFotosId) {
   const indicador = document.getElementById('video-progreso');
-  if (indicador) { indicador.style.display = 'block'; indicador.textContent = '🎥 Preparando vídeo...'; }
+  const txt       = document.getElementById('vprog-txt');
+  const barra     = document.getElementById('vprog-barra');
 
-  try {
-    const wrap  = document.getElementById('wf10');
-    if (!wrap) return;
-    const input = wrap.querySelector('input[type="file"]');
-    if (!input || !input.files || !input.files.length) return;
+  const wrap  = document.getElementById('wf10');
+  if (!wrap) return;
+  const input = wrap.querySelector('input[type="file"]');
+  if (!input || !input.files || !input.files.length) return;
 
-    for (let i = 0; i < input.files.length; i++) {
-      const file        = input.files[i];
-      const ext         = file.name.split('.').pop().toLowerCase();
-      const nombre      = i === 0 ? 'VIDEO RESUMEN.' + ext : 'VIDEO RESUMEN ' + (i+1) + '.' + ext;
-      const totalTrozos = Math.ceil(file.size / CHUNK_SIZE);
+  indicador.style.display = 'block';
 
-      for (let t = 0; t < totalTrozos; t++) {
-        const start  = t * CHUNK_SIZE;
-        const end    = Math.min(start + CHUNK_SIZE, file.size);
-        const trozo  = file.slice(start, end);
-        const base64 = await fileToBase64(trozo);
-        const pct    = Math.round(((t+1) / totalTrozos) * 100);
+  if (!carpetaFotosId) {
+    txt.textContent = '⚠️ No se pudo obtener carpeta destino. Sube el vídeo manualmente a Drive.';
+    return;
+  }
 
-        if (indicador) indicador.textContent =
-          '🎥 ' + (i > 0 ? 'Vídeo '+(i+1) : 'Vídeo') +
-          (totalTrozos > 1 ? ' — parte ' + (t+1) + ' de ' + totalTrozos : '') +
-          ' (' + pct + '%)';
+  for (let i = 0; i < input.files.length; i++) {
+    const file  = input.files[i];
+    const ext   = (file.name.split('.').pop() || 'mp4').toLowerCase();
+    const nombre = i === 0 ? 'VIDEO RESUMEN.' + ext : 'VIDEO RESUMEN ' + (i + 1) + '.' + ext;
+    const label  = input.files.length > 1 ? 'Vídeo ' + (i + 1) + ' de ' + input.files.length : 'Vídeo';
 
-        // 3 intentos por trozo para mayor fiabilidad
-        let enviado = false;
-        for (let intento = 0; intento < 3 && !enviado; intento++) {
-          enviado = await enviarXHR(JSON.stringify({
-            esVideo:true, cliente:cliP, inst:instP,
-            nombre:nombre, trozo:t, totalTrozos:totalTrozos,
-            mime:file.type, data:base64
-          }));
-          if (!enviado) await new Promise(r => setTimeout(r, 2000));
-        }
+    // 1. Solicitar URL de subida al script (usa OAuth de la cuenta Búfala)
+    txt.textContent = '🎥 ' + label + ' — preparando...';
+    barra.style.width = '0%';
 
-        await new Promise(r => setTimeout(r, 1000)); // pausa entre trozos
-      }
+    const resp = await llamarScript({
+      accion:    'getVideoUrl',
+      carpetaId: carpetaFotosId,
+      nombre:    nombre,
+      mime:      file.type || 'video/mp4'
+    });
+
+    if (!resp || !resp.uploadUrl) {
+      txt.textContent = '⚠️ Error al preparar la subida. Inténtalo de nuevo.';
+      continue;
     }
 
-    if (indicador) indicador.textContent = '✅ Vídeo subido correctamente';
-    setTimeout(() => { if (indicador) indicador.style.display = 'none'; }, 6000);
+    // 2. Subir archivo directo a Google Drive con progreso real
+    await new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', resp.uploadUrl, true);
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.timeout = 0; // sin límite — los vídeos pueden ser grandes
 
-  } catch(e) {
-    console.error('Error subiendo vídeo:', e);
-    if (indicador) indicador.textContent = '⚠️ Error al subir el vídeo. Inténtalo de nuevo.';
+      xhr.upload.onprogress = function(e) {
+        if (!e.lengthComputable) return;
+        const p = Math.round((e.loaded / e.total) * 100);
+        txt.textContent   = '🎥 ' + label + ' — ' + p + '%';
+        barra.style.width = p + '%';
+      };
+
+      xhr.onload    = function() { resolve(); };
+      xhr.onerror   = function() {
+        txt.textContent = '⚠️ Error de red al subir ' + label.toLowerCase() + '.';
+        resolve();
+      };
+      xhr.send(file);
+    });
   }
+
+  txt.textContent   = '✅ Vídeo subido correctamente';
+  barra.style.width = '100%';
+  setTimeout(() => { indicador.style.display = 'none'; }, 8000);
 }
 
-// XHR evita interferencias de extensiones del navegador
-// Devuelve true si el envío fue exitoso
-function enviarXHR(body) {
+// Llama al script y devuelve el JSON de respuesta (o null si falla)
+function llamarScript(datos) {
   return new Promise(function(resolve) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', UPLOAD_URL, true);
-    xhr.timeout = 60000; // 60s timeout por trozo
-    xhr.onload    = function() { resolve(true); };
-    xhr.onerror   = function() { resolve(false); };
-    xhr.ontimeout = function() { resolve(false); };
-    xhr.send(body);
+    xhr.timeout = 30000;
+    xhr.onload    = function() {
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e) { resolve(null); }
+    };
+    xhr.onerror   = function() { resolve(null); };
+    xhr.ontimeout = function() { resolve(null); };
+    xhr.send(JSON.stringify(datos));
   });
 }
 
@@ -658,6 +679,5 @@ function fileToBase64(file) {
   });
 }
 </script>
-
 </body>
 </html>
