@@ -587,49 +587,62 @@ async function subirVideoSegundoPlano(carpetaFotosId) {
 
   indicador.style.display = 'block';
 
-  if (!carpetaFotosId) {
-    txt.textContent = '⚠️ No se pudo obtener carpeta destino. Sube el vídeo manualmente a Drive.';
-    return;
-  }
-
   for (let i = 0; i < input.files.length; i++) {
-    const file  = input.files[i];
-    const ext   = (file.name.split('.').pop() || 'mp4').toLowerCase();
+    const file   = input.files[i];
+    const ext    = (file.name.split('.').pop() || 'mp4').toLowerCase();
     const nombre = i === 0 ? 'VIDEO RESUMEN.' + ext : 'VIDEO RESUMEN ' + (i + 1) + '.' + ext;
     const label  = input.files.length > 1 ? 'Vídeo ' + (i + 1) + ' de ' + input.files.length : 'Vídeo';
 
-    // 1. Solicitar URL de subida al script (usa OAuth de la cuenta Búfala)
-    txt.textContent = '🎥 ' + label + ' — preparando...';
-    barra.style.width = '0%';
+    // 1. Solicitar URL de subida al script
+    txt.textContent   = '🎥 ' + label + ' — preparando subida...';
+    barra.style.width = '5%';
 
-    const resp = await llamarScript({
-      accion:    'getVideoUrl',
-      carpetaId: carpetaFotosId,
-      nombre:    nombre,
-      mime:      file.type || 'video/mp4'
-    });
+    const peticion = {
+      accion:  'getVideoUrl',
+      nombre:  nombre,
+      mime:    file.type || 'video/mp4',
+      cliente: cliP  // fallback: el script busca la carpeta por cliente
+    };
+    if (carpetaFotosId) peticion.carpetaId = carpetaFotosId;
 
-    if (!resp || !resp.uploadUrl) {
-      txt.textContent = '⚠️ Error al preparar la subida. Inténtalo de nuevo.';
+    const resp = await llamarScript(peticion);
+
+    if (!resp) {
+      txt.textContent = '⚠️ Sin respuesta del servidor. Comprueba que el script está reimplementado.';
+      barra.style.width = '0%';
+      continue;
+    }
+    if (!resp.uploadUrl) {
+      txt.textContent = '⚠️ Error del servidor: ' + (resp.error || 'no se generó URL de subida');
+      barra.style.width = '0%';
       continue;
     }
 
-    // 2. Subir archivo directo a Google Drive con progreso real
+    // 2. Subir directo a Google Drive con progreso real
+    barra.style.width = '10%';
     await new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', resp.uploadUrl, true);
       xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-      xhr.timeout = 0; // sin límite — los vídeos pueden ser grandes
+      xhr.timeout = 0;
 
       xhr.upload.onprogress = function(e) {
         if (!e.lengthComputable) return;
-        const p = Math.round((e.loaded / e.total) * 100);
+        const p = Math.round(10 + (e.loaded / e.total) * 90);
         txt.textContent   = '🎥 ' + label + ' — ' + p + '%';
         barra.style.width = p + '%';
       };
 
-      xhr.onload    = function() { resolve(); };
-      xhr.onerror   = function() {
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          txt.textContent   = '✅ ' + label + ' subido correctamente';
+          barra.style.width = '100%';
+        } else {
+          txt.textContent = '⚠️ Error al subir ' + label + ' (HTTP ' + xhr.status + ')';
+        }
+        resolve();
+      };
+      xhr.onerror = function() {
         txt.textContent = '⚠️ Error de red al subir ' + label.toLowerCase() + '.';
         resolve();
       };
@@ -637,9 +650,7 @@ async function subirVideoSegundoPlano(carpetaFotosId) {
     });
   }
 
-  txt.textContent   = '✅ Vídeo subido correctamente';
-  barra.style.width = '100%';
-  setTimeout(() => { indicador.style.display = 'none'; }, 8000);
+  setTimeout(() => { indicador.style.display = 'none'; }, 10000);
 }
 
 // Llama al script y devuelve el JSON de respuesta (o null si falla)
@@ -647,13 +658,18 @@ function llamarScript(datos) {
   return new Promise(function(resolve) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', UPLOAD_URL, true);
-    xhr.timeout = 30000;
-    xhr.onload    = function() {
-      try { resolve(JSON.parse(xhr.responseText)); }
-      catch(e) { resolve(null); }
+    xhr.timeout = 45000; // 45s — el script necesita tiempo para generar la URL
+    xhr.onload = function() {
+      try {
+        resolve(JSON.parse(xhr.responseText));
+      } catch(e) {
+        // Respuesta no JSON — probablemente HTML de error de Apps Script
+        console.error('Respuesta no JSON del script:', xhr.responseText.substring(0, 300));
+        resolve(null);
+      }
     };
-    xhr.onerror   = function() { resolve(null); };
-    xhr.ontimeout = function() { resolve(null); };
+    xhr.onerror   = function() { console.error('Error de red llamarScript'); resolve(null); };
+    xhr.ontimeout = function() { console.error('Timeout llamarScript (45s)'); resolve(null); };
     xhr.send(JSON.stringify(datos));
   });
 }
