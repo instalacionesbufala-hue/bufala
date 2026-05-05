@@ -565,20 +565,34 @@ async function procesarEnvio() {
   };
 
   return new Promise(function(resolve, reject) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', UPLOAD_URL, true);
-    xhr.onload = function() {
-      try {
-        var resp = JSON.parse(xhr.responseText);
-        if (resp.ok === false) {
-          reject(new Error(resp.error || 'Error del servidor'));
+    var intentos = 0;
+    function enviar() {
+      intentos++;
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', UPLOAD_URL, true);
+      xhr.timeout = 60000;
+      xhr.onload = function() {
+        try {
+          var resp = JSON.parse(xhr.responseText);
+          if (resp.ok === false) {
+            reject(new Error(resp.error || 'Error del servidor'));
+          } else {
+            resolve(resp);
+          }
+        } catch(e) { resolve({ ok: true }); }
+      };
+      xhr.onerror = function() {
+        if (intentos < 3) {
+          console.warn('Reintentando envío (' + intentos + '/3)...');
+          setTimeout(enviar, 2000);
         } else {
-          resolve(resp);
+          reject(new Error('Error de red tras 3 intentos'));
         }
-      } catch(e) { resolve({ ok: true }); }
-    };
-    xhr.onerror = function() { reject(new Error('Error de red')); };
-    xhr.send(JSON.stringify(payload));
+      };
+      xhr.ontimeout = function() { reject(new Error('Timeout — sin respuesta del servidor')); };
+      xhr.send(JSON.stringify(payload));
+    }
+    enviar();
   });
 }
 
