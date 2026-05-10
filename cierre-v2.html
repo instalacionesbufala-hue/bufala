@@ -673,6 +673,14 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   </div>
 </div>
 
+<!-- Iframe + formulario para POST robusto sin CORS -->
+<iframe name="bufalaPostFrame" id="bufalaPostFrame" style="display:none"></iframe>
+<form id="bufalaPostForm" target="bufalaPostFrame" method="POST"
+      action="https://script.google.com/macros/s/AKfycbwnPgzph0Njm9zsrT_cBNcP50mdqJFl8RPTOFaXuG0JK0zGbO2Gl4i37y9cNrJ2LcVlVw/exec"
+      style="display:none">
+  <input type="hidden" name="payload" id="bufalaPostPayload">
+</form>
+
 <script>
 // ═══════════════════════════════════════════════════════════════
 // CONFIGURACIÓN
@@ -1499,21 +1507,24 @@ async function submitClosure(esFallida){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// POST AL APPS SCRIPT (con mode no-cors)
+// POST AL APPS SCRIPT (formulario + iframe oculto, sin CORS)
 // ═══════════════════════════════════════════════════════════════
 function postCierre(datos){
   return new Promise((resolve, reject) => {
-    fetch(WEB_APP_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' }, // text/plain para evitar preflight
-      body: JSON.stringify(datos)
-    })
-    .then(() => resolve())  // no-cors no permite leer respuesta, asumimos éxito
-    .catch(err => reject(err));
+    try {
+      const payloadStr = JSON.stringify(datos);
+      // Comprobar tamaño aproximado (límite ~10MB para form post seguro)
+      if (payloadStr.length > 10 * 1024 * 1024){
+        console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
+      }
+      document.getElementById('bufalaPostPayload').value = payloadStr;
+      document.getElementById('bufalaPostForm').submit();
 
-    // Timeout de seguridad: 60 segundos
-    setTimeout(() => resolve(), 60000);
+      // Asumimos éxito a los 5 segundos (el iframe absorbe la respuesta del script)
+      setTimeout(() => resolve(), 5000);
+    } catch(err){
+      reject(err);
+    }
   });
 }
 
