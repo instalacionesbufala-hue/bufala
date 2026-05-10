@@ -361,7 +361,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     </button>
     <button type="button" class="type-btn" onclick="selectType('unifamiliar')" id="btnUnifamiliar">
       <span class="type-icon">🏠</span>
-      <div>Unifamiliar<div class="type-desc">Vivienda particular · Mínimo 15m facturables</div></div>
+      <div>Unifamiliar<div class="type-desc">Vivienda particular con cuadro propio</div></div>
     </button>
     <button type="button" class="type-btn type-btn-fail" onclick="selectType('fallida')" id="btnFallida">
       <span class="type-icon">❌</span>
@@ -406,12 +406,11 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <label class="label">Tipo de línea
       <button type="button" class="info-btn" onclick="toggleTip(event,'tipoLinea')">i</button>
     </label>
-    <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional. Para unifamiliar siempre se factura como manguera.</div>
+    <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional.</div>
     <div class="pills">
       <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')">🔌 Bajo tubo PVC</div>
       <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')">🧵 Manguera</div>
     </div>
-    <div class="hint" id="unifamHint" style="display:none">⚠️ Unifamiliar: se factura como manguera mínimo 15m</div>
   </div>
 
   <div class="field">
@@ -452,7 +451,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <label class="label">Metros de línea instalados
       <button type="button" class="info-btn" onclick="toggleTip(event,'metros')">i</button>
     </label>
-    <div class="tooltip" id="tip-metros">Metros lineales de cable instalado desde el cuadro hasta el punto de recarga. En unifamiliar mínimo 15 metros.</div>
+    <div class="tooltip" id="tip-metros">Metros lineales de cable instalado desde el cuadro hasta el punto de recarga.</div>
     <input type="number" class="input" id="metrosLinea" placeholder="0" oninput="autoUtp()">
   </div>
 
@@ -645,9 +644,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
       <div>No cierres esta pantalla hasta que aparezca <strong>"Todo subido"</strong>.</div>
     </div>
 
-    <div id="doneActions" style="display:none; margin-top:20px">
-      <button type="button" class="nav-btn nav-btn-next" onclick="nuevoCierre()">Nuevo cierre</button>
-    </div>
+    <div id="doneActions" style="display:none; margin-top:20px"></div>
   </div>
 </section>
 
@@ -687,7 +684,9 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 // ═══════════════════════════════════════════════════════════════
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwnPgzph0Njm9zsrT_cBNcP50mdqJFl8RPTOFaXuG0JK0zGbO2Gl4i37y9cNrJ2LcVlVw/exec';
 const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
-const VIDEO_RESUMABLE_THRESHOLD = 8 * 1024 * 1024; // 8 MB
+const VIDEO_MAX_SIZE = 25 * 1024 * 1024; // 25 MB máximo por vídeo
+const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
+const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
 
 // ═══════════════════════════════════════════════════════════════
 // DATOS Y ESTADO
@@ -914,6 +913,11 @@ function showScreen(num){
   if (num === 7) applyBornasAuto();
   if (num === 12) updateSummary();
 
+  // Ocultar indicador de subida en pantalla final o fallida
+  if (num === 'done' || num === 'failed'){
+    document.getElementById('uploadIndicator').classList.remove('active');
+  }
+
   // Botón admin: ocultar en pantallas done/failed
   document.getElementById('adminTrigger').style.display =
     (num === 1 && !state.isSuper) ? 'flex' : 'none';
@@ -1010,7 +1014,6 @@ function selectType(t){
 
   if (t === 'fallida'){ setTimeout(() => showScreen('failed'), 200); return; }
 
-  document.getElementById('unifamHint').style.display = (t === 'unifamiliar') ? 'block' : 'none';
   document.getElementById('bornasMsg').style.display = (t === 'comunitaria') ? 'flex' : 'none';
   document.getElementById('bornasSection').style.display = (t === 'comunitaria') ? 'block' : 'none';
 
@@ -1326,6 +1329,43 @@ function recolectarDatos(esFallida){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// COMPRESIÓN DE IMÁGENES (canvas + toBlob)
+// ═══════════════════════════════════════════════════════════════
+function compressImage(file, maxDim, quality){
+  maxDim = maxDim || PHOTO_MAX_DIMENSION;
+  quality = quality || PHOTO_QUALITY;
+  return new Promise((resolve, reject) => {
+    // Si no es imagen, devolver tal cual
+    if (!file.type || !file.type.startsWith('image/')) {
+      resolve(file); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (!blob){ resolve(file); return; } // fallback
+          // Si la compresión hace el archivo más grande (raro), devolver el original
+          if (blob.size >= file.size){ resolve(file); return; }
+          resolve(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // FILE → BASE64
 // ═══════════════════════════════════════════════════════════════
 function fileToBase64(file){
@@ -1342,164 +1382,131 @@ function fileToBase64(file){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SUBIR VÍDEO POR URL RESUMABLE (vídeos grandes)
+// VALIDAR TAMAÑO DE VÍDEOS
 // ═══════════════════════════════════════════════════════════════
-async function subirVideoResumable(videoData, cliente, onProgress){
-  // 1. GET al Apps Script para obtener URL resumable
-  const url = WEB_APP_URL + '?action=getVideoUploadUrl&cliente=' +
-    encodeURIComponent(cliente) + '&nombre=' + encodeURIComponent(videoData.name);
-
-  let uploadUrl;
-  try {
-    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
-    const json = await resp.json();
-    if (!json.ok) throw new Error(json.error || 'No se obtuvo URL resumable');
-    uploadUrl = json.uploadUrl;
-  } catch (err) {
-    throw new Error('Error obteniendo URL resumable: ' + err.message);
+function validarTamanoVideos(){
+  const todos = state.videos.concat(state.videosFallida);
+  const grandes = todos.filter(v => v.file.size > VIDEO_MAX_SIZE);
+  if (grandes.length > 0){
+    const nombres = grandes.map(v => v.name + ' (' + (v.file.size/1024/1024).toFixed(1) + ' MB)').join(', ');
+    return 'Vídeo(s) demasiado grande(s) (límite: ' + (VIDEO_MAX_SIZE/1024/1024) + ' MB):\n' + nombres +
+      '\n\nReduce la duración del vídeo o usa una calidad menor en la cámara del móvil.';
   }
-
-  // 2. PUT del blob a la URL resumable
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', uploadUrl, true);
-    xhr.setRequestHeader('Content-Type', videoData.file.type || 'video/mp4');
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress){
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error('PUT falló: ' + xhr.status + ' ' + xhr.responseText));
-    };
-
-    xhr.onerror = () => reject(new Error('Error de red durante PUT'));
-
-    xhr.send(videoData.file);
-  });
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // ENVÍO PRINCIPAL DEL CIERRE
 // ═══════════════════════════════════════════════════════════════
 async function submitClosure(esFallida){
+  // Validar vídeos antes
+  const errVideo = validarTamanoVideos();
+  if (errVideo){
+    alert('⚠️ ' + errVideo);
+    return;
+  }
+
   // Recolectar datos
   const datos = recolectarDatos(esFallida);
 
-  // Pasar a pantalla de éxito (con progreso)
+  // Pasar a pantalla de éxito
   showScreen('done');
   document.getElementById('doneIcon').textContent = '⏳';
-  document.getElementById('doneTitle').textContent = 'Enviando cierre...';
+  document.getElementById('doneTitle').textContent = 'Procesando archivos...';
+  document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
   document.getElementById('dataPct').textContent = '0%';
   document.getElementById('dataBar').style.width = '0%';
   document.getElementById('vidPct').textContent = '—';
   document.getElementById('vidBar').style.width = '0%';
 
   try {
-    // ── 1. Convertir fotos a base64 ──
+    // ── 1. Comprimir y convertir fotos ──
     if (!esFallida && !state.isSuper){
       const fotosArr = [];
-      for (const num of Object.keys(state.photos)){
+      const fotoKeys = Object.keys(state.photos);
+      let i = 0;
+      for (const num of fotoKeys){
         const ph = state.photos[num];
-        const b64 = await fileToBase64(ph.file);
+        document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + fotoKeys.length + '...';
+        const compressed = await compressImage(ph.file);
+        const b64 = await fileToBase64(compressed);
         fotosArr.push({ nombre: ph.name, base64: b64.base64, contentType: b64.contentType });
+        i++;
+        const pct = Math.round((i / Math.max(fotoKeys.length, 1)) * 30); // hasta 30%
+        document.getElementById('dataPct').textContent = pct + '%';
+        document.getElementById('dataBar').style.width = pct + '%';
       }
       datos.fotos = fotosArr;
     }
 
-    // ── 2. Convertir acta PDF a base64 ──
+    // ── 2. Acta PDF ──
     if (!esFallida && !state.isSuper && state.pdfActa){
+      document.getElementById('doneText').textContent = 'Procesando acta PDF...';
       const b64 = await fileToBase64(state.pdfActa.file);
       datos.acta = { nombre: state.pdfActa.name, base64: b64.base64 };
+      document.getElementById('dataPct').textContent = '40%';
+      document.getElementById('dataBar').style.width = '40%';
     }
 
-    // ── 3. Vídeos pequeños: base64. Vídeos grandes: URL resumable ──
-    const videosArr = [];
-    const videosGrandes = [];
-
+    // ── 3. Vídeos (todos como base64, ya validado tamaño) ──
     if (!esFallida && !state.isSuper){
+      const videosArr = [];
+      let i = 0;
       for (const v of state.videos){
-        if (v.file.size <= VIDEO_RESUMABLE_THRESHOLD){
-          const b64 = await fileToBase64(v.file);
-          videosArr.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
-        } else {
-          videosGrandes.push(v);
-        }
+        document.getElementById('doneText').textContent = 'Procesando vídeo ' + (i+1) + '/' + state.videos.length + '...';
+        const b64 = await fileToBase64(v.file);
+        videosArr.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
+        i++;
       }
       datos.videos = videosArr;
     }
 
-    // ── 4. Fotos/vídeos de fallida ──
+    // ── 4. Fallida (fotos y vídeos en INCIDENCIAS) ──
     if (esFallida){
       const fotosF = [];
+      let i = 0;
       for (const f of state.fotosFallida){
-        const b64 = await fileToBase64(f.file);
+        document.getElementById('doneText').textContent = 'Procesando archivo ' + (i+1) + '...';
+        const compressed = await compressImage(f.file);
+        const b64 = await fileToBase64(compressed);
         fotosF.push({ nombre: f.name, base64: b64.base64, contentType: b64.contentType });
+        i++;
       }
       datos.fotosFallida = fotosF;
 
       const vidsF = [];
       for (const v of state.videosFallida){
-        if (v.file.size <= VIDEO_RESUMABLE_THRESHOLD){
-          const b64 = await fileToBase64(v.file);
-          vidsF.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
-        } else {
-          videosGrandes.push(v);
-        }
+        const b64 = await fileToBase64(v.file);
+        vidsF.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
       }
       datos.videosFallida = vidsF;
     }
 
-    // ── 5. POST principal con todos los datos ──
-    document.getElementById('dataPct').textContent = '50%';
-    document.getElementById('dataBar').style.width = '50%';
+    // ── 5. POST único con todos los datos ──
+    document.getElementById('doneText').textContent = 'Enviando al sistema Búfala...';
+    document.getElementById('dataPct').textContent = '70%';
+    document.getElementById('dataBar').style.width = '70%';
 
     await postCierre(datos);
 
+    // El iframe absorbe la respuesta. Asumimos OK tras el timeout interno de postCierre.
     document.getElementById('dataPct').textContent = '100%';
     document.getElementById('dataBar').style.width = '100%';
-
-    // ── 6. Subir vídeos grandes por URL resumable ──
-    if (videosGrandes.length > 0){
-      document.getElementById('vidPct').textContent = '0%';
-      const cliente = datos.cliente;
-
-      for (let i = 0; i < videosGrandes.length; i++){
-        const v = videosGrandes[i];
-        try {
-          await subirVideoResumable(v, cliente, (pct) => {
-            const overallPct = Math.round((i * 100 + pct) / videosGrandes.length);
-            document.getElementById('vidPct').textContent = overallPct + '%';
-            document.getElementById('vidBar').style.width = overallPct + '%';
-          });
-        } catch (err){
-          console.error('Error vídeo grande:', err);
-          alert('Error subiendo vídeo grande: ' + v.name + '\n' + err.message + '\n\nLos datos ya están registrados. Puedes reintentar la subida del vídeo más tarde.');
-        }
-      }
-
-      document.getElementById('vidPct').textContent = '100%';
-      document.getElementById('vidBar').style.width = '100%';
-    } else {
-      document.getElementById('vidPct').textContent = videosArr.length > 0 ? '100%' : '—';
-      document.getElementById('vidBar').style.width = videosArr.length > 0 ? '100%' : '0%';
-    }
+    document.getElementById('vidPct').textContent = (datos.videos && datos.videos.length) ? '100%' : '—';
+    document.getElementById('vidBar').style.width = (datos.videos && datos.videos.length) ? '100%' : '0%';
 
     // ── ÉXITO ──
     document.getElementById('doneIcon').textContent = '✅';
     document.getElementById('doneTitle').textContent = 'Cierre enviado correctamente';
     document.getElementById('doneText').innerHTML = 'Todo subido. Ya puedes cerrar la app.';
     document.getElementById('doneWarning').style.display = 'none';
-    document.getElementById('doneActions').style.display = 'block';
+    // doneActions queda oculto — para evitar errores el técnico debe abrir un nuevo cierre desde el calendario
 
   } catch (err){
     console.error('Error en submitClosure:', err);
     document.getElementById('doneIcon').textContent = '❌';
     document.getElementById('doneTitle').textContent = 'Error al enviar';
-    document.getElementById('doneText').textContent = err.message + '\n\nPuedes reintentar pulsando Atrás y volviendo a enviar.';
+    document.getElementById('doneText').textContent = err.message + '\n\nPuedes reintentar pulsando el botón.';
     document.getElementById('doneActions').style.display = 'block';
     document.getElementById('doneActions').innerHTML =
       '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
