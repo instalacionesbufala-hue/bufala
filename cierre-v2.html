@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Búfala Tech — Cierre de Obra</title>
+<style>
+:root{
+  --bg:#fafaf9; --bg-card:#fff; --bg-elevated:#fff; --border:#e7e5e4;
+  --text:#0c0a09; --text-muted:#78716c; --accent:#2d6a4f; --accent-hover:#1b4332;
+  --accent-light:#e8f3ed; --danger:#dc2626; --warning:#d97706; --success:#16a34a;
+  --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh;
+  -webkit-font-smoothing:antialiased; touch-action:manipulation;
+}
+button{font-family:inherit; -webkit-tap-highlight-color:transparent}
+input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
+
+.header{
+  position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border);
+  padding:10px 16px; display:flex; justify-content:space-between; align-items:center;
+  z-index:100;
+}
+.logo{display:flex; align-items:center; gap:10px}
+.logo-svg{width:32px; height:32px; color:#0c0a09}
+.logo-text{font-weight:700; letter-spacing:-.3px; font-size:15px}
+.logo-text span{font-weight:300; opacity:.7}
+.super-tag{
+  background:#fef3c7; color:#92400e; padding:4px 10px;
+  border-radius:6px; font-size:11px; font-weight:700; display:none;
+}
+.super-tag.active{display:inline-block}
+
+.steps{
+  display:flex; gap:3px; padding:8px 16px; background:var(--bg);
+  border-bottom:1px solid var(--border); overflow-x:auto;
+}
+.steps::-webkit-scrollbar{display:none}
+.step-dot{
+  width:24px; height:24px; border-radius:50%; background:var(--border);
+  color:var(--text-muted); font-size:11px; font-weight:600; display:flex;
+  align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;
+}
+.step-dot.active{background:var(--accent); color:white}
+.step-dot.completed{background:var(--success); color:white}
+
+.progress-container{padding:8px 16px; background:var(--bg); border-bottom:1px solid var(--border)}
+.progress-info{display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:6px}
+.progress-bar{width:100%; height:3px; background:var(--border); border-radius:2px; overflow:hidden}
+.progress-fill{height:100%; background:var(--accent); transition:width .3s; border-radius:2px}
+
+.upload-indicator{
+  position:fixed; top:64px; right:12px; background:var(--bg-elevated);
+  border:1px solid var(--border); border-radius:8px; padding:6px 10px;
+  font-size:11px; box-shadow:var(--shadow); display:none; align-items:center; gap:6px;
+  z-index:90; max-width:220px;
+}
+.upload-indicator.active{display:flex}
+.spinner{
+  width:10px; height:10px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite;
+  flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.main{padding:20px 16px 110px; max-width:560px; margin:0 auto}
+
+.screen{display:none; animation:fadeIn .25s ease}
+.screen.active{display:block}
+@keyframes fadeIn{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+
+.title{font-size:22px; font-weight:700; margin-bottom:4px; letter-spacing:-.5px}
+.subtitle{font-size:14px; color:var(--text-muted); margin-bottom:24px}
+
+.card{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:16px; margin-bottom:16px;
+}
+.row{display:flex; justify-content:space-between; padding:8px 0; font-size:14px; gap:8px}
+.row + .row{border-top:1px solid var(--border)}
+.row-label{color:var(--text-muted)}
+.row-value{font-weight:600; text-align:right}
+
+.info-btn{
+  width:26px; height:26px; border-radius:50%; background:var(--accent);
+  border:none; color:#fff;
+  font-size:14px; font-weight:700; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  flex-shrink:0; line-height:1; padding:0; margin-left:8px;
+  font-family:Georgia,"Times New Roman",serif; font-style:italic;
+  transition:transform .15s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.info-btn:active{transform:scale(.92)}
+.tooltip{
+  display:none; background:#0c0a09; color:#fafaf9; padding:12px 14px;
+  border-radius:8px; font-size:13px; line-height:1.55; margin:8px 0;
+  font-weight:400; box-shadow:0 4px 12px rgba(0,0,0,.15);
+  border-left:3px solid var(--accent); animation:tipIn .2s ease;
+}
+.tooltip.active{display:block}
+@keyframes tipIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
+
+.type-grid{display:flex; flex-direction:column; gap:10px}
+.type-btn{
+  background:var(--bg-card); border:2px solid var(--border); color:var(--text);
+  padding:18px 16px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:600;
+  text-align:left; transition:all .15s; display:flex; align-items:center; gap:14px;
+  width:100%;
+}
+.type-btn:active{border-color:var(--accent)}
+.type-btn.selected{border-color:var(--accent); background:var(--accent-light)}
+.type-btn-fail{color:var(--danger)}
+.type-btn-fail.selected{border-color:var(--danger); background:rgba(220,38,38,.08)}
+.type-icon{font-size:24px; line-height:1}
+.type-desc{font-size:12px; font-weight:400; color:var(--text-muted); margin-top:2px}
+
+.field{margin-bottom:16px}
+.label{display:flex; align-items:center; font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text)}
+.hint{font-size:12px; color:var(--text-muted); margin-top:6px}
+.input,.textarea{
+  width:100%; padding:13px 14px; background:var(--bg-card); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:16px; transition:border-color .15s;
+}
+.input:focus,.textarea:focus{outline:none; border-color:var(--accent)}
+.textarea{resize:vertical; min-height:90px}
+
+.pills{display:flex; gap:8px; flex-wrap:wrap}
+.pill{
+  flex:1; min-width:70px; padding:13px 8px; background:var(--bg-card);
+  border:2px solid var(--border); border-radius:10px; cursor:pointer; text-align:center;
+  font-weight:600; font-size:15px; transition:all .15s;
+}
+.pill:active{border-color:var(--accent)}
+.pill.selected{border-color:var(--accent); background:var(--accent-light); color:var(--accent)}
+
+.material-block{padding:10px 0; border-bottom:1px solid var(--border)}
+.material-block:last-child{border-bottom:none}
+.material-row{display:flex; align-items:center; gap:10px}
+.material-name-wrap{flex:1; min-width:0}
+.material-name{display:flex; align-items:center; font-size:14px; line-height:1.3; flex-wrap:wrap}
+.material-sub{font-size:12px; color:var(--text-muted); margin-top:3px}
+.material-input{
+  width:80px; padding:10px 10px; background:var(--bg); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); text-align:right; font-size:16px;
+}
+.material-unit{font-size:12px; color:var(--text-muted); width:30px; flex-shrink:0; text-align:left}
+
+.section-h{
+  font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--text-muted); margin:14px 0 6px; padding-bottom:4px;
+  border-bottom:1px solid var(--border);
+}
+.section-h:first-child{margin-top:0}
+
+.photo-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.photo-card{
+  background:var(--bg-card); border:2px dashed var(--border); border-radius:10px;
+  padding:14px 8px; text-align:center; cursor:pointer; transition:all .15s;
+  min-height:90px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:4px;
+}
+.photo-card:active{border-color:var(--accent)}
+.photo-card.uploaded{border-style:solid; border-color:var(--success); background:var(--accent-light)}
+.photo-card.optional{opacity:.65}
+.photo-num{font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.05em}
+.photo-label{font-size:11px; color:var(--text); line-height:1.2; font-weight:600}
+.photo-tag{font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em}
+.photo-status{font-size:18px; margin-top:2px}
+
+.upload-zone{
+  background:var(--bg-card); border:2px dashed var(--border); border-radius:12px;
+  padding:30px 16px; text-align:center; cursor:pointer; transition:all .15s; display:block;
+}
+.upload-zone:active{border-color:var(--accent)}
+.upload-zone.uploaded{border-color:var(--success); border-style:solid; background:var(--accent-light)}
+.upload-icon{font-size:32px; margin-bottom:8px}
+.upload-title{font-weight:600; margin-bottom:4px; font-size:15px}
+.upload-hint{font-size:12px; color:var(--text-muted)}
+.upload-list{margin-top:12px; text-align:left; font-size:13px}
+.upload-item{display:flex; justify-content:space-between; padding:4px 0; color:var(--text-muted)}
+
+.checklist-item{
+  display:flex; align-items:center; gap:10px; padding:13px 12px; background:var(--bg-card);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer;
+}
+.checklist-item.checked{border-color:var(--accent); background:var(--accent-light)}
+.checkbox{
+  width:22px; height:22px; border:2px solid var(--border); border-radius:5px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  font-size:14px; color:white; background:transparent; transition:all .15s;
+}
+.checklist-item.checked .checkbox{background:var(--accent); border-color:var(--accent)}
+.checklist-text{font-size:13px; flex:1; line-height:1.35}
+.btn-accept-all{
+  width:100%; padding:13px; background:var(--bg-card); border:2px dashed var(--accent);
+  color:var(--accent); border-radius:8px; font-weight:600; cursor:pointer;
+  margin-bottom:14px; font-size:14px;
+}
+
+.hito-card{
+  display:flex; align-items:center; gap:14px; padding:14px; background:var(--bg-card);
+  border:2px solid var(--border); border-radius:10px; margin-bottom:8px; cursor:pointer;
+}
+.hito-card.checked{border-color:var(--accent); background:var(--accent-light)}
+.hito-num{
+  width:32px; height:32px; border-radius:50%; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; font-weight:700;
+  border:2px solid var(--border); flex-shrink:0;
+}
+.hito-card.checked .hito-num{background:var(--accent); border-color:var(--accent); color:white}
+.hito-name{font-size:15px; font-weight:600}
+.hito-desc{font-size:12px; color:var(--text-muted); margin-top:2px}
+
+.warning-box{
+  background:rgba(217,119,6,.08); border:1px solid var(--warning); color:var(--warning);
+  padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;
+  display:flex; gap:8px; align-items:flex-start;
+}
+.warning-box.success{background:var(--accent-light); border-color:var(--success); color:var(--success)}
+
+.summary-row{
+  display:flex; justify-content:space-between; padding:10px 0; font-size:14px;
+  border-bottom:1px solid var(--border); gap:8px;
+}
+.summary-row:last-child{border-bottom:none; font-weight:700; font-size:16px; margin-top:4px}
+.whatsapp-msg{
+  background:var(--accent-light); border:1px solid var(--accent); border-radius:10px;
+  padding:14px; padding-right:80px; font-family:"SF Mono",Monaco,Consolas,monospace;
+  font-size:13px; margin-bottom:14px; position:relative; line-height:1.5;
+  color:var(--text); word-break:break-word;
+}
+.btn-copy{
+  position:absolute; top:10px; right:10px; background:var(--accent); color:white;
+  border:none; padding:7px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;
+}
+
+.nav-bar{
+  position:fixed; bottom:0; left:0; right:0; background:var(--bg);
+  border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:8px; z-index:50;
+}
+.nav-btn{padding:14px 18px; border-radius:10px; border:none; font-size:15px; font-weight:600; cursor:pointer}
+.nav-btn-prev{background:var(--bg-card); border:1px solid var(--border); color:var(--text); flex:0 0 auto}
+.nav-btn-next{background:var(--accent); color:white; flex:1}
+.nav-btn-next:active{background:var(--accent-hover)}
+.nav-btn-next:disabled{opacity:.5; cursor:not-allowed}
+.nav-btn-send{background:var(--success); color:white; flex:1}
+
+.validation{
+  background:rgba(220,38,38,.08); border:1px solid var(--danger); color:var(--danger);
+  padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px; display:none;
+}
+.validation.active{display:block}
+
+.success-screen{text-align:center; padding:30px 0}
+.success-icon{font-size:60px; margin-bottom:16px}
+.success-title{font-size:22px; font-weight:700; margin-bottom:8px}
+.success-text{color:var(--text-muted); margin-bottom:24px; font-size:14px}
+.success-progress{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:16px; margin:20px 0; text-align:left;
+}
+.success-progress-row{display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:14px}
+.bar{width:100%; height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:8px}
+.bar-fill{height:100%; background:var(--accent); transition:width .3s}
+
+.bornas-section{
+  background:var(--bg-card); border:2px solid var(--accent); border-radius:10px;
+  padding:14px; margin-bottom:14px;
+}
+.bornas-title{font-weight:700; margin-bottom:6px; font-size:14px; color:var(--accent)}
+.bornas-auto-msg{font-size:12px; color:var(--text-muted); margin-bottom:10px; font-style:italic}
+.borna-auto-tag{
+  display:inline-block; background:var(--accent); color:white; font-size:10px;
+  padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:600; font-style:normal;
+}
+
+/* MODO ADMIN BOTÓN DISCRETO */
+.admin-trigger{
+  position:fixed; bottom:80px; right:16px; width:32px; height:32px;
+  background:transparent; border:1px dashed var(--border); border-radius:50%;
+  color:var(--text-muted); font-size:11px; cursor:pointer; opacity:.4;
+  display:flex; align-items:center; justify-content:center; z-index:40;
+}
+.admin-trigger:active{opacity:1}
+
+/* MODAL DE CONTRASEÑA */
+.modal-overlay{
+  position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5);
+  z-index:200; display:none; align-items:center; justify-content:center; padding:16px;
+}
+.modal-overlay.active{display:flex}
+.modal{
+  background:var(--bg-card); border-radius:12px; padding:20px; max-width:380px; width:100%;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+.modal-title{font-size:17px; font-weight:700; margin-bottom:8px}
+.modal-text{font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5}
+.modal-actions{display:flex; gap:8px; margin-top:14px}
+.modal-actions button{
+  flex:1; padding:11px; border-radius:8px; border:none; font-size:14px;
+  font-weight:600; cursor:pointer;
+}
+.modal-cancel{background:var(--bg); border:1px solid var(--border); color:var(--text)}
+.modal-confirm{background:var(--accent); color:white}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <svg class="logo-svg" viewBox="0 0 100 100" fill="none">
+      <path d="M50 78 L18 30 L28 24 L36 36 L42 30 L46 38 L50 28 L54 38 L58 30 L64 36 L72 24 L82 30 L50 78 Z M50 78 L46 70 L54 70 Z M22 28 L14 22 M78 28 L86 22"
+            stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+    </svg>
+    <span class="logo-text">BÚFALA<span>tech</span></span>
+  </div>
+  <span class="super-tag" id="superTag">⭐ MODO ADMIN</span>
+</header>
+
+<div class="steps" id="stepsBar"></div>
+
+<div class="progress-container">
+  <div class="progress-info">
+    <span id="progressStep">Paso 1 de 12</span>
+    <span id="progressPct">8%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:8%"></div></div>
+</div>
+
+<div class="upload-indicator" id="uploadIndicator">
+  <div class="spinner"></div>
+  <span id="uploadText">Subiendo en background...</span>
+</div>
+
+<main class="main">
+<div class="validation" id="validationMsg"></div>
+
+<!-- ═══ PANTALLA 1: BIENVENIDA + TIPO ═══ -->
+<section class="screen active" data-screen="1">
+  <h1 class="title">Cierre de obra</h1>
+  <p class="subtitle">Confirma los datos y elige el tipo de instalación</p>
+
+  <div class="card" id="datosCita">
+    <div class="row"><span class="row-label">Cliente</span><span class="row-value" id="dataCliente">—</span></div>
+    <div class="row"><span class="row-label">Dirección</span><span class="row-value" id="dataDireccion">—</span></div>
+    <div class="row"><span class="row-label">Hora</span><span class="row-value" id="dataHora">—</span></div>
+    <div class="row"><span class="row-label">Equipo</span><span class="row-value" id="dataEquipo">—</span></div>
+    <div class="row"><span class="row-label">Hardware</span><span class="row-value" id="dataHardware">—</span></div>
+    <div class="row"><span class="row-label">Nº Inst.</span><span class="row-value" id="dataNumInst">—</span></div>
+  </div>
+
+  <div class="type-grid">
+    <button type="button" class="type-btn" onclick="selectType('comunitaria')" id="btnComunitaria">
+      <span class="type-icon">🏢</span>
+      <div>Comunitaria<div class="type-desc">Garaje comunitario o contadores comunitarios</div></div>
+    </button>
+    <button type="button" class="type-btn" onclick="selectType('unifamiliar')" id="btnUnifamiliar">
+      <span class="type-icon">🏠</span>
+      <div>Unifamiliar<div class="type-desc">Vivienda particular · Mínimo 15m facturables</div></div>
+    </button>
+    <button type="button" class="type-btn type-btn-fail" onclick="selectType('fallida')" id="btnFallida">
+      <span class="type-icon">❌</span>
+      <div>Instalación fallida<div class="type-desc">No se ha podido realizar la instalación</div></div>
+    </button>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 2: VIDEO ═══ -->
+<section class="screen" data-screen="2">
+  <h1 class="title">Subir vídeo</h1>
+  <p class="subtitle">Lo más pesado primero. Subirá en background mientras avanzas</p>
+
+  <label class="upload-zone" for="videoInput" id="videoZone">
+    <div class="upload-icon">🎥</div>
+    <div class="upload-title">Seleccionar vídeo(s)</div>
+    <div class="upload-hint">Puedes seleccionar varios. Empezarán a subir mientras rellenas el resto</div>
+    <input type="file" id="videoInput" accept="video/*" multiple style="display:none" onchange="handleVideo(event)">
+  </label>
+  <div id="videoList" class="upload-list" style="display:none"></div>
+</section>
+
+<!-- ═══ PANTALLA 3: FOTOS ═══ -->
+<section class="screen" data-screen="3">
+  <h1 class="title">Fotos de instalación</h1>
+  <p class="subtitle">Sigue el orden y nomenclatura del contrato</p>
+
+  <div class="warning-box success" id="bornasMsg" style="display:none">
+    <span>ℹ️</span>
+    <div>En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).</div>
+  </div>
+
+  <div class="photo-grid" id="photoGrid"></div>
+</section>
+
+<!-- ═══ PANTALLA 4: TIPO LÍNEA + FASE ═══ -->
+<section class="screen" data-screen="4">
+  <h1 class="title">Línea eléctrica</h1>
+  <p class="subtitle">Tipo de canalización y fase</p>
+
+  <div class="field">
+    <label class="label">Tipo de línea
+      <button type="button" class="info-btn" onclick="toggleTip(event,'tipoLinea')">i</button>
+    </label>
+    <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional. Para unifamiliar siempre se factura como manguera.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')">🔌 Bajo tubo PVC</div>
+      <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')">🧵 Manguera</div>
+    </div>
+    <div class="hint" id="unifamHint" style="display:none">⚠️ Unifamiliar: se factura como manguera mínimo 15m</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Fase
+      <button type="button" class="info-btn" onclick="toggleTip(event,'fase')">i</button>
+    </label>
+    <div class="tooltip" id="tip-fase">Monofásica: 230V para cargadores hasta 7,4 kW. Trifásica: 400V para cargadores de 11 kW o superior.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectFase('mono', this)">⚡ Monofásica</div>
+      <div class="pill" onclick="selectFase('trif', this)">⚡⚡⚡ Trifásica</div>
+    </div>
+    <div class="warning-box success" id="bornasFaseMsg" style="display:none; margin-top:12px">
+      <span>✓</span>
+      <div id="bornasFaseMsgText"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 5: SECCIÓN + METROS ═══ -->
+<section class="screen" data-screen="5">
+  <h1 class="title">Medidas</h1>
+  <p class="subtitle">Sección del cable y metros instalados</p>
+
+  <div class="field">
+    <label class="label">Sección del cable
+      <button type="button" class="info-btn" onclick="toggleTip(event,'seccion')">i</button>
+    </label>
+    <div class="tooltip" id="tip-seccion">Sección del cable principal según potencia y distancia. Por defecto 6mm² para cargadores de 7,4 kW y distancias menores de 30m.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectPill(this,'seccion','6')">6 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','10')">10 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','16')">16 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','25')">25 mm²</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label">Metros de línea instalados
+      <button type="button" class="info-btn" onclick="toggleTip(event,'metros')">i</button>
+    </label>
+    <div class="tooltip" id="tip-metros">Metros lineales de cable instalado desde el cuadro hasta el punto de recarga. En unifamiliar mínimo 15 metros.</div>
+    <input type="number" class="input" id="metrosLinea" placeholder="0" oninput="autoUtp()">
+  </div>
+
+  <div class="field">
+    <label class="label">Metros de cable UTP
+      <button type="button" class="info-btn" onclick="toggleTip(event,'utp')">i</button>
+    </label>
+    <div class="tooltip" id="tip-utp">Cable de datos UTP cat.5e o superior para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
+    <input type="number" class="input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()">
+    <div class="hint">Se autorrellena con los metros de línea (editable)</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Conectores RJ45
+      <button type="button" class="info-btn" onclick="toggleTip(event,'rj45')">i</button>
+    </label>
+    <div class="tooltip" id="tip-rj45">Conectores para terminar el cable UTP. Por defecto 2 unidades.</div>
+    <input type="number" class="input" id="rj45" placeholder="2" value="2">
+    <div class="hint">Se autorrellena a 2 (editable)</div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 6: CANALIZACIONES ═══ -->
+<section class="screen" data-screen="6">
+  <h1 class="title">Canalizaciones especiales</h1>
+  <p class="subtitle">Rellena solo lo que has utilizado</p>
+  <div class="card" id="canalizacionesCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 7: PROTECCIONES ═══ -->
+<section class="screen" data-screen="7">
+  <h1 class="title">Protecciones y extras</h1>
+  <p class="subtitle">Cajas, perforaciones, otros y magnetotérmicos</p>
+
+  <div class="bornas-section" id="bornasSection" style="display:none">
+    <div class="bornas-title">⭐ Bornas de centralización (Comunitaria)</div>
+    <div class="bornas-auto-msg">Se autorrellena según la fase elegida — editable</div>
+
+    <div class="material-block">
+      <div class="material-row">
+        <div class="material-name-wrap">
+          <div class="material-name">Bornas MONO (kit)<span id="autoTagMono" class="borna-auto-tag" style="display:none">AUTO</span>
+            <button type="button" class="info-btn" onclick="toggleTip(event,'bornasM')">i</button>
+          </div>
+          <div class="material-sub">Kit: 1 neutro + 1 fase + tapa</div>
+        </div>
+        <input type="number" class="material-input" id="bornasMono" placeholder="0">
+        <span class="material-unit">kit</span>
+      </div>
+      <div class="tooltip" id="tip-bornasM">Kit para centralización monofásica en módulo de contadores.</div>
+    </div>
+
+    <div class="material-block">
+      <div class="material-row">
+        <div class="material-name-wrap">
+          <div class="material-name">Bornas TRIF (kit)<span id="autoTagTrif" class="borna-auto-tag" style="display:none">AUTO</span>
+            <button type="button" class="info-btn" onclick="toggleTip(event,'bornasT')">i</button>
+          </div>
+          <div class="material-sub">Kit: 1 neutro + 3 fases + tapa</div>
+        </div>
+        <input type="number" class="material-input" id="bornasTrif" placeholder="0">
+        <span class="material-unit">kit</span>
+      </div>
+      <div class="tooltip" id="tip-bornasT">Kit para centralización trifásica en módulo de contadores.</div>
+    </div>
+  </div>
+
+  <div class="card" id="proteccionesCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 8: TRABAJOS ESPECIALES ═══ -->
+<section class="screen" data-screen="8">
+  <h1 class="title">Trabajos especiales</h1>
+  <p class="subtitle">Solo con autorización previa de ESMOVE</p>
+
+  <div class="warning-box">
+    <span>⚠️</span>
+    <div>Estos trabajos requieren <strong>autorización previa de ESMOVE</strong>.</div>
+  </div>
+
+  <div class="card" id="trabajosCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 9: PDF ACTA ═══ -->
+<section class="screen" data-screen="9">
+  <h1 class="title">Acta firmada</h1>
+  <p class="subtitle">Sube el PDF del acta firmada por el cliente</p>
+
+  <label class="upload-zone" for="pdfInput" id="pdfZone">
+    <div class="upload-icon">📄</div>
+    <div class="upload-title">Seleccionar acta (PDF)</div>
+    <div class="upload-hint">Se guardará como HF [Cliente].pdf</div>
+    <input type="file" id="pdfInput" accept="application/pdf" style="display:none" onchange="handlePdf(event)">
+  </label>
+</section>
+
+<!-- ═══ PANTALLA 10: HITOS ═══ -->
+<section class="screen" data-screen="10">
+  <h1 class="title">Hitos de hardware</h1>
+  <p class="subtitle">Confirma los 3 hitos completados</p>
+
+  <div class="hito-card" onclick="toggleHito(this,'h1')">
+    <div class="hito-num">1</div>
+    <div><div class="hito-name">Montaje y conexionado</div><div class="hito-desc">Configuración y vinculación con la app</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-card" onclick="toggleHito(this,'h2')">
+    <div class="hito-num">2</div>
+    <div><div class="hito-name">Explicación al cliente</div><div class="hito-desc">Funcionamiento y uso del cargador</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-card" onclick="toggleHito(this,'h3')">
+    <div class="hito-num">3</div>
+    <div><div class="hito-name">Gestión documental</div><div class="hito-desc">Fotos + Acta finalizadas</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 11: CHECKLIST ═══ -->
+<section class="screen" data-screen="11">
+  <h1 class="title">Checklist final</h1>
+  <p class="subtitle">Confirma cada punto antes de cerrar</p>
+  <button type="button" class="btn-accept-all" onclick="acceptAll()">✓ Aceptar todo</button>
+  <div id="checklistContainer"></div>
+</section>
+
+<!-- ═══ PANTALLA 12: RESUMEN ═══ -->
+<section class="screen" data-screen="12">
+  <h1 class="title">Resumen final</h1>
+  <p class="subtitle">Revisa antes de enviar</p>
+
+  <div class="card">
+    <div class="summary-row"><span>Cliente</span><span><strong id="resumenCliente">—</strong></span></div>
+    <div class="summary-row"><span>Equipo</span><span id="resumenEquipo">—</span></div>
+    <div class="summary-row"><span>Tipo</span><span id="resumenTipo">—</span></div>
+    <div class="summary-row"><span>Metros línea</span><span id="resumenMetros">— m</span></div>
+  </div>
+
+  <label class="label">Mensaje para WhatsApp</label>
+  <div class="whatsapp-msg">
+    <button type="button" class="btn-copy" onclick="copyWa()">Copiar</button>
+    <span id="waText">INSTALACIÓN FINALIZADA – TODO OK – — – 0 METROS FINALES INSTALADOS</span>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA FALLIDA ═══ -->
+<section class="screen" data-screen="failed">
+  <h1 class="title">Instalación fallida</h1>
+  <p class="subtitle">Indica el motivo y adjunta evidencias</p>
+
+  <div class="warning-box">
+    <span>ℹ️</span>
+    <div>Se facturará 60€ + km de exceso si supera los 50 km ida y vuelta.</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Motivo del fallo</label>
+    <textarea class="textarea" id="motivoFallido" placeholder="Describe qué ha pasado..."></textarea>
+  </div>
+
+  <div class="field">
+    <label class="label">Fotos y vídeos (opcional)</label>
+    <label class="upload-zone" for="failMedia" id="failMediaZone">
+      <div class="upload-icon">📷</div>
+      <div class="upload-title">Seleccionar fotos / vídeos</div>
+      <div class="upload-hint">Selección múltiple permitida</div>
+      <input type="file" id="failMedia" accept="image/*,video/*" multiple style="display:none" onchange="handleFailMedia(event)">
+    </label>
+    <div id="failMediaList" class="upload-list" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA ÉXITO ═══ -->
+<section class="screen" data-screen="done">
+  <div class="success-screen">
+    <div class="success-icon" id="doneIcon">⏳</div>
+    <div class="success-title" id="doneTitle">Enviando cierre...</div>
+    <div class="success-text" id="doneText">No cierres la app hasta que termine la subida.</div>
+
+    <div class="success-progress">
+      <div class="success-progress-row"><span>📊 Datos del cierre</span><span id="dataPct">0%</span></div>
+      <div class="bar"><div class="bar-fill" id="dataBar" style="width:0%"></div></div>
+
+      <div class="success-progress-row" style="margin-top:14px"><span>📹 Vídeos</span><span id="vidPct">—</span></div>
+      <div class="bar"><div class="bar-fill" id="vidBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="warning-box" id="doneWarning">
+      <span>⚠️</span>
+      <div>No cierres esta pantalla hasta que aparezca <strong>"Todo subido"</strong>.</div>
+    </div>
+
+    <div id="doneActions" style="display:none; margin-top:20px">
+      <button type="button" class="nav-btn nav-btn-next" onclick="nuevoCierre()">Nuevo cierre</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<button type="button" class="admin-trigger" id="adminTrigger" onclick="showSuperModal()" title="Modo admin">···</button>
+
+<nav class="nav-bar" id="navBar">
+  <button type="button" class="nav-btn nav-btn-prev" id="btnPrev" onclick="prevScreen()">← Anterior</button>
+  <button type="button" class="nav-btn nav-btn-next" id="btnNext" onclick="nextScreen()">Siguiente →</button>
+</nav>
+
+<!-- MODAL DE CONTRASEÑA SUPER -->
+<div class="modal-overlay" id="superModal">
+  <div class="modal">
+    <div class="modal-title">⭐ Modo administrador</div>
+    <div class="modal-text">Introduce la contraseña para activar el modo administrador en este dispositivo. Se guardará para futuros usos.</div>
+    <input type="password" class="input" id="superPassInput" placeholder="Contraseña" autocomplete="off">
+    <div class="modal-actions">
+      <button type="button" class="modal-cancel" onclick="closeSuperModal()">Cancelar</button>
+      <button type="button" class="modal-confirm" onclick="checkSuperPassword()">Activar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwnPgzph0Njm9zsrT_cBNcP50mdqJFl8RPTOFaXuG0JK0zGbO2Gl4i37y9cNrJ2LcVlVw/exec';
+const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
+const VIDEO_RESUMABLE_THRESHOLD = 8 * 1024 * 1024; // 8 MB
+
+// ═══════════════════════════════════════════════════════════════
+// DATOS Y ESTADO
+// ═══════════════════════════════════════════════════════════════
+const CANALIZACIONES = [
+  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Solo control de stock — no facturable', unit:'m', tip:'Tubo PVC rígido de 32mm. No tiene baremo en contrato. Solo control de stock.'},
+  {id:'corr32', name:'Tubo corrugado 32mm', unit:'m', tip:'Tubo corrugado flexible de 32mm para canalizaciones empotradas o vistas en interior.'},
+  {id:'acero32', name:'Tubo acero 32mm', unit:'m', tip:'Tubo de acero galvanizado de 32mm para tramos vistos en garajes o exterior.'},
+  {id:'acero40', name:'Tubo acero 40mm', unit:'m', tip:'Tubo de acero galvanizado de 40mm para mayores secciones o múltiples conductores.'},
+  {id:'canaleta', name:'Canaleta eléctrica 35x20mm', unit:'m', tip:'Canaleta de PVC 35x20mm para instalación vista en pared, con tapa registrable.'},
+  {id:'sot50', name:'Tubo soterrado 50mm', unit:'m', tip:'Canalización subterránea de 50mm para tramos enterrados. Solo con autorización previa ESMOVE.'},
+  {id:'sot90', name:'Tubo soterrado 90mm', unit:'m', tip:'Canalización subterránea de 90mm. Solo con autorización previa ESMOVE.'}
+];
+
+const PROTECCIONES = [
+  {section:'📦 Cajas'},
+  {id:'cajaReg', name:'Caja registro 100x100', sub:'1 cada 15m de línea', unit:'ud', tip:'Caja para derivaciones, empalmes o cambios de dirección. Criterio: 1 cada 15 metros de línea.'},
+  {id:'caja6', name:'Caja distribución 6 módulos', unit:'ud', tip:'Cuadro de protección de 6 módulos DIN cuando no hay cuadro accesible.'},
+  {id:'caja12', name:'Caja distribución 12 módulos', unit:'ud', tip:'Cuadro de 12 módulos DIN para mayor número de protecciones.'},
+  {id:'caja18', name:'Caja distribución 18 módulos', unit:'ud', tip:'Cuadro de 18 módulos DIN para instalaciones complejas o comunitarias.'},
+  {id:'cerradura', name:'Cerradura + llave', unit:'ud', tip:'Cerradura para cuadro o caja. Las llaves se entregan SIEMPRE al cliente.'},
+
+  {section:'🕳️ Perforaciones (desde la 2ª)'},
+  {id:'perfTab', name:'Perforación tabique <40mm', unit:'ud', tip:'Perforación en tabique o pared (<40mm). Se factura desde la 2ª — la 1ª está incluida.'},
+  {id:'perfForj', name:'Perforación forjado <32mm', unit:'ud', tip:'Perforación en forjado de hormigón (<32mm) entre plantas. Se factura desde la 2ª.'},
+
+  {section:'🔧 Otros'},
+  {id:'pica', name:'Pica de tierra (kit completo)', sub:'Pica + grapa + cable + arqueta + tapa', unit:'kit', tip:'Según ESMOVE: incluye pica 1500mm, grapa, cable 6mm², arqueta y tapa. NO se acepta pica sin arqueta.'},
+  {id:'preinst', name:'Pre-instalación nuevo suministro', unit:'kit', tip:'Kit para nuevo punto de suministro: portafusible, fusible, 1m de cable y etiqueta.'},
+
+  {section:'⚡ Magnetotérmicos'},
+  {id:'mag1025', name:'DPN 10A-25A', unit:'ud', tip:'Magnetotérmico DPN de pequeño calibre (10-25A) según potencia.'},
+  {id:'mag32', name:'DPN 32A', unit:'ud', tip:'Magnetotérmico DPN 32A. Habitual en cargadores monofásicos hasta 7,4 kW.'},
+  {id:'mag40', name:'DPN 40A', unit:'ud', tip:'Magnetotérmico DPN 40A. Para cargadores de alta potencia o trifásicos de 11 kW o superior.'}
+];
+
+const TRABAJOS = [
+  {id:'altAndamio', name:'Trabajo en altura — andamio', unit:'ud', tip:'Andamio homologado. PRL obligatoria. Requiere autorización previa ESMOVE.'},
+  {id:'altElevadora', name:'Trabajo en altura — elevadora', unit:'ud', tip:'Plataforma elevadora motorizada. Solo con autorización ESMOVE y operador habilitado.'},
+  {id:'soterrM', name:'Trabajo de soterramiento', unit:'m', tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado.'}
+];
+
+const CHECKLIST = [
+  "He revisado que todas las fotos están subidas con orden y nomenclatura correcta",
+  "El cuadro tiene magnetotérmico y diferencial dedicados",
+  "He explicado el funcionamiento al cliente",
+  "He vinculado el cargador con la app del cliente",
+  "He probado una carga real con el coche del cliente",
+  "He entregado las llaves de los cuadros al cliente",
+  "He recogido todo el material sobrante",
+  "El acta está firmada y subida en PDF",
+  "He revisado que no he olvidado material en la furgoneta"
+];
+
+const FOTOS = [
+  {n:1, nombre:"FRONTAL CARGADOR", obligatoria:true},
+  {n:2, nombre:"NUM. SERIE Y MODELO", obligatoria:true},
+  {n:3, nombre:"INTERIOR CARGADOR", obligatoria:true},
+  {n:4, nombre:"UTP TESTER", obligatoria:true},
+  {n:5, nombre:"CUADRO UNIFAMILIAR", obligatoria:false, soloUnifamiliar:true},
+  {n:6, nombre:"APP POTENCIA", obligatoria:true},
+  {n:7, nombre:"APP CONTROL", obligatoria:true},
+  {n:8, nombre:"APP MENU", obligatoria:true},
+  {n:9, nombre:"PICA DE TIERRA", obligatoria:false, opcional:true},
+  {n:11, nombre:"BORNA DOBLE EN CONTADORES", obligatoria:false, soloComunitaria:true}
+];
+
+const state = {
+  currentScreen: 1,
+  totalScreens: 12,
+  type: null,
+  videos: [],          // [{file: File, blob: Blob, name: string, uploaded: false, progress:0}]
+  videosFallida: [],
+  fotosFallida: [],
+  photos: {},          // {1: {file, name}, 2: {...}}
+  pdfActa: null,
+  hitos: {h1:false, h2:false, h3:false},
+  checklist: Array(9).fill(false),
+  data: {tipoLinea:null, fase:null, seccion:null},
+  cita: {},            // datos del calendario (URL params)
+  isSuper: false
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MODO SUPER (localStorage por dispositivo)
+// ═══════════════════════════════════════════════════════════════
+function checkSuperOnLoad(){
+  // 1. Si hay localStorage marcado, activar
+  if (localStorage.getItem('bufala_super_v3') === SUPER_PASSWORD){
+    activateSuperMode();
+    return;
+  }
+  // 2. Si URL tiene ?super=1, mostrar modal automáticamente
+  const params = new URL(location).searchParams;
+  if (params.get('super') === '1'){
+    setTimeout(showSuperModal, 300);
+  }
+}
+
+function showSuperModal(){
+  document.getElementById('superModal').classList.add('active');
+  setTimeout(() => document.getElementById('superPassInput').focus(), 100);
+}
+
+function closeSuperModal(){
+  document.getElementById('superModal').classList.remove('active');
+  document.getElementById('superPassInput').value = '';
+}
+
+function checkSuperPassword(){
+  const input = document.getElementById('superPassInput').value;
+  if (input === SUPER_PASSWORD){
+    localStorage.setItem('bufala_super_v3', SUPER_PASSWORD);
+    activateSuperMode();
+    closeSuperModal();
+  } else {
+    alert('Contraseña incorrecta');
+    document.getElementById('superPassInput').value = '';
+  }
+}
+
+function activateSuperMode(){
+  state.isSuper = true;
+  document.getElementById('superTag').classList.add('active');
+  // En modo super: ocultamos botón fallida (no aplica) y reducimos pantallas
+  // Las pantallas 2 (vídeo), 3 (fotos), 9 (PDF) se saltan
+  console.log('⭐ Modo super activado');
+}
+
+// Tecla Enter en el modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('superModal').classList.contains('active')){
+    e.preventDefault();
+    checkSuperPassword();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// LECTURA DE URL PARAMS (datos del calendario)
+// ═══════════════════════════════════════════════════════════════
+function parseUrlParams(){
+  const url = new URL(location);
+  const p = url.searchParams;
+  state.cita = {
+    cliente:    p.get('cliente')    || '',
+    direccion:  p.get('direccion')  || '',
+    numInst:    p.get('numInst')    || p.get('inst') || '',
+    equipo:     p.get('equipo')     || '',
+    hardware:   p.get('hardware')   || '',
+    fecha:      p.get('fecha')      || p.get('fechaIso') || ''
+  };
+
+  document.getElementById('dataCliente').textContent   = state.cita.cliente   || '—';
+  document.getElementById('dataDireccion').textContent = state.cita.direccion || '—';
+  document.getElementById('dataEquipo').textContent    = state.cita.equipo    || '—';
+  document.getElementById('dataHardware').textContent  = state.cita.hardware  || '—';
+  document.getElementById('dataNumInst').textContent   = state.cita.numInst   || '—';
+
+  if (state.cita.fecha){
+    try {
+      const d = new Date(state.cita.fecha);
+      document.getElementById('dataHora').textContent =
+        d.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'}) + ' ' +
+        d.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+    } catch(e){ document.getElementById('dataHora').textContent = state.cita.fecha; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOOLTIPS
+// ═══════════════════════════════════════════════════════════════
+function toggleTip(ev, id){
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  const tip = document.getElementById('tip-' + id);
+  if (!tip) return;
+  const wasActive = tip.classList.contains('active');
+  document.querySelectorAll('.tooltip.active').forEach(t => t.classList.remove('active'));
+  if (!wasActive) tip.classList.add('active');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('info-btn') && !e.target.closest('.tooltip')){
+    document.querySelectorAll('.tooltip.active').forEach(t => t.classList.remove('active'));
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGACIÓN ENTRE PANTALLAS
+// ═══════════════════════════════════════════════════════════════
+function showScreen(num){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  let target;
+  if (num === 'failed') target = document.querySelector('[data-screen="failed"]');
+  else if (num === 'done') target = document.querySelector('[data-screen="done"]');
+  else target = document.querySelector('[data-screen="' + num + '"]');
+  if (!target) return;
+
+  target.classList.add('active');
+  state.currentScreen = num;
+
+  if (typeof num === 'number'){
+    const pct = Math.round((num / state.totalScreens) * 100);
+    document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+  }
+
+  renderSteps();
+
+  // Botones nav
+  document.getElementById('btnPrev').style.visibility = (num === 1 || num === 'done') ? 'hidden' : 'visible';
+  if (num === 12 || num === 'failed'){
+    document.getElementById('btnNext').textContent = num === 'failed' ? '✓ Enviar fallida' : '✓ Enviar cierre';
+    document.getElementById('btnNext').classList.add('nav-btn-send');
+  } else if (num === 'done'){
+    document.getElementById('navBar').style.display = 'none';
+  } else {
+    document.getElementById('btnNext').textContent = 'Siguiente →';
+    document.getElementById('btnNext').classList.remove('nav-btn-send');
+  }
+
+  document.getElementById('validationMsg').classList.remove('active');
+
+  if (num === 7) applyBornasAuto();
+  if (num === 12) updateSummary();
+
+  // Botón admin: ocultar en pantallas done/failed
+  document.getElementById('adminTrigger').style.display =
+    (num === 1 && !state.isSuper) ? 'flex' : 'none';
+
+  window.scrollTo(0, 0);
+}
+
+function renderSteps(){
+  const bar = document.getElementById('stepsBar');
+  if (state.currentScreen === 'failed' || state.currentScreen === 'done'){
+    bar.style.display = 'none'; return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = '';
+  // En modo super se muestra menos
+  const max = state.isSuper ? 12 : state.totalScreens;
+  for (let i=1; i<=max; i++){
+    // Saltar pantallas en modo super: 2, 3, 9
+    if (state.isSuper && (i===2 || i===3 || i===9)) continue;
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    if (i === state.currentScreen) dot.classList.add('active');
+    else if (i < state.currentScreen) dot.classList.add('completed');
+    dot.textContent = i;
+    dot.onclick = () => { if (i < state.currentScreen) showScreen(i); };
+    bar.appendChild(dot);
+  }
+}
+
+function nextScreen(){
+  if (!validateScreen(state.currentScreen)) return;
+  if (state.currentScreen === 12){ submitClosure(false); return; }
+  if (state.currentScreen === 'failed'){ submitClosure(true); return; }
+
+  let next = state.currentScreen + 1;
+  // Saltar pantallas en modo super
+  if (state.isSuper){
+    while (next === 2 || next === 3 || next === 9){ next++; }
+  }
+  showScreen(next);
+}
+
+function prevScreen(){
+  if (state.currentScreen === 'failed'){ showScreen(1); return; }
+  if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
+    let prev = state.currentScreen - 1;
+    if (state.isSuper){
+      while (prev === 2 || prev === 3 || prev === 9){ prev--; }
+    }
+    showScreen(prev);
+  }
+}
+
+function validateScreen(num){
+  if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
+  if (num === 4){
+    if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
+    if (!state.data.fase){ showError('Selecciona la fase'); return false; }
+  }
+  if (num === 5){
+    if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
+    const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
+    if (m <= 0){ showError('Indica los metros de línea'); return false; }
+  }
+  if (num === 9 && !state.isSuper && !state.pdfActa){ showError('Sube el PDF del acta firmada'); return false; }
+  if (num === 10 && (!state.hitos.h1 || !state.hitos.h2 || !state.hitos.h3)){
+    showError('Marca los 3 hitos para continuar'); return false;
+  }
+  if (num === 11 && state.checklist.some(c => !c)){
+    showError('Marca todos los puntos del checklist'); return false;
+  }
+  if (num === 'failed'){
+    const motivo = document.getElementById('motivoFallido').value.trim();
+    if (!motivo){ showError('Indica el motivo del fallo'); return false; }
+  }
+  return true;
+}
+
+function showError(text){
+  const msg = document.getElementById('validationMsg');
+  msg.textContent = '⚠️ ' + text;
+  msg.classList.add('active');
+  msg.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TIPO INSTALACIÓN
+// ═══════════════════════════════════════════════════════════════
+function selectType(t){
+  state.type = t;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+  const idMap = {comunitaria:'btnComunitaria', unifamiliar:'btnUnifamiliar', fallida:'btnFallida'};
+  document.getElementById(idMap[t]).classList.add('selected');
+
+  if (t === 'fallida'){ setTimeout(() => showScreen('failed'), 200); return; }
+
+  document.getElementById('unifamHint').style.display = (t === 'unifamiliar') ? 'block' : 'none';
+  document.getElementById('bornasMsg').style.display = (t === 'comunitaria') ? 'flex' : 'none';
+  document.getElementById('bornasSection').style.display = (t === 'comunitaria') ? 'block' : 'none';
+
+  renderPhotos();
+  renderChecklist();
+  applyBornasAuto();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-RELLENO BORNAS Y UTP
+// ═══════════════════════════════════════════════════════════════
+function applyBornasAuto(){
+  const bm = document.getElementById('bornasMono');
+  const bt = document.getElementById('bornasTrif');
+  const tm = document.getElementById('autoTagMono');
+  const tt = document.getElementById('autoTagTrif');
+  if (!bm || !bt) return;
+
+  if (state.type === 'comunitaria' && state.data.fase){
+    if (state.data.fase === 'mono'){
+      if (!bm.dataset.touched){ bm.value = '1'; if (tm) tm.style.display = 'inline-block'; }
+      if (!bt.dataset.touched){ bt.value = '0'; if (tt) tt.style.display = 'none'; }
+    } else if (state.data.fase === 'trif'){
+      if (!bt.dataset.touched){ bt.value = '1'; if (tt) tt.style.display = 'inline-block'; }
+      if (!bm.dataset.touched){ bm.value = '0'; if (tm) tm.style.display = 'none'; }
+    }
+  }
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'bornasMono'){
+    e.target.dataset.touched = '1';
+    const tag = document.getElementById('autoTagMono'); if (tag) tag.style.display = 'none';
+  }
+  if (e.target.id === 'bornasTrif'){
+    e.target.dataset.touched = '1';
+    const tag = document.getElementById('autoTagTrif'); if (tag) tag.style.display = 'none';
+  }
+});
+
+function autoUtp(){
+  const m = document.getElementById('metrosLinea').value;
+  const utp = document.getElementById('metrosUtp');
+  if (!utp.dataset.touched) utp.value = m;
+}
+function markUtpTouched(){ document.getElementById('metrosUtp').dataset.touched = '1'; }
+
+// ═══════════════════════════════════════════════════════════════
+// FOTOS
+// ═══════════════════════════════════════════════════════════════
+function renderPhotos(){
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = '';
+  FOTOS.forEach(f => {
+    if (f.soloUnifamiliar && state.type !== 'unifamiliar') return;
+    if (f.soloComunitaria && state.type !== 'comunitaria') return;
+    const card = document.createElement('label');
+    card.className = 'photo-card' + (f.opcional ? ' optional' : '');
+    const photoData = state.photos[f.n];
+    card.innerHTML =
+      '<div class="photo-num">' + f.n + '. </div>' +
+      '<div class="photo-label">' + f.nombre + '</div>' +
+      '<div class="photo-tag">' + (f.opcional ? 'Opcional' : 'Obligatoria') + '</div>' +
+      '<div class="photo-status">' + (photoData ? '✓' : '') + '</div>' +
+      '<input type="file" accept="image/*" style="display:none">';
+    if (photoData) card.classList.add('uploaded');
+    const input = card.querySelector('input');
+    input.addEventListener('change', (e) => handlePhoto(e, f.n, f.nombre, card));
+    grid.appendChild(card);
+  });
+}
+
+function handlePhoto(e, num, nombre, card){
+  if (!e.target.files.length) return;
+  const file = e.target.files[0];
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  state.photos[num] = {
+    file: file,
+    name: num + '. ' + nombre + '.' + ext
+  };
+  card.classList.add('uploaded');
+  card.querySelector('.photo-status').textContent = '✓';
+  updateUploadIndicator();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VIDEO Y PDF
+// ═══════════════════════════════════════════════════════════════
+function handleVideo(e){
+  const files = Array.from(e.target.files);
+  state.videos = files.map((f, i) => ({
+    file: f,
+    name: 'VIDEO RESUMEN' + (i === 0 ? '' : ' ' + (i+1)) + '.' + (f.name.split('.').pop() || 'mp4'),
+    uploaded: false,
+    progress: 0
+  }));
+  document.getElementById('videoZone').classList.add('uploaded');
+  document.getElementById('videoZone').querySelector('.upload-title').textContent = '✓ ' + files.length + ' vídeo(s) seleccionado(s)';
+  renderVideoList();
+  updateUploadIndicator();
+}
+
+function renderVideoList(){
+  const list = document.getElementById('videoList');
+  list.style.display = 'block';
+  list.innerHTML = state.videos.map(v => {
+    const sizeMB = (v.file.size / 1024 / 1024).toFixed(1);
+    return '<div class="upload-item"><span>' + v.name + ' (' + sizeMB + ' MB)</span><span>Pendiente</span></div>';
+  }).join('');
+}
+
+function handlePdf(e){
+  if (!e.target.files.length) return;
+  const file = e.target.files[0];
+  const cliente = state.cita.cliente || 'Cliente';
+  state.pdfActa = {
+    file: file,
+    name: 'HF ' + cliente + '.pdf'
+  };
+  document.getElementById('pdfZone').classList.add('uploaded');
+  document.getElementById('pdfZone').querySelector('.upload-title').textContent = '✓ Acta seleccionada';
+}
+
+function handleFailMedia(e){
+  const files = Array.from(e.target.files);
+  state.fotosFallida = [];
+  state.videosFallida = [];
+  let countF = 1, countV = 1;
+  files.forEach(f => {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (f.type.startsWith('video/')){
+      state.videosFallida.push({
+        file: f,
+        name: 'FALLIDA_VIDEO_' + (countV++) + '.' + (ext || 'mp4')
+      });
+    } else {
+      state.fotosFallida.push({
+        file: f,
+        name: 'FALLIDA_' + (countF++) + '.' + (ext || 'jpg')
+      });
+    }
+  });
+  document.getElementById('failMediaZone').classList.add('uploaded');
+  document.getElementById('failMediaZone').querySelector('.upload-title').textContent =
+    '✓ ' + (state.fotosFallida.length + state.videosFallida.length) + ' archivo(s)';
+}
+
+function updateUploadIndicator(){
+  const photoCount = Object.keys(state.photos).length;
+  if (state.videos.length || photoCount > 0){
+    document.getElementById('uploadIndicator').classList.add('active');
+    const requiredPhotos = getRequiredPhotosCount();
+    document.getElementById('uploadText').textContent =
+      'Fotos: ' + photoCount + '/' + requiredPhotos +
+      (state.videos.length ? ' · Vídeo OK' : '');
+  }
+}
+
+function getRequiredPhotosCount(){
+  return FOTOS.filter(f => {
+    if (f.soloUnifamiliar && state.type !== 'unifamiliar') return false;
+    if (f.soloComunitaria && state.type !== 'comunitaria') return false;
+    return true;
+  }).length;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PILLS
+// ═══════════════════════════════════════════════════════════════
+function selectPill(el, key, value){
+  el.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  state.data[key] = value;
+}
+
+function selectFase(value, el){
+  ['bornasMono', 'bornasTrif'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (inp) delete inp.dataset.touched;
+  });
+  selectPill(el, 'fase', value);
+  applyBornasAuto();
+
+  const msg = document.getElementById('bornasFaseMsg');
+  const txt = document.getElementById('bornasFaseMsgText');
+  if (state.type === 'comunitaria' && msg && txt){
+    txt.textContent = 'Se autorrellenará 1 kit de Bornas ' + (value === 'mono' ? 'MONO' : 'TRIF') + ' en la pantalla de Protecciones (editable).';
+    msg.style.display = 'flex';
+  } else if (msg){ msg.style.display = 'none'; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HITOS Y CHECKLIST
+// ═══════════════════════════════════════════════════════════════
+function toggleHito(card, key){
+  state.hitos[key] = !state.hitos[key];
+  card.classList.toggle('checked');
+}
+
+function renderChecklist(){
+  const c = document.getElementById('checklistContainer');
+  c.innerHTML = '';
+  CHECKLIST.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item' + (state.checklist[i] ? ' checked' : '');
+    div.onclick = () => toggleCheck(i, div);
+    div.innerHTML = '<div class="checkbox">✓</div><div class="checklist-text">' + text + '</div>';
+    c.appendChild(div);
+  });
+}
+function toggleCheck(i, el){ state.checklist[i] = !state.checklist[i]; el.classList.toggle('checked'); }
+function acceptAll(){ state.checklist = state.checklist.map(() => true); renderChecklist(); }
+
+// ═══════════════════════════════════════════════════════════════
+// RESUMEN
+// ═══════════════════════════════════════════════════════════════
+function updateSummary(){
+  const tipoMap = {comunitaria: '🏢 Comunitaria', unifamiliar: '🏠 Unifamiliar'};
+  document.getElementById('resumenCliente').textContent = state.cita.cliente || '—';
+  document.getElementById('resumenEquipo').textContent = state.cita.equipo || 'Búfala';
+  document.getElementById('resumenTipo').textContent = tipoMap[state.type] || '—';
+  const metros = document.getElementById('metrosLinea').value || '0';
+  document.getElementById('resumenMetros').textContent = metros + ' m';
+  document.getElementById('waText').textContent =
+    'INSTALACIÓN FINALIZADA – TODO OK – ' + (state.cita.cliente || '—') + ' – ' + metros + ' METROS FINALES INSTALADOS';
+}
+
+function copyWa(){
+  const text = document.getElementById('waText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERIZAR MATERIALES (canalizaciones, protecciones, trabajos)
+// ═══════════════════════════════════════════════════════════════
+function renderMaterialItem(item){
+  if (item.section) return '<div class="section-h">' + item.section + '</div>';
+  return '<div class="material-block">' +
+    '<div class="material-row">' +
+      '<div class="material-name-wrap">' +
+        '<div class="material-name">' + item.name +
+          '<button type="button" class="info-btn" onclick="toggleTip(event,\'' + item.id + '\')">i</button>' +
+        '</div>' +
+        (item.sub ? '<div class="material-sub">' + item.sub + '</div>' : '') +
+      '</div>' +
+      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
+      '<span class="material-unit">' + item.unit + '</span>' +
+    '</div>' +
+    '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
+  '</div>';
+}
+
+document.getElementById('canalizacionesCard').innerHTML = CANALIZACIONES.map(renderMaterialItem).join('');
+document.getElementById('proteccionesCard').innerHTML = PROTECCIONES.map(renderMaterialItem).join('');
+document.getElementById('trabajosCard').innerHTML = TRABAJOS.map(renderMaterialItem).join('');
+
+// ═══════════════════════════════════════════════════════════════
+// RECOLECTAR DATOS DEL FORMULARIO
+// ═══════════════════════════════════════════════════════════════
+function recolectarDatos(esFallida){
+  function num(id){ const el = document.getElementById(id); return el ? parseFloat(el.value) || 0 : 0; }
+  function matNum(id){ return num('mat_' + id); }
+
+  const datos = {
+    fechaIso:  state.cita.fecha || new Date().toISOString(),
+    cliente:   state.cita.cliente || '',
+    direccion: state.cita.direccion || '',
+    numInst:   state.cita.numInst || '',
+    equipo:    state.cita.equipo || 'Búfala',
+    hardware:  state.cita.hardware || '',
+    tipoInst:  state.type,
+    despFallido: esFallida,
+    modoSuper: state.isSuper
+  };
+
+  if (esFallida){
+    datos.motivoFallido = document.getElementById('motivoFallido').value.trim();
+    return datos;
+  }
+
+  // Datos línea
+  datos.tipoLinea  = state.data.tipoLinea;
+  datos.fase       = state.data.fase;
+  datos.seccion    = state.data.seccion;
+  datos.metrosLinea = num('metrosLinea');
+  datos.metrosUtp  = num('metrosUtp');
+  datos.rj45       = num('rj45');
+
+  // Bornas
+  datos.bornasMono = num('bornasMono');
+  datos.bornasTrif = num('bornasTrif');
+
+  // Canalizaciones
+  CANALIZACIONES.forEach(c => { if (!c.section) datos[c.id] = matNum(c.id); });
+
+  // Protecciones
+  PROTECCIONES.forEach(p => { if (!p.section) datos[p.id] = matNum(p.id); });
+
+  // Trabajos
+  TRABAJOS.forEach(t => { datos[t.id] = matNum(t.id); });
+
+  // Hitos
+  datos.hitoMontaje = state.hitos.h1;
+  datos.hitoExplic  = state.hitos.h2;
+  datos.hitoDocs    = state.hitos.h3;
+
+  return datos;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILE → BASE64
+// ═══════════════════════════════════════════════════════════════
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const str = reader.result;
+      const base64 = str.split(',')[1];
+      resolve({ base64: base64, contentType: file.type || 'application/octet-stream' });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUBIR VÍDEO POR URL RESUMABLE (vídeos grandes)
+// ═══════════════════════════════════════════════════════════════
+async function subirVideoResumable(videoData, cliente, onProgress){
+  // 1. GET al Apps Script para obtener URL resumable
+  const url = WEB_APP_URL + '?action=getVideoUploadUrl&cliente=' +
+    encodeURIComponent(cliente) + '&nombre=' + encodeURIComponent(videoData.name);
+
+  let uploadUrl;
+  try {
+    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || 'No se obtuvo URL resumable');
+    uploadUrl = json.uploadUrl;
+  } catch (err) {
+    throw new Error('Error obteniendo URL resumable: ' + err.message);
+  }
+
+  // 2. PUT del blob a la URL resumable
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', videoData.file.type || 'video/mp4');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress){
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error('PUT falló: ' + xhr.status + ' ' + xhr.responseText));
+    };
+
+    xhr.onerror = () => reject(new Error('Error de red durante PUT'));
+
+    xhr.send(videoData.file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENVÍO PRINCIPAL DEL CIERRE
+// ═══════════════════════════════════════════════════════════════
+async function submitClosure(esFallida){
+  // Recolectar datos
+  const datos = recolectarDatos(esFallida);
+
+  // Pasar a pantalla de éxito (con progreso)
+  showScreen('done');
+  document.getElementById('doneIcon').textContent = '⏳';
+  document.getElementById('doneTitle').textContent = 'Enviando cierre...';
+  document.getElementById('dataPct').textContent = '0%';
+  document.getElementById('dataBar').style.width = '0%';
+  document.getElementById('vidPct').textContent = '—';
+  document.getElementById('vidBar').style.width = '0%';
+
+  try {
+    // ── 1. Convertir fotos a base64 ──
+    if (!esFallida && !state.isSuper){
+      const fotosArr = [];
+      for (const num of Object.keys(state.photos)){
+        const ph = state.photos[num];
+        const b64 = await fileToBase64(ph.file);
+        fotosArr.push({ nombre: ph.name, base64: b64.base64, contentType: b64.contentType });
+      }
+      datos.fotos = fotosArr;
+    }
+
+    // ── 2. Convertir acta PDF a base64 ──
+    if (!esFallida && !state.isSuper && state.pdfActa){
+      const b64 = await fileToBase64(state.pdfActa.file);
+      datos.acta = { nombre: state.pdfActa.name, base64: b64.base64 };
+    }
+
+    // ── 3. Vídeos pequeños: base64. Vídeos grandes: URL resumable ──
+    const videosArr = [];
+    const videosGrandes = [];
+
+    if (!esFallida && !state.isSuper){
+      for (const v of state.videos){
+        if (v.file.size <= VIDEO_RESUMABLE_THRESHOLD){
+          const b64 = await fileToBase64(v.file);
+          videosArr.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
+        } else {
+          videosGrandes.push(v);
+        }
+      }
+      datos.videos = videosArr;
+    }
+
+    // ── 4. Fotos/vídeos de fallida ──
+    if (esFallida){
+      const fotosF = [];
+      for (const f of state.fotosFallida){
+        const b64 = await fileToBase64(f.file);
+        fotosF.push({ nombre: f.name, base64: b64.base64, contentType: b64.contentType });
+      }
+      datos.fotosFallida = fotosF;
+
+      const vidsF = [];
+      for (const v of state.videosFallida){
+        if (v.file.size <= VIDEO_RESUMABLE_THRESHOLD){
+          const b64 = await fileToBase64(v.file);
+          vidsF.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
+        } else {
+          videosGrandes.push(v);
+        }
+      }
+      datos.videosFallida = vidsF;
+    }
+
+    // ── 5. POST principal con todos los datos ──
+    document.getElementById('dataPct').textContent = '50%';
+    document.getElementById('dataBar').style.width = '50%';
+
+    await postCierre(datos);
+
+    document.getElementById('dataPct').textContent = '100%';
+    document.getElementById('dataBar').style.width = '100%';
+
+    // ── 6. Subir vídeos grandes por URL resumable ──
+    if (videosGrandes.length > 0){
+      document.getElementById('vidPct').textContent = '0%';
+      const cliente = datos.cliente;
+
+      for (let i = 0; i < videosGrandes.length; i++){
+        const v = videosGrandes[i];
+        try {
+          await subirVideoResumable(v, cliente, (pct) => {
+            const overallPct = Math.round((i * 100 + pct) / videosGrandes.length);
+            document.getElementById('vidPct').textContent = overallPct + '%';
+            document.getElementById('vidBar').style.width = overallPct + '%';
+          });
+        } catch (err){
+          console.error('Error vídeo grande:', err);
+          alert('Error subiendo vídeo grande: ' + v.name + '\n' + err.message + '\n\nLos datos ya están registrados. Puedes reintentar la subida del vídeo más tarde.');
+        }
+      }
+
+      document.getElementById('vidPct').textContent = '100%';
+      document.getElementById('vidBar').style.width = '100%';
+    } else {
+      document.getElementById('vidPct').textContent = videosArr.length > 0 ? '100%' : '—';
+      document.getElementById('vidBar').style.width = videosArr.length > 0 ? '100%' : '0%';
+    }
+
+    // ── ÉXITO ──
+    document.getElementById('doneIcon').textContent = '✅';
+    document.getElementById('doneTitle').textContent = 'Cierre enviado correctamente';
+    document.getElementById('doneText').innerHTML = 'Todo subido. Ya puedes cerrar la app.';
+    document.getElementById('doneWarning').style.display = 'none';
+    document.getElementById('doneActions').style.display = 'block';
+
+  } catch (err){
+    console.error('Error en submitClosure:', err);
+    document.getElementById('doneIcon').textContent = '❌';
+    document.getElementById('doneTitle').textContent = 'Error al enviar';
+    document.getElementById('doneText').textContent = err.message + '\n\nPuedes reintentar pulsando Atrás y volviendo a enviar.';
+    document.getElementById('doneActions').style.display = 'block';
+    document.getElementById('doneActions').innerHTML =
+      '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POST AL APPS SCRIPT (con mode no-cors)
+// ═══════════════════════════════════════════════════════════════
+function postCierre(datos){
+  return new Promise((resolve, reject) => {
+    fetch(WEB_APP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain para evitar preflight
+      body: JSON.stringify(datos)
+    })
+    .then(() => resolve())  // no-cors no permite leer respuesta, asumimos éxito
+    .catch(err => reject(err));
+
+    // Timeout de seguridad: 60 segundos
+    setTimeout(() => resolve(), 60000);
+  });
+}
+
+function reintentar(){
+  document.getElementById('navBar').style.display = 'flex';
+  document.getElementById('doneActions').style.display = 'none';
+  showScreen(state.type === 'fallida' ? 'failed' : 12);
+}
+
+function nuevoCierre(){
+  // Recargar la página (el técnico tendrá que pasar por otro link de Calendar)
+  if (confirm('¿Iniciar un nuevo cierre? Los datos actuales se perderán.')){
+    location.href = location.pathname; // sin params
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INICIO
+// ═══════════════════════════════════════════════════════════════
+parseUrlParams();
+checkSuperOnLoad();
+renderSteps();
+renderChecklist();
+showScreen(1);
+</script>
+
+</body>
+</html>
