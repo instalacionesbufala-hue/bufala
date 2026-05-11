@@ -363,6 +363,10 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
       <span class="type-icon">🏠</span>
       <div>Unifamiliar<div class="type-desc">Vivienda particular con cuadro propio</div></div>
     </button>
+    <button type="button" class="type-btn" onclick="selectType('nuevoSuministro')" id="btnNuevoSuministro">
+      <span class="type-icon">⚡</span>
+      <div>Nuevo suministro<div class="type-desc">Instalación con kit de preinstalación de contador nuevo</div></div>
+    </button>
     <button type="button" class="type-btn type-btn-fail" onclick="selectType('fallida')" id="btnFallida">
       <span class="type-icon">❌</span>
       <div>Instalación fallida<div class="type-desc">No se ha podido realizar la instalación</div></div>
@@ -391,7 +395,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 
   <div class="warning-box success" id="bornasMsg" style="display:none">
     <span>ℹ️</span>
-    <div>En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).</div>
+    <div id="bornasMsgText">En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).</div>
   </div>
 
   <div class="photo-grid" id="photoGrid"></div>
@@ -684,7 +688,8 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 // ═══════════════════════════════════════════════════════════════
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwnPgzph0Njm9zsrT_cBNcP50mdqJFl8RPTOFaXuG0JK0zGbO2Gl4i37y9cNrJ2LcVlVw/exec';
 const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
-const VIDEO_MAX_SIZE = 25 * 1024 * 1024; // 25 MB máximo por vídeo
+const VIDEO_MAX_SIZE  = 80 * 1024 * 1024; // 80 MB máximo por vídeo (subida por chunks)
+const CHUNK_SIZE_RAW  = 12 * 1024 * 1024; // 12 MB raw → ~16 MB en base64, dentro del límite seguro
 const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
 const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
 
@@ -751,7 +756,17 @@ const FOTOS = [
   {n:7, nombre:"APP CONTROL", obligatoria:true},
   {n:8, nombre:"APP MENU", obligatoria:true},
   {n:9, nombre:"PICA DE TIERRA", obligatoria:false, opcional:true},
-  {n:11, nombre:"BORNA DOBLE EN CONTADORES", obligatoria:false, soloComunitaria:true}
+  {n:11, nombre:"BORNA DOBLE EN CONTADORES", obligatoria:false, soloComunitaria:true},
+  // ── BLOQUE B — fotos adicionales obligatorias en NUEVO SUMINISTRO ──
+  {n:21, nombre:"NS - CGP PUERTA CERRADA",            obligatoria:true, soloNuevoSuministro:true},
+  {n:22, nombre:"NS - CGP PUERTA ABIERTA",            obligatoria:true, soloNuevoSuministro:true},
+  {n:23, nombre:"NS - VISTA GENERAL CUARTO",          obligatoria:true, soloNuevoSuministro:true},
+  {n:24, nombre:"NS - CELDA ROTULADA",                obligatoria:true, soloNuevoSuministro:true},
+  {n:25, nombre:"NS - Nº SERIE CONTADOR CERCANO",     obligatoria:true, soloNuevoSuministro:true},
+  {n:26, nombre:"NS - BORNAS CABLEADAS Y ROTULADAS",  obligatoria:true, soloNuevoSuministro:true},
+  {n:27, nombre:"NS - MANETA DE CORTE",               obligatoria:true, soloNuevoSuministro:true},
+  {n:28, nombre:"NS - MEDIDA DE TENSIÓN",             obligatoria:true, soloNuevoSuministro:true},
+  {n:29, nombre:"NS - FUSIBLES EN EMBARRADO",         obligatoria:true, soloNuevoSuministro:true}
 ];
 
 const state = {
@@ -767,7 +782,8 @@ const state = {
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
-  isSuper: false
+  isSuper: false,
+  cierreId: null       // se genera al enviar — identifica los chunks de vídeo
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1009,18 +1025,62 @@ function showError(text){
 function selectType(t){
   state.type = t;
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
-  const idMap = {comunitaria:'btnComunitaria', unifamiliar:'btnUnifamiliar', fallida:'btnFallida'};
-  document.getElementById(idMap[t]).classList.add('selected');
+  const idMap = {
+    comunitaria:     'btnComunitaria',
+    unifamiliar:     'btnUnifamiliar',
+    nuevoSuministro: 'btnNuevoSuministro',
+    fallida:         'btnFallida'
+  };
+  if (idMap[t]) document.getElementById(idMap[t]).classList.add('selected');
 
   if (t === 'fallida'){ setTimeout(() => showScreen('failed'), 200); return; }
 
+  // Bornas: visibles solo en comunitaria
   document.getElementById('bornasMsg').style.display = (t === 'comunitaria') ? 'flex' : 'none';
   document.getElementById('bornasSection').style.display = (t === 'comunitaria') ? 'block' : 'none';
+
+  // Aviso de pantalla de fotos según tipo
+  const bornasMsgText = document.getElementById('bornasMsgText');
+  if (bornasMsgText){
+    if (t === 'nuevoSuministro'){
+      document.getElementById('bornasMsg').style.display = 'flex';
+      bornasMsgText.innerHTML = '⚡ <b>Nuevo suministro</b>: además de las fotos del cargador, son obligatorias las <b>9 fotos adicionales</b> (CGP, centralización, etc.).';
+    } else if (t === 'comunitaria'){
+      bornasMsgText.textContent = 'En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).';
+    }
+  }
+
+  // Auto-rellenar el kit de pre-instalación cuando es nuevo suministro
+  applyKitPreinstAuto();
 
   renderPhotos();
   renderChecklist();
   applyBornasAuto();
 }
+
+// Auto-relleno del kit de pre-instalación al elegir "Nuevo suministro"
+function applyKitPreinstAuto(){
+  const input = document.getElementById('mat_preinst');
+  if (!input) return;
+  if (state.type === 'nuevoSuministro'){
+    if (!input.dataset.touched){
+      input.value = '1';
+      input.style.background = '#FFF7E0'; // marca suave para indicar autorelleno
+    }
+  } else {
+    // Si el usuario no lo había tocado y cambiamos a otro tipo, limpiarlo
+    if (!input.dataset.touched && input.value === '1') {
+      input.value = '';
+      input.style.background = '';
+    }
+  }
+}
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'mat_preinst'){
+    e.target.dataset.touched = '1';
+    e.target.style.background = '';
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // AUTO-RELLENO BORNAS Y UTP
@@ -1068,8 +1128,9 @@ function renderPhotos(){
   const grid = document.getElementById('photoGrid');
   grid.innerHTML = '';
   FOTOS.forEach(f => {
-    if (f.soloUnifamiliar && state.type !== 'unifamiliar') return;
-    if (f.soloComunitaria && state.type !== 'comunitaria') return;
+    if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return;
+    if (f.soloComunitaria     && state.type !== 'comunitaria')     return;
+    if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return;
     const card = document.createElement('label');
     card.className = 'photo-card' + (f.opcional ? ' optional' : '');
     const photoData = state.photos[f.n];
@@ -1174,8 +1235,9 @@ function updateUploadIndicator(){
 
 function getRequiredPhotosCount(){
   return FOTOS.filter(f => {
-    if (f.soloUnifamiliar && state.type !== 'unifamiliar') return false;
-    if (f.soloComunitaria && state.type !== 'comunitaria') return false;
+    if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return false;
+    if (f.soloComunitaria     && state.type !== 'comunitaria')     return false;
+    if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return false;
     return true;
   }).length;
 }
@@ -1231,7 +1293,11 @@ function acceptAll(){ state.checklist = state.checklist.map(() => true); renderC
 // RESUMEN
 // ═══════════════════════════════════════════════════════════════
 function updateSummary(){
-  const tipoMap = {comunitaria: '🏢 Comunitaria', unifamiliar: '🏠 Unifamiliar'};
+  const tipoMap = {
+    comunitaria:     '🏢 Comunitaria',
+    unifamiliar:     '🏠 Unifamiliar',
+    nuevoSuministro: '⚡ Nuevo suministro'
+  };
   document.getElementById('resumenCliente').textContent = state.cita.cliente || '—';
   document.getElementById('resumenEquipo').textContent = state.cita.equipo || 'Búfala';
   document.getElementById('resumenTipo').textContent = tipoMap[state.type] || '—';
@@ -1389,7 +1455,7 @@ function validarTamanoVideos(){
   const grandes = todos.filter(v => v.file.size > VIDEO_MAX_SIZE);
   if (grandes.length > 0){
     const nombres = grandes.map(v => v.name + ' (' + (v.file.size/1024/1024).toFixed(1) + ' MB)').join(', ');
-    return 'Vídeo(s) demasiado grande(s) (límite: ' + (VIDEO_MAX_SIZE/1024/1024) + ' MB):\n' + nombres +
+    return 'Vídeo(s) demasiado grande(s) (máximo ' + (VIDEO_MAX_SIZE/1024/1024) + ' MB por vídeo):\n' + nombres +
       '\n\nReduce la duración del vídeo o usa una calidad menor en la cámara del móvil.';
   }
   return null;
@@ -1406,8 +1472,12 @@ async function submitClosure(esFallida){
     return;
   }
 
+  // Generar cierreId único (numInst + timestamp) — identifica chunks de vídeo
+  state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
+
   // Recolectar datos
   const datos = recolectarDatos(esFallida);
+  datos.cierreId = state.cierreId;
 
   // Pasar a pantalla de éxito
   showScreen('done');
@@ -1416,7 +1486,7 @@ async function submitClosure(esFallida){
   document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
   document.getElementById('dataPct').textContent = '0%';
   document.getElementById('dataBar').style.width = '0%';
-  document.getElementById('vidPct').textContent = '—';
+  document.getElementById('vidPct').textContent = '0%';
   document.getElementById('vidBar').style.width = '0%';
 
   try {
@@ -1448,20 +1518,12 @@ async function submitClosure(esFallida){
       document.getElementById('dataBar').style.width = '40%';
     }
 
-    // ── 3. Vídeos (todos como base64, ya validado tamaño) ──
-    if (!esFallida && !state.isSuper){
-      const videosArr = [];
-      let i = 0;
-      for (const v of state.videos){
-        document.getElementById('doneText').textContent = 'Procesando vídeo ' + (i+1) + '/' + state.videos.length + '...';
-        const b64 = await fileToBase64(v.file);
-        videosArr.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
-        i++;
-      }
-      datos.videos = videosArr;
+    // ── 3. Vídeos por CHUNKS (subida independiente al POST principal) ──
+    if (!esFallida && !state.isSuper && state.videos.length){
+      datos.videos = await uploadVideosChunked(state.videos, state.cierreId, 0);
     }
 
-    // ── 4. Fallida (fotos y vídeos en INCIDENCIAS) ──
+    // ── 4. Fallida (fotos + vídeos en INCIDENCIAS) ──
     if (esFallida){
       const fotosF = [];
       let i = 0;
@@ -1474,33 +1536,26 @@ async function submitClosure(esFallida){
       }
       datos.fotosFallida = fotosF;
 
-      const vidsF = [];
-      for (const v of state.videosFallida){
-        const b64 = await fileToBase64(v.file);
-        vidsF.push({ nombre: v.name, base64: b64.base64, contentType: b64.contentType });
+      if (state.videosFallida.length){
+        datos.videosFallida = await uploadVideosChunked(state.videosFallida, state.cierreId, 100);
       }
-      datos.videosFallida = vidsF;
     }
 
-    // ── 5. POST único con todos los datos ──
+    // ── 5. POST único con metadatos (vídeos ya subidos por chunks) ──
     document.getElementById('doneText').textContent = 'Enviando al sistema Búfala...';
     document.getElementById('dataPct').textContent = '70%';
     document.getElementById('dataBar').style.width = '70%';
 
     await postCierre(datos);
 
-    // El iframe absorbe la respuesta. Asumimos OK tras el timeout interno de postCierre.
     document.getElementById('dataPct').textContent = '100%';
     document.getElementById('dataBar').style.width = '100%';
-    document.getElementById('vidPct').textContent = (datos.videos && datos.videos.length) ? '100%' : '—';
-    document.getElementById('vidBar').style.width = (datos.videos && datos.videos.length) ? '100%' : '0%';
 
     // ── ÉXITO ──
     document.getElementById('doneIcon').textContent = '✅';
     document.getElementById('doneTitle').textContent = 'Cierre enviado correctamente';
     document.getElementById('doneText').innerHTML = 'Todo subido. Ya puedes cerrar la app.';
     document.getElementById('doneWarning').style.display = 'none';
-    // doneActions queda oculto — para evitar errores el técnico debe abrir un nuevo cierre desde el calendario
 
   } catch (err){
     console.error('Error en submitClosure:', err);
@@ -1511,6 +1566,87 @@ async function submitClosure(esFallida){
     document.getElementById('doneActions').innerHTML =
       '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUBIDA DE VÍDEOS POR CHUNKS — usa endpoint videoChunk del Apps Script
+// Devuelve un array con la metadata de cada vídeo (para enviar en datos.videos)
+// videoIndexOffset permite separar los índices entre videos normales y fallida
+// ═══════════════════════════════════════════════════════════════
+async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
+  const meta = [];
+  for (let vi = 0; vi < videos.length; vi++){
+    const v = videos[vi];
+    const file = v.file;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE_RAW);
+    const videoIndex = (videoIndexOffset || 0) + vi;
+
+    document.getElementById('doneText').textContent =
+      'Subiendo vídeo ' + (vi+1) + '/' + videos.length + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)...';
+
+    for (let ci = 0; ci < totalChunks; ci++){
+      const start = ci * CHUNK_SIZE_RAW;
+      const end   = Math.min(start + CHUNK_SIZE_RAW, file.size);
+      const slice = file.slice(start, end);
+      const b64data = await blobToBase64Raw(slice);
+
+      await postChunk({
+        action:      'videoChunk',
+        cierreId:    cierreId,
+        videoIndex:  String(videoIndex),
+        chunkIndex:  String(ci),
+        totalChunks: String(totalChunks),
+        base64:      b64data
+      });
+
+      // Actualizar barra de progreso del vídeo
+      const overall = ((vi + (ci + 1) / totalChunks) / videos.length) * 100;
+      const pct = Math.min(99, Math.round(overall));
+      document.getElementById('vidPct').textContent = pct + '%';
+      document.getElementById('vidBar').style.width = pct + '%';
+    }
+
+    meta.push({
+      chunked:     true,
+      cierreId:    cierreId,
+      videoIndex:  videoIndex,
+      totalChunks: totalChunks,
+      nombre:      v.name,
+      mimeType:    file.type || 'video/mp4'
+    });
+  }
+  document.getElementById('vidPct').textContent = '100%';
+  document.getElementById('vidBar').style.width = '100%';
+  return meta;
+}
+
+// Convertir un Blob a base64 puro (sin prefijo data:)
+function blobToBase64Raw(blob){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const i = result.indexOf(',');
+      resolve(i >= 0 ? result.substring(i + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Error leyendo chunk'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// POST de un chunk al Apps Script (fetch no-cors, esperamos a que termine)
+function postChunk(params){
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    Object.keys(params).forEach(k => fd.append(k, params[k]));
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 120000; // 2 minutos por chunk (margen amplio)
+    xhr.onload  = () => resolve();
+    xhr.onerror = () => reject(new Error('Error de red al subir un fragmento del vídeo'));
+    xhr.ontimeout = () => reject(new Error('Timeout al subir un fragmento del vídeo'));
+    xhr.send(fd);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
