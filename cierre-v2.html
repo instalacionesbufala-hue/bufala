@@ -1573,11 +1573,177 @@ async function submitClosure(esFallida){
 // Devuelve un array con la metadata de cada vídeo (para enviar en datos.videos)
 // videoIndexOffset permite separar los índices entre videos normales y fallida
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// COMPRESIÓN DE VÍDEO EN EL MÓVIL ANTES DE SUBIR (v3.10.4 / 20-may-2026)
+// ═══════════════════════════════════════════════════════════════
+// Comprime un vídeo a 720p / 1.5 Mbps antes de chunkear/subirlo.
+// Vídeo típico de 150 MB → 25-40 MB. Reduce tiempo de subida 4-6×.
+// Si por cualquier motivo la compresión no es posible (codec no
+// soportado, memoria, timeout), devuelve el archivo ORIGINAL sin
+// error → el wizard sigue funcionando como antes.
+async function comprimirVideo(file, onProgress){
+  const TIMEOUT_MS = 120000;
+  const MAX_WIDTH = 1280;
+  const MAX_HEIGHT = 1280;
+  const VIDEO_BITRATE = 1500000;
+  const AUDIO_BITRATE = 96000;
+  const FPS = 24;
+
+  if (typeof MediaRecorder === 'undefined' ||
+      !HTMLCanvasElement.prototype.captureStream){
+    return file;
+  }
+
+  let mimeType = '';
+  for (const m of ['video/mp4;codecs=h264,aac',
+                   'video/mp4;codecs=h264',
+                   'video/webm;codecs=vp9,opus',
+                   'video/webm;codecs=vp8,opus',
+                   'video/webm']){
+    if (MediaRecorder.isTypeSupported(m)){ mimeType = m; break; }
+  }
+  if (!mimeType) return file;
+
+  return new Promise((resolve) => {
+    let resolved = false, timeoutId = null;
+    const fallback = (motivo) => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      console.warn('[comprimirVideo] Fallback al original: ' + motivo);
+      resolve(file);
+    };
+
+    try {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      const urlBlob = URL.createObjectURL(file);
+      video.src = urlBlob;
+      video.onerror = () => fallback('error cargando vídeo');
+
+      video.onloadedmetadata = () => {
+        try {
+          let w = video.videoWidth;
+          let h = video.videoHeight;
+          if (w > MAX_WIDTH || h > MAX_HEIGHT){
+            const ratio = Math.min(MAX_WIDTH/w, MAX_HEIGHT/h);
+            w = Math.round(w * ratio / 2) * 2;
+            h = Math.round(h * ratio / 2) * 2;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          const canvasStream = canvas.captureStream(FPS);
+          try {
+            if (video.captureStream){
+              const orig = video.captureStream();
+              orig.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+            }
+          } catch(e){ console.warn('[comprimirVideo] sin audio:', e); }
+
+          const recorder = new MediaRecorder(canvasStream, {
+            mimeType: mimeType,
+            videoBitsPerSecond: VIDEO_BITRATE,
+            audioBitsPerSecond: AUDIO_BITRATE
+          });
+          const chunks = [];
+          recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+          recorder.onerror = () => fallback('error MediaRecorder');
+          recorder.onstop = () => {
+            try {
+              if (resolved) return;
+              resolved = true;
+              if (timeoutId) clearTimeout(timeoutId);
+              URL.revokeObjectURL(urlBlob);
+              if (chunks.length === 0){ resolve(file); return; }
+              const blob = new Blob(chunks, { type: mimeType });
+              if (blob.size >= file.size * 0.95){
+                console.log('[comprimirVideo] no mejora, usando original');
+                resolve(file);
+                return;
+              }
+              const ext = mimeType.indexOf('mp4') >= 0 ? '.mp4' : '.webm';
+              const nuevoNombre = file.name.replace(/\.[^.]+$/, '') + ext;
+              const compressed = new File([blob], nuevoNombre, {
+                type: mimeType,
+                lastModified: Date.now()
+              });
+              console.log('[comprimirVideo] ✅ ' +
+                Math.round(file.size/1024/1024) + 'MB → ' +
+                Math.round(compressed.size/1024/1024) + 'MB');
+              resolve(compressed);
+            } catch(e){ fallback('onstop: ' + e); }
+          };
+
+          let lastDraw = 0;
+          const drawFrame = () => {
+            if (resolved || video.ended){
+              if (!resolved && recorder.state === 'recording') recorder.stop();
+              return;
+            }
+            const now = performance.now();
+            if (now - lastDraw >= 1000/FPS){
+              ctx.drawImage(video, 0, 0, w, h);
+              lastDraw = now;
+              if (onProgress && video.duration > 0){
+                onProgress(Math.min(99, Math.round((video.currentTime/video.duration)*100)));
+              }
+            }
+            requestAnimationFrame(drawFrame);
+          };
+
+          video.onended = () => {
+            if (recorder.state === 'recording') recorder.stop();
+          };
+
+          timeoutId = setTimeout(() => {
+            if (recorder.state === 'recording') recorder.stop();
+            fallback('timeout ' + TIMEOUT_MS + 'ms');
+          }, TIMEOUT_MS);
+
+          recorder.start(1000);
+          video.play().then(() => drawFrame()).catch((e) => fallback('play: ' + e));
+
+        } catch(e){ fallback('setup: ' + e); }
+      };
+    } catch(e){ fallback('general: ' + e); }
+  });
+}
+
 async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
   const meta = [];
   for (let vi = 0; vi < videos.length; vi++){
     const v = videos[vi];
-    const file = v.file;
+    let file = v.file;
+    let nombre = v.name;
+
+    // ▶ v3.10.4: comprimir antes de subir
+    document.getElementById('doneText').textContent =
+      'Optimizando vídeo ' + (vi+1) + '/' + videos.length + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)...';
+    try {
+      const comprimido = await comprimirVideo(file, (pct) => {
+        document.getElementById('doneText').textContent =
+          'Optimizando vídeo ' + (vi+1) + '/' + videos.length + ' · ' + pct + '%';
+      });
+      if (comprimido !== file){
+        file = comprimido;
+        // Ajustar extensión del nombre según mime real
+        if (file.type.indexOf('webm') >= 0){
+          nombre = nombre.replace(/\.[^.]+$/, '') + '.webm';
+        } else if (file.type.indexOf('mp4') >= 0){
+          nombre = nombre.replace(/\.[^.]+$/, '') + '.mp4';
+        }
+      }
+    } catch(e){
+      console.warn('Error comprimiendo, subiendo original:', e);
+    }
+    // ◀
+
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE_RAW);
     const videoIndex = (videoIndexOffset || 0) + vi;
 
@@ -1611,7 +1777,7 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
       cierreId:    cierreId,
       videoIndex:  videoIndex,
       totalChunks: totalChunks,
-      nombre:      v.name,
+      nombre:      nombre,
       mimeType:    file.type || 'video/mp4'
     });
   }
