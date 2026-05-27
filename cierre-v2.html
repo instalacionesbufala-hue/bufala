@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Búfala Tech — Cierre de Obra</title>
 <style>
 :root{
@@ -149,6 +152,43 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   border-radius:6px; color:var(--text); text-align:right; font-size:16px;
 }
 .material-unit{font-size:12px; color:var(--text-muted); width:30px; flex-shrink:0; text-align:left}
+
+/* ── Bloque de fotos para trabajos especiales (altura, soterramiento) ── */
+.trabajo-fotos-wrap{
+  margin-top:12px; padding:12px; background:var(--accent-light);
+  border:1px solid var(--accent); border-radius:8px;
+}
+.trabajo-fotos-label{
+  font-size:13px; font-weight:600; color:var(--accent); margin-bottom:8px;
+}
+.trabajo-fotos-req{
+  font-weight:400; color:var(--danger); font-size:12px;
+}
+.trabajo-fotos-btn{
+  display:inline-flex; align-items:center; gap:6px; padding:9px 14px;
+  background:var(--accent); color:white; border-radius:6px;
+  font-size:14px; font-weight:600; cursor:pointer;
+}
+.trabajo-fotos-btn:active{background:var(--accent-hover)}
+.trabajo-fotos-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;
+}
+.trabajo-foto-cell{
+  position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden;
+  border:1px solid var(--border); background:var(--bg);
+}
+.trabajo-foto-cell img{width:100%; height:100%; object-fit:cover; display:block}
+.trabajo-foto-del{
+  position:absolute; top:4px; right:4px; width:24px; height:24px;
+  background:rgba(220,38,38,.9); color:white; border:none; border-radius:50%;
+  font-size:16px; font-weight:700; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.trabajo-foto-num{
+  position:absolute; bottom:4px; left:4px; background:rgba(0,0,0,.6);
+  color:white; font-size:11px; font-weight:600; padding:2px 6px;
+  border-radius:4px;
+}
 
 .section-h{
   font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
@@ -777,6 +817,7 @@ const state = {
   videosFallida: [],
   fotosFallida: [],
   photos: {},          // {1: {file, name}, 2: {...}}
+  trabajosFotos: {altAndamio: [], altElevadora: [], soterrM: []},  // fotos por trabajo especial
   pdfActa: null,
   hitos: {h1:false, h2:false, h3:false},
   checklist: Array(9).fill(false),
@@ -997,6 +1038,25 @@ function validateScreen(num){
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
     const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
     if (m <= 0){ showError('Indica los metros de línea'); return false; }
+  }
+  if (num === 8 && !state.isSuper){
+    // Para cada trabajo especial con cantidad > 0, exigir al menos 1 foto
+    const trabajosConCantidad = [
+      {id:'altAndamio',   label:'Trabajo en altura — andamio'},
+      {id:'altElevadora', label:'Trabajo en altura — elevadora'},
+      {id:'soterrM',      label:'Soterramiento'}
+    ];
+    for (const t of trabajosConCantidad){
+      const inp = document.getElementById('mat_' + t.id);
+      const cantidad = inp ? (parseFloat(inp.value) || 0) : 0;
+      if (cantidad > 0){
+        const fotos = state.trabajosFotos[t.id] || [];
+        if (fotos.length === 0){
+          showError('Sube al menos 1 foto de "' + t.label + '"');
+          return false;
+        }
+      }
+    }
   }
   if (num === 9 && !state.isSuper && !state.pdfActa){ showError('Sube el PDF del acta firmada'); return false; }
   if (num === 10 && (!state.hitos.h1 || !state.hitos.h2 || !state.hitos.h3)){
@@ -1322,6 +1382,7 @@ function copyWa(){
 // ═══════════════════════════════════════════════════════════════
 function renderMaterialItem(item){
   if (item.section) return '<div class="section-h">' + item.section + '</div>';
+  const esTrabajoEspecial = ['altAndamio','altElevadora','soterrM'].indexOf(item.id) !== -1;
   return '<div class="material-block">' +
     '<div class="material-row">' +
       '<div class="material-name-wrap">' +
@@ -1330,11 +1391,75 @@ function renderMaterialItem(item){
         '</div>' +
         (item.sub ? '<div class="material-sub">' + item.sub + '</div>' : '') +
       '</div>' +
-      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
+      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0"' +
+        (esTrabajoEspecial ? ' oninput="onTrabajoEspecialInput(\'' + item.id + '\')"' : '') +
+      '>' +
       '<span class="material-unit">' + item.unit + '</span>' +
     '</div>' +
     '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
+    (esTrabajoEspecial ? (
+      '<div class="trabajo-fotos-wrap" id="trabFotosWrap_' + item.id + '" style="display:none">' +
+        '<div class="trabajo-fotos-label">📷 Fotos del trabajo <span class="trabajo-fotos-req">(mín. 1 obligatoria)</span></div>' +
+        '<label class="trabajo-fotos-btn" for="trabFotosInput_' + item.id + '">' +
+          '<span>＋ Añadir foto(s)</span>' +
+        '</label>' +
+        '<input type="file" id="trabFotosInput_' + item.id + '" accept="image/*" multiple style="display:none" onchange="handleTrabajoFoto(event,\'' + item.id + '\')">' +
+        '<div class="trabajo-fotos-grid" id="trabFotosGrid_' + item.id + '"></div>' +
+      '</div>'
+    ) : '') +
   '</div>';
+}
+
+// Mostrar/ocultar bloque de fotos al cambiar el input del trabajo especial
+function onTrabajoEspecialInput(itemId){
+  const input = document.getElementById('mat_' + itemId);
+  const wrap = document.getElementById('trabFotosWrap_' + itemId);
+  if (!input || !wrap) return;
+  const cantidad = parseFloat(input.value) || 0;
+  wrap.style.display = cantidad > 0 ? 'block' : 'none';
+}
+
+// Etiqueta legible por id de trabajo (para nombrar las fotos)
+const TRABAJO_LABEL = {
+  altAndamio:   'ALTURA_ANDAMIO',
+  altElevadora: 'ALTURA_ELEVADORA',
+  soterrM:      'SOTERRAMIENTO'
+};
+
+// Subir 1 o varias fotos a un trabajo especial
+function handleTrabajoFoto(e, itemId){
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  if (!state.trabajosFotos[itemId]) state.trabajosFotos[itemId] = [];
+  files.forEach((f) => {
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+    state.trabajosFotos[itemId].push({ file: f, ext: ext });
+  });
+  e.target.value = '';  // permite volver a seleccionar las mismas fotos
+  renderTrabajoMiniaturas(itemId);
+}
+
+function renderTrabajoMiniaturas(itemId){
+  const grid = document.getElementById('trabFotosGrid_' + itemId);
+  if (!grid) return;
+  const fotos = state.trabajosFotos[itemId] || [];
+  grid.innerHTML = '';
+  fotos.forEach((ph, idx) => {
+    const url = URL.createObjectURL(ph.file);
+    const cell = document.createElement('div');
+    cell.className = 'trabajo-foto-cell';
+    cell.innerHTML =
+      '<img src="' + url + '" alt="">' +
+      '<button type="button" class="trabajo-foto-del" title="Eliminar" onclick="removeTrabajoFoto(\'' + itemId + '\',' + idx + ')">×</button>' +
+      '<div class="trabajo-foto-num">' + (idx + 1) + '</div>';
+    grid.appendChild(cell);
+  });
+}
+
+function removeTrabajoFoto(itemId, idx){
+  if (!state.trabajosFotos[itemId]) return;
+  state.trabajosFotos[itemId].splice(idx, 1);
+  renderTrabajoMiniaturas(itemId);
 }
 
 document.getElementById('canalizacionesCard').innerHTML = CANALIZACIONES.map(renderMaterialItem).join('');
@@ -1494,17 +1619,38 @@ async function submitClosure(esFallida){
     if (!esFallida && !state.isSuper){
       const fotosArr = [];
       const fotoKeys = Object.keys(state.photos);
+      // Total a procesar: fotos normales + fotos de trabajos especiales
+      const totalTrabFotos = (state.trabajosFotos.altAndamio.length +
+                              state.trabajosFotos.altElevadora.length +
+                              state.trabajosFotos.soterrM.length);
+      const totalFotos = fotoKeys.length + totalTrabFotos;
       let i = 0;
       for (const num of fotoKeys){
         const ph = state.photos[num];
-        document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + fotoKeys.length + '...';
+        document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
         const compressed = await compressImage(ph.file);
         const b64 = await fileToBase64(compressed);
         fotosArr.push({ nombre: ph.name, base64: b64.base64, contentType: b64.contentType });
         i++;
-        const pct = Math.round((i / Math.max(fotoKeys.length, 1)) * 30); // hasta 30%
+        const pct = Math.round((i / Math.max(totalFotos, 1)) * 30); // hasta 30%
         document.getElementById('dataPct').textContent = pct + '%';
         document.getElementById('dataBar').style.width = pct + '%';
+      }
+      // Fotos de trabajos especiales (van a la misma carpeta FOTOS Y VÍDEO INSTALACIÓN)
+      for (const itemId of ['altAndamio','altElevadora','soterrM']){
+        const fotos = state.trabajosFotos[itemId] || [];
+        for (let j = 0; j < fotos.length; j++){
+          const ph = fotos[j];
+          const nombreBase = TRABAJO_LABEL[itemId] + '_' + (j + 1);
+          document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
+          const compressed = await compressImage(ph.file);
+          const b64 = await fileToBase64(compressed);
+          fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: b64.base64, contentType: b64.contentType });
+          i++;
+          const pct = Math.round((i / Math.max(totalFotos, 1)) * 30);
+          document.getElementById('dataPct').textContent = pct + '%';
+          document.getElementById('dataBar').style.width = pct + '%';
+        }
       }
       datos.fotos = fotosArr;
     }
