@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>BÚFALA TECH — Dashboard KPIs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F5F7F4;
+    color: #1F2937;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%);
+    color: white; padding: 24px 32px; border-radius: 16px;
+    margin-bottom: 24px; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 16px;
+  }
+  .header h1 { font-size: 26px; font-weight: 600; }
+  .header .subtitle { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+  .filter-bar {
+    display: flex; gap: 10px; background: rgba(255,255,255,0.15);
+    padding: 8px 14px; border-radius: 8px; align-items: center;
+  }
+  .filter-bar select {
+    background: rgba(255,255,255,0.95); color: #1F2937;
+    border: 1px solid rgba(255,255,255,0.3); padding: 7px 12px;
+    border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  .btn-logout {
+    background: rgba(255,255,255,0.15); color: white;
+    border: 1px solid rgba(255,255,255,0.3); padding: 7px 12px;
+    border-radius: 6px; font-size: 13px; cursor: pointer;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+  /* ── KPI CARDS ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: white; border-radius: 12px; padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-left: 4px solid #2D6A4F;
+  }
+  .kpi-card.amber { border-left-color: #F59E0B; }
+  .kpi-card.rojo { border-left-color: #EF4444; }
+  .kpi-card.verde { border-left-color: #10B981; }
+  .kpi-card.neutro { border-left-color: #9CA3AF; }
+  .kpi-label {
+    font-size: 11px; color: #6B7280; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;
+  }
+  .kpi-value {
+    font-size: 30px; font-weight: 700; color: #1F2937; line-height: 1.1;
+  }
+  .kpi-unit { font-size: 15px; color: #6B7280; font-weight: 500; }
+  .kpi-sub { font-size: 12px; color: #6B7280; margin-top: 4px; }
+  .kpi-trend {
+    margin-top: 8px; font-size: 12px; display: flex;
+    align-items: center; gap: 4px; font-weight: 500;
+  }
+  .kpi-trend.up { color: #10B981; }
+  .kpi-trend.down { color: #EF4444; }
+  .kpi-trend.neutro { color: #6B7280; }
+
+  /* ── CHARTS ── */
+  .chart-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 20px; margin-bottom: 24px;
+  }
+  .chart-full { grid-column: 1 / -1; }
+  .chart-card {
+    background: white; border-radius: 12px; padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .chart-title {
+    font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 4px;
+  }
+  .chart-subtitle {
+    font-size: 12px; color: #9CA3AF; margin-bottom: 16px;
+  }
+  .chart-wrapper { position: relative; height: 280px; }
+  .chart-wrapper.tall { height: 340px; }
+
+  /* ── TABLA ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 8px; background: #F9FAFB;
+       color: #6B7280; font-weight: 600; border-bottom: 1px solid #E5E7EB;
+       font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  td { padding: 11px 8px; border-bottom: 1px solid #F3F4F6; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.total-row { background: #F9FAFB; font-weight: 600; }
+  tr.total-row td { border-bottom: none; padding-top: 14px; }
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge.verde { background: #D1FAE5; color: #065F46; }
+  .badge.amber { background: #FEF3C7; color: #92400E; }
+  .badge.rojo { background: #FEE2E2; color: #991B1B; }
+  .badge.neutro { background: #E5E7EB; color: #4B5563; }
+
+  /* ── LOADING / ERROR ── */
+  .loader {
+    text-align: center; padding: 80px 20px; color: #6B7280;
+  }
+  .spinner {
+    width: 48px; height: 48px; margin: 0 auto 20px;
+    border: 4px solid #E5E7EB; border-top-color: #2D6A4F;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-box {
+    background: #FEE2E2; color: #991B1B; padding: 20px;
+    border-radius: 12px; border-left: 4px solid #EF4444;
+    margin-bottom: 24px;
+  }
+  .error-box .err-title { font-weight: 700; margin-bottom: 6px; }
+  .error-box .err-detail { font-size: 12px; opacity: 0.85; font-family: monospace; }
+
+  /* ── LOGIN OVERLAY ── */
+  .login-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px;
+  }
+  .login-box {
+    background: white; border-radius: 16px; padding: 40px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 380px;
+    text-align: center;
+  }
+  .login-box .logo { font-size: 48px; margin-bottom: 12px; }
+  .login-box h2 { font-size: 22px; color: #1F2937; margin-bottom: 8px; }
+  .login-box p { font-size: 13px; color: #6B7280; margin-bottom: 24px; }
+  .login-box input {
+    width: 100%; padding: 12px 16px; font-size: 15px;
+    border: 2px solid #E5E7EB; border-radius: 8px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-box input:focus { border-color: #2D6A4F; }
+  .login-box .login-btn {
+    width: 100%; padding: 12px; margin-top: 14px; font-size: 15px;
+    font-weight: 600; color: white; background: #2D6A4F;
+    border: none; border-radius: 8px; cursor: pointer;
+  }
+  .login-box .login-btn:hover { background: #1B4332; }
+  .login-box .login-err {
+    margin-top: 12px; color: #EF4444; font-size: 13px;
+    min-height: 18px;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .header { padding: 18px 20px; flex-direction: column; align-items: stretch; }
+    .header h1 { font-size: 22px; }
+    .filter-bar { flex-wrap: wrap; }
+    .kpi-value { font-size: 26px; }
+    .chart-wrapper { height: 240px; }
+    .chart-wrapper.tall { height: 280px; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ PANTALLA LOGIN ════════════════ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="logo">🐂</div>
+    <h2>BÚFALA TECH</h2>
+    <p>Dashboard KPIs · Acceso restringido</p>
+    <input type="password" id="passwordInput" placeholder="Contraseña" autocomplete="off">
+    <button type="button" class="login-btn" onclick="tryLogin()">Acceder</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div class="container" id="dashboardContainer" style="display:none">
+
+  <div class="header">
+    <div>
+      <h1>🐂 BÚFALA TECH · Dashboard KPIs</h1>
+      <div class="subtitle" id="subtitle">Cargando…</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+      <div class="filter-bar">
+        <select id="filtroMes" onchange="onFiltroChange()"></select>
+        <select id="filtroBrigada" onchange="onFiltroChange()"></select>
+      </div>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div id="contentArea">
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <div>Cargando datos del dashboard…</div>
+    </div>
+    <div id="errorArea"></div>
+    <div id="dashContent" style="display:none">
+      <!-- KPI CARDS -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- CHARTS -->
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Comparativa por brigada</div>
+          <div class="chart-subtitle" id="subBarrasBrig">—</div>
+          <div class="chart-wrapper"><canvas id="chart1"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Distribución por tipo de instalación</div>
+          <div class="chart-subtitle" id="subDonut">—</div>
+          <div class="chart-wrapper"><canvas id="chart2"></canvas></div>
+        </div>
+
+        <div class="chart-card chart-full">
+          <div class="chart-title">Tendencia anual · Instalaciones y margen</div>
+          <div class="chart-subtitle" id="subTendencia">—</div>
+          <div class="chart-wrapper tall"><canvas id="chart3"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Top 10 materiales consumidos</div>
+          <div class="chart-subtitle" id="subTop">€ Coste estimado</div>
+          <div class="chart-wrapper tall"><canvas id="chart4"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Calidad documental por semana</div>
+          <div class="chart-subtitle">% instalaciones conformes</div>
+          <div class="chart-wrapper tall"><canvas id="chart5"></canvas></div>
+        </div>
+
+        <!-- TABLA RESUMEN BRIGADAS -->
+        <div class="chart-card chart-full">
+          <div class="chart-title">Resumen por brigada</div>
+          <div class="chart-subtitle">Vista comparativa con semáforos de objetivos</div>
+          <div style="overflow-x:auto">
+            <table id="tablaBrigadas">
+              <thead>
+                <tr>
+                  <th>Brigada</th>
+                  <th class="num">Obras</th>
+                  <th class="num">Metros</th>
+                  <th class="num">m/brig-día</th>
+                  <th class="num">Facturado</th>
+                  <th class="num">Coste</th>
+                  <th class="num">Margen</th>
+                  <th>% Margen</th>
+                  <th>Conformidad</th>
+                  <th>Inst. objetivo</th>
+                </tr>
+              </thead>
+              <tbody id="tablaBrigadasBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; color:#9CA3AF; font-size:11px; padding:20px 0">
+    Búfala Tech · Dashboard v1.0 · <span id="footerVersion">—</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec";
+const PASSWORD = "Bufala-Verde-1979!400";
+const STORAGE_KEY = "bufala_dashboard_auth_v1";
+
+// Color palette
+const COL_VERDE   = '#2D6A4F';
+const COL_VERDE_L = '#52B788';
+const COL_AZUL    = '#3B82F6';
+const COL_ROJO    = '#EF4444';
+const COL_AMBAR   = '#F59E0B';
+const COL_ESMERALDA = '#10B981';
+const COL_GRIS    = '#9CA3AF';
+
+// Charts (instancias para destruir antes de re-pintar)
+let chartInstances = {};
+
+// Filtros actuales
+let currentMes = null;
+let currentBrigada = "todas";
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════════════
+function checkLogin() {
+  const token = localStorage.getItem(STORAGE_KEY);
+  if (token === btoa(PASSWORD)) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('dashboardContainer').style.display = 'block';
+    initDashboard();
+  } else {
+    document.getElementById('passwordInput').focus();
+  }
+}
+
+function tryLogin() {
+  const pwd = document.getElementById('passwordInput').value;
+  if (pwd === PASSWORD) {
+    localStorage.setItem(STORAGE_KEY, btoa(PASSWORD));
+    document.getElementById('loginErr').textContent = '';
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('dashboardContainer').style.display = 'block';
+    initDashboard();
+  } else {
+    document.getElementById('loginErr').textContent = '❌ Contraseña incorrecta';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordInput').focus();
+  }
+}
+
+function logout() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// FORMATEO
+// ═══════════════════════════════════════════════════════════════
+const fmtEur = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:0, maximumFractionDigits:0 });
+const fmtEurD = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:2, maximumFractionDigits:2 });
+const fmtNum = new Intl.NumberFormat('es-ES');
+const fmtNum1 = new Intl.NumberFormat('es-ES', { minimumFractionDigits:1, maximumFractionDigits:1 });
+const fmtPct = (v) => (typeof v === 'number' ? v.toFixed(1) + '%' : '—');
+
+function nombreMes(yyyymm) {
+  if (!yyyymm || !/^\d{4}-\d{2}$/.test(yyyymm)) return yyyymm || '';
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const m = parseInt(yyyymm.split('-')[1], 10);
+  return meses[m-1] + ' ' + yyyymm.split('-')[0];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+async function initDashboard() {
+  await loadDashboardData();
+}
+
+async function loadDashboardData() {
+  document.getElementById('loader').style.display = 'block';
+  document.getElementById('dashContent').style.display = 'none';
+  document.getElementById('errorArea').innerHTML = '';
+
+  let url = ENDPOINT + '?action=dashboard';
+  if (currentMes) url += '&mes=' + encodeURIComponent(currentMes);
+  if (currentBrigada && currentBrigada !== 'todas') url += '&brigada=' + encodeURIComponent(currentBrigada);
+
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Respuesta sin datos');
+    renderDashboard(data);
+  } catch (err) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('errorArea').innerHTML =
+      '<div class="error-box">' +
+        '<div class="err-title">⚠️ No se pudo cargar el dashboard</div>' +
+        '<div class="err-detail">' + (err.message || err) + '</div>' +
+        '<div style="margin-top:10px"><button class="btn-logout" style="background:#991B1B" onclick="loadDashboardData()">Reintentar</button></div>' +
+      '</div>';
+  }
+}
+
+function onFiltroChange() {
+  currentMes = document.getElementById('filtroMes').value || null;
+  currentBrigada = document.getElementById('filtroBrigada').value || 'todas';
+  loadDashboardData();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard(data) {
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('dashContent').style.display = 'block';
+
+  // Subtitle y footer
+  document.getElementById('subtitle').textContent =
+    data.meta.mesLabel + ' · ' +
+    (data.meta.brigadaFiltro === 'todas' ? 'Todas las brigadas' : data.meta.brigadaFiltro) +
+    ' · Actualizado ' + new Date(data.meta.generado).toLocaleString('es-ES');
+  document.getElementById('footerVersion').textContent = data.meta.version;
+
+  // Filtros (poblar la primera vez si no están)
+  populateFiltros(data);
+
+  // KPIs
+  renderKPIs(data.kpis);
+
+  // Charts
+  renderChart1_Barras(data.graficos.barrasBrigadas);
+  renderChart2_Donut(data.graficos.donutTipoInst);
+  renderChart3_Tendencia(data.graficos.tendenciaMensual);
+  renderChart4_TopMateriales(data.graficos.topMateriales);
+  renderChart5_Calidad(data.graficos.calidadSemanal);
+
+  // Subtítulos dinámicos
+  document.getElementById('subBarrasBrig').textContent = data.meta.mesLabel;
+  document.getElementById('subDonut').textContent =
+    data.meta.mesLabel + ' · ' + data.kpis.instalaciones.valor + ' obras';
+  document.getElementById('subTendencia').textContent =
+    'Año ' + data.graficos.tendenciaMensual.anio + ' · ' +
+    'Barras: nº obras · Línea: € facturado';
+
+  // Tabla brigadas
+  renderTablaBrigadas(data.tablaBrigadas);
+}
+
+function populateFiltros(data) {
+  const selMes = document.getElementById('filtroMes');
+  const selBrig = document.getElementById('filtroBrigada');
+
+  // Solo poblar la primera vez
+  if (selMes.options.length === 0) {
+    data.filtros.mesesDisponibles.slice().reverse().forEach(mes => {
+      const opt = document.createElement('option');
+      opt.value = mes;
+      opt.textContent = '📅 ' + nombreMes(mes);
+      selMes.appendChild(opt);
+    });
+    data.filtros.brigadas.forEach(brig => {
+      const opt = document.createElement('option');
+      opt.value = brig;
+      opt.textContent = (brig === 'todas' ? '👥 Todas las brigadas' : brig);
+      selBrig.appendChild(opt);
+    });
+  }
+  selMes.value = data.meta.mes;
+  selBrig.value = data.meta.brigadaFiltro;
+}
+
+// ─── KPI CARDS ───
+function renderKPIs(k) {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+
+  // Helper: card KPI estándar
+  function card(label, valor, unidad, semaforo, trendHtml, subHtml) {
+    const c = document.createElement('div');
+    c.className = 'kpi-card ' + (semaforo || 'verde');
+    c.innerHTML =
+      '<div class="kpi-label">' + label + '</div>' +
+      '<div class="kpi-value">' + valor + (unidad ? ' <span class="kpi-unit">' + unidad + '</span>' : '') + '</div>' +
+      (subHtml ? '<div class="kpi-sub">' + subHtml + '</div>' : '') +
+      (trendHtml ? '<div class="kpi-trend ' + (trendHtml.cls || 'neutro') + '">' + trendHtml.html + '</div>' : '');
+    grid.appendChild(c);
+  }
+
+  // 1. Instalaciones
+  card(
+    'Instalaciones',
+    k.instalaciones.valor,
+    'obras',
+    k.instalaciones.semaforo,
+    k.instalaciones.anterior > 0
+      ? { cls: k.instalaciones.deltaPct > 0 ? 'up' : 'down',
+          html: (k.instalaciones.deltaPct > 0 ? '▲' : '▼') + ' ' +
+                Math.abs(k.instalaciones.deltaPct).toFixed(1) + '% vs anterior (' + k.instalaciones.anterior + ')' }
+      : null,
+    'Objetivo: ' + k.instalaciones.objetivo + ' · ámbar: ' + k.instalaciones.ambar
+  );
+
+  // 2. Facturado
+  card(
+    'Importe facturado',
+    fmtEur.format(k.facturadoBase.valor),
+    '',
+    k.facturadoBase.semaforo,
+    k.facturadoBase.anterior > 0
+      ? { cls: k.facturadoBase.deltaPct > 0 ? 'up' : 'down',
+          html: (k.facturadoBase.deltaPct > 0 ? '▲' : '▼') + ' ' +
+                Math.abs(k.facturadoBase.deltaPct).toFixed(1) + '% vs anterior' }
+      : null,
+    null
+  );
+
+  // 3. Margen %
+  card(
+    'Margen',
+    k.margenPct.valor.toFixed(1) + '%',
+    '',
+    k.margenPct.semaforo,
+    k.margenPct.anterior > 0
+      ? { cls: k.margenPct.deltaPp >= 0 ? 'up' : 'down',
+          html: (k.margenPct.deltaPp >= 0 ? '▲' : '▼') + ' ' +
+                Math.abs(k.margenPct.deltaPp).toFixed(1) + ' pp vs anterior' }
+      : null,
+    fmtEurD.format(k.margenPct.valorEur) + ' € margen total'
+  );
+
+  // 4. Productividad
+  card(
+    'Productividad',
+    fmtNum1.format(k.productividad.metrosDia),
+    'm/brig-día',
+    k.productividad.semaforo,
+    null,
+    fmtNum.format(k.productividad.metrosTotal) + ' m en ' +
+    fmtNum1.format(k.productividad.diasTrabajados) + ' brig-día · objetivo: ' +
+    k.productividad.objetivo
+  );
+
+  // 5. Conformidad
+  card(
+    'Conformidad documental',
+    k.conformidad.pct.toFixed(1) + '%',
+    '',
+    k.conformidad.semaforo,
+    null,
+    k.conformidad.conformes + ' de ' + k.conformidad.total + ' conformes'
+  );
+
+  // 6. Visitas fallidas
+  card(
+    'Visitas fallidas',
+    k.visitasFallidas.valor,
+    'obras',
+    k.visitasFallidas.semaforo,
+    k.visitasFallidas.anterior > 0
+      ? { cls: k.visitasFallidas.valor < k.visitasFallidas.anterior ? 'up' : 'down',
+          html: (k.visitasFallidas.valor - k.visitasFallidas.anterior >= 0 ? '▲ +' : '▼ ') +
+                (k.visitasFallidas.valor - k.visitasFallidas.anterior) + ' vs anterior' }
+      : null,
+    null
+  );
+}
+
+// ─── HELPER: destruir chart si existe ───
+function destroyChart(id) {
+  if (chartInstances[id]) {
+    chartInstances[id].destroy();
+    delete chartInstances[id];
+  }
+}
+
+// ─── CHART 1: Barras agrupadas por brigada ───
+function renderChart1_Barras(data) {
+  destroyChart('c1');
+  const ctx = document.getElementById('chart1').getContext('2d');
+  const colors = [COL_AZUL, COL_ROJO, COL_AMBAR, COL_VERDE_L, COL_ESMERALDA];
+
+  // Eje doble: Inst (izquierda) + €/% (derecha)
+  // Por simplicidad mostramos Inst y Facturado € en barras agrupadas (escalas distintas en el mismo gráfico es confuso).
+  // Mejor: hacemos 4 grupos de barras, una por métrica, con brigadas como series.
+  const datasets = data.series.map((s, i) => ({
+    label: s.brigada,
+    data: s.datos,
+    backgroundColor: colors[i % colors.length]
+  }));
+
+  chartInstances.c1 = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: data.metricas, datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end' },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const m = c.label;
+              const v = c.parsed.y;
+              if (m.indexOf('€') !== -1) return c.dataset.label + ': ' + fmtEur.format(v);
+              if (m.indexOf('%') !== -1) return c.dataset.label + ': ' + v.toFixed(1) + '%';
+              return c.dataset.label + ': ' + v;
+            }
+          }
+        }
+      },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+// ─── CHART 2: Donut tipo instalación ───
+function renderChart2_Donut(data) {
+  destroyChart('c2');
+  const total = data.datos.reduce((a, b) => a + b, 0);
+  chartInstances.c2 = new Chart(document.getElementById('chart2'), {
+    type: 'doughnut',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        data: data.datos,
+        backgroundColor: [COL_VERDE, COL_AMBAR, COL_AZUL],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const pct = total > 0 ? (c.parsed / total * 100).toFixed(0) : 0;
+              return c.label + ': ' + c.parsed + ' obras (' + pct + '%)';
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+}
+
+// ─── CHART 3: Tendencia anual ───
+function renderChart3_Tendencia(data) {
+  destroyChart('c3');
+  chartInstances.c3 = new Chart(document.getElementById('chart3'), {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          type: 'bar', label: 'Instalaciones', data: data.instalaciones,
+          backgroundColor: COL_AZUL, yAxisID: 'y'
+        },
+        {
+          type: 'line', label: 'Facturado (€)', data: data.facturado,
+          borderColor: COL_ESMERALDA, backgroundColor: 'transparent',
+          borderWidth: 3, tension: 0.3, yAxisID: 'y1', pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end' },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              if (c.dataset.label.indexOf('Facturado') !== -1) {
+                return c.dataset.label + ': ' + fmtEur.format(c.parsed.y);
+              }
+              return c.dataset.label + ': ' + c.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { type: 'linear', position: 'left', title: { display: true, text: 'Obras' }, beginAtZero: true },
+        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false },
+              title: { display: true, text: '€ Facturado' }, beginAtZero: true,
+              ticks: { callback: (v) => fmtEur.format(v) } }
+      }
+    }
+  });
+}
+
+// ─── CHART 4: Top materiales ───
+function renderChart4_TopMateriales(data) {
+  destroyChart('c4');
+  const items = data.items || [];
+  chartInstances.c4 = new Chart(document.getElementById('chart4'), {
+    type: 'bar',
+    data: {
+      labels: items.map(i => i.nombre),
+      datasets: [{
+        label: '€',
+        data: items.map(i => i.coste),
+        backgroundColor: COL_VERDE
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const item = items[c.dataIndex];
+              return fmtEurD.format(item.coste) + ' (' + fmtNum1.format(item.cantidad) + ' uds × ' + fmtEurD.format(item.precioUd) + ')';
+            }
+          }
+        }
+      },
+      scales: { x: { ticks: { callback: (v) => fmtEur.format(v) }, beginAtZero: true } }
+    }
+  });
+}
+
+// ─── CHART 5: Calidad semanal ───
+function renderChart5_Calidad(data) {
+  destroyChart('c5');
+  // Calcular % conformidad por semana
+  const totales = data.labels.map((_, i) =>
+    (data.conformes[i] || 0) + (data.noConformes[i] || 0) + (data.fallidas[i] || 0)
+  );
+  const pcts = data.labels.map((_, i) =>
+    totales[i] > 0 ? ((data.conformes[i] || 0) / totales[i] * 100) : 0
+  );
+
+  chartInstances.c5 = new Chart(document.getElementById('chart5'), {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: '% Conformidad', data: pcts,
+          borderColor: COL_ESMERALDA, backgroundColor: 'rgba(16,185,129,0.1)',
+          fill: true, borderWidth: 3, tension: 0.4, pointRadius: 6
+        },
+        {
+          label: 'Objetivo 100%', data: data.labels.map(() => 100),
+          borderColor: '#D1D5DB', borderDash: [5,5], borderWidth: 2,
+          pointRadius: 0, fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end' },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              if (c.dataset.label.indexOf('Objetivo') !== -1) return 'Objetivo: 100%';
+              const i = c.dataIndex;
+              return c.parsed.y.toFixed(1) + '% (' + data.conformes[i] + '/' + totales[i] + ')';
+            }
+          }
+        }
+      },
+      scales: { y: { min: 0, max: 105, ticks: { callback: (v) => v + '%' } } }
+    }
+  });
+}
+
+// ─── TABLA BRIGADAS ───
+function renderTablaBrigadas(filas) {
+  const tbody = document.getElementById('tablaBrigadasBody');
+  tbody.innerHTML = '';
+
+  function badge(texto, sem) {
+    return '<span class="badge ' + (sem || 'neutro') + '">' + texto + '</span>';
+  }
+
+  // Por brigada
+  filas.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><strong>' + f.brigada + '</strong></td>' +
+      '<td class="num">' + f.instalaciones + '</td>' +
+      '<td class="num">' + fmtNum.format(f.metrosTotal) + ' m</td>' +
+      '<td class="num">' + fmtNum1.format(f.metrosDia) + '</td>' +
+      '<td class="num">' + fmtEur.format(f.facturado) + '</td>' +
+      '<td class="num">' + fmtEur.format(f.coste) + '</td>' +
+      '<td class="num">' + fmtEur.format(f.margen) + '</td>' +
+      '<td>' + badge(f.margenPct.toFixed(1) + '%', f.semaforos.margenPct) + '</td>' +
+      '<td>' + badge(f.conformidad.toFixed(1) + '%', f.semaforos.conformidad) + '</td>' +
+      '<td>' + badge(f.instalaciones + '/' + f.objetivoInst, f.semaforos.instalaciones) + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Total
+  const t = {
+    instalaciones: filas.reduce((s, f) => s + f.instalaciones, 0),
+    facturado:     filas.reduce((s, f) => s + f.facturado, 0),
+    coste:         filas.reduce((s, f) => s + f.coste, 0),
+    margen:        filas.reduce((s, f) => s + f.margen, 0),
+    metrosTotal:   filas.reduce((s, f) => s + f.metrosTotal, 0),
+    objetivoInst:  filas.reduce((s, f) => s + f.objetivoInst, 0)
+  };
+  const tMargenPct = t.facturado > 0 ? (t.margen / t.facturado * 100) : 0;
+  const tConfBase = filas.reduce((s, f) => s + (f.conformidad * f.instalaciones), 0);
+  const tConf = t.instalaciones > 0 ? (tConfBase / t.instalaciones) : 0;
+
+  const tr = document.createElement('tr');
+  tr.className = 'total-row';
+  tr.innerHTML =
+    '<td>TOTAL</td>' +
+    '<td class="num">' + t.instalaciones + '</td>' +
+    '<td class="num">' + fmtNum.format(t.metrosTotal) + ' m</td>' +
+    '<td class="num">—</td>' +
+    '<td class="num">' + fmtEur.format(t.facturado) + '</td>' +
+    '<td class="num">' + fmtEur.format(t.coste) + '</td>' +
+    '<td class="num">' + fmtEur.format(t.margen) + '</td>' +
+    '<td>' + badge(tMargenPct.toFixed(1) + '%', '') + '</td>' +
+    '<td>' + badge(tConf.toFixed(1) + '%', '') + '</td>' +
+    '<td>' + badge(t.instalaciones + '/' + Math.round(t.objetivoInst), '') + '</td>';
+  tbody.appendChild(tr);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ARRANQUE
+// ═══════════════════════════════════════════════════════════════
+checkLogin();
+</script>
+</body>
+</html>
