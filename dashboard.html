@@ -53,12 +53,14 @@
   .kpi-card {
     background: white; border-radius: 12px; padding: 18px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    border-left: 4px solid #2D6A4F;
+    border-left: 6px solid #2D6A4F;
+    transition: background 0.2s;
   }
-  .kpi-card.amber { border-left-color: #F59E0B; }
-  .kpi-card.rojo { border-left-color: #EF4444; }
-  .kpi-card.verde { border-left-color: #10B981; }
-  .kpi-card.neutro { border-left-color: #9CA3AF; }
+  /* Tinte de fondo + borde según semáforo */
+  .kpi-card.verde  { background: #ECFDF5; border-left-color: #10B981; }
+  .kpi-card.amber  { background: #FFFBEB; border-left-color: #F59E0B; }
+  .kpi-card.rojo   { background: #FEF2F2; border-left-color: #EF4444; }
+  .kpi-card.neutro { background: #F9FAFB; border-left-color: #9CA3AF; }
   .kpi-label {
     font-size: 11px; color: #6B7280; text-transform: uppercase;
     letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;
@@ -214,6 +216,66 @@
     font-size: 14px; font-weight: 700; color: #374151;
     margin: 20px 0 10px; padding: 0 4px;
   }
+
+  /* ── BONUS SEMANAL ── */
+  .bonus-strip {
+    background: white; border-radius: 12px; padding: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px;
+  }
+  .bonus-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .bonus-title {
+    font-size: 15px; font-weight: 700; color: #1F2937;
+  }
+  .bonus-subtitle {
+    font-size: 12px; color: #9CA3AF;
+  }
+  .bonus-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .bonus-cell {
+    border-radius: 10px; padding: 12px 14px;
+    border: 2px solid transparent;
+    background: #F9FAFB;
+    text-align: center;
+  }
+  .bonus-cell.activa {
+    background: #ECFDF5;
+    border-color: #10B981;
+  }
+  .bonus-cell.cero {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+  }
+  .bonus-cell.total {
+    background: #2D6A4F;
+    color: white;
+    border-color: #1B4332;
+  }
+  .bonus-cell.total.cero {
+    background: #6B7280;
+    color: white;
+    border-color: #4B5563;
+  }
+  .bonus-cell-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    color: #6B7280; margin-bottom: 2px;
+  }
+  .bonus-cell.total .bonus-cell-label { color: rgba(255,255,255,0.85); }
+  .bonus-cell-range {
+    font-size: 10px; color: #9CA3AF; margin-bottom: 6px;
+  }
+  .bonus-cell.total .bonus-cell-range { color: rgba(255,255,255,0.7); }
+  .bonus-cell-value {
+    font-size: 18px; font-weight: 700; color: #065F46;
+  }
+  .bonus-cell.cero .bonus-cell-value { color: #9CA3AF; }
+  .bonus-cell.total .bonus-cell-value { color: white; font-size: 20px; }
 </style>
 </head>
 <body>
@@ -257,6 +319,17 @@
 
       <!-- KPI CARDS -->
       <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- BONUS ESMOVE SEMANAL -->
+      <div class="bonus-strip" id="bonusStrip" style="display:none">
+        <div class="bonus-header">
+          <div>
+            <div class="bonus-title">🎁 Bonus ESMOVE — <span id="bonusMesLabel">—</span></div>
+            <div class="bonus-subtitle" id="bonusSubtitle">Cláusula 3 del contrato marco · bloques de 10 inst limpias</div>
+          </div>
+        </div>
+        <div class="bonus-grid" id="bonusGrid"></div>
+      </div>
 
       <!-- CHARTS -->
       <div class="chart-grid">
@@ -479,6 +552,7 @@ function renderDashboard(data) {
 
   populateFiltros(data);
   renderKPIs(data.kpis, data.meta);
+  renderBonusSemanal(data.kpis.bonus, data.meta);
   renderChart_Comparativa(data.graficos.comparativaRentabilidad);
   renderChart_Barras(data.graficos.barrasBrigadas);
   renderChart_Donut(data.graficos.donutTipoInst);
@@ -637,17 +711,7 @@ function renderKPIs(k, meta) {
            : ' · sin ausencias')
   });
 
-  // ─── KPI 8: Bonus ESMOVE ───
-  card({
-    label: 'Bonus ESMOVE',
-    valor: fmtEur.format(k.bonus.valor),
-    semaforo: k.bonus.semaforo,
-    sub: k.bonus.valor > 0
-      ? 'Atribuido al mes según cláusula 3 del contrato marco'
-      : 'Aún no alcanzado el mínimo de 10 inst. limpias'
-  });
-
-  // ─── KPI 9: Km adicionales ───
+  // ─── KPI 8: Km adicionales ───
   card({
     label: 'Km adicionales',
     valor: fmtNum.format(k.kmExceso.valor),
@@ -655,6 +719,51 @@ function renderKPIs(k, meta) {
     semaforo: 'neutro',
     sub: 'Exceso sobre los 50 km de ida + vuelta · ' + fmtEur.format(k.kmExceso.valor * 0.30) + ' facturado'
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BONUS SEMANAL — sección dedicada con desglose por semana del mes
+// ═══════════════════════════════════════════════════════════════
+function renderBonusSemanal(bonus, meta) {
+  const strip = document.getElementById('bonusStrip');
+  const grid = document.getElementById('bonusGrid');
+  document.getElementById('bonusMesLabel').textContent = meta.mesLabel;
+
+  if (!bonus || !bonus.semanas || bonus.semanas.length === 0) {
+    strip.style.display = 'none';
+    return;
+  }
+  strip.style.display = 'block';
+
+  document.getElementById('bonusSubtitle').textContent =
+    (meta.brigadaFiltro === 'todas'
+      ? 'Bonus total atribuido a la empresa · '
+      : 'Bonus atribuido a ' + meta.brigadaFiltro + ' · ') +
+    'Cláusula 3 del contrato marco (bloques de 10 inst limpias)';
+
+  grid.innerHTML = '';
+
+  // Una celda por semana
+  bonus.semanas.forEach(s => {
+    const cell = document.createElement('div');
+    const activa = s.valor > 0;
+    cell.className = 'bonus-cell ' + (activa ? 'activa' : 'cero');
+    cell.innerHTML =
+      '<div class="bonus-cell-label">Sem ' + s.semana + '</div>' +
+      '<div class="bonus-cell-range">' + (s.rango || '') + '</div>' +
+      '<div class="bonus-cell-value">' + fmtEurD.format(s.valor) + '</div>';
+    grid.appendChild(cell);
+  });
+
+  // Celda TOTAL al final
+  const total = document.createElement('div');
+  const totalActivo = bonus.valor > 0;
+  total.className = 'bonus-cell total ' + (totalActivo ? '' : 'cero');
+  total.innerHTML =
+    '<div class="bonus-cell-label">Total ' + meta.mesLabel.split(' ')[0] + '</div>' +
+    '<div class="bonus-cell-range">' + bonus.semanas.length + ' semanas</div>' +
+    '<div class="bonus-cell-value">' + fmtEurD.format(bonus.valor) + '</div>';
+  grid.appendChild(total);
 }
 
 // ═══════════════════════════════════════════════════════════════
