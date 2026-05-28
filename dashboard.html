@@ -48,10 +48,10 @@
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px; margin-bottom: 24px;
+    gap: 14px; margin-bottom: 24px;
   }
   .kpi-card {
-    background: white; border-radius: 12px; padding: 20px;
+    background: white; border-radius: 12px; padding: 18px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     border-left: 4px solid #2D6A4F;
   }
@@ -64,17 +64,42 @@
     letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600;
   }
   .kpi-value {
-    font-size: 30px; font-weight: 700; color: #1F2937; line-height: 1.1;
+    font-size: 28px; font-weight: 700; color: #1F2937; line-height: 1.1;
   }
-  .kpi-unit { font-size: 15px; color: #6B7280; font-weight: 500; }
-  .kpi-sub { font-size: 12px; color: #6B7280; margin-top: 4px; }
+  .kpi-value.danger { color: #EF4444; }
+  .kpi-unit { font-size: 14px; color: #6B7280; font-weight: 500; }
+  .kpi-sub { font-size: 11.5px; color: #6B7280; margin-top: 6px; }
   .kpi-trend {
-    margin-top: 8px; font-size: 12px; display: flex;
+    margin-top: 6px; font-size: 12px; display: flex;
     align-items: center; gap: 4px; font-weight: 500;
   }
   .kpi-trend.up { color: #10B981; }
   .kpi-trend.down { color: #EF4444; }
   .kpi-trend.neutro { color: #6B7280; }
+
+  /* ── BARRA DE PROGRESO VISUAL (sustituye texto "ámbar X · objetivo Y") ── */
+  .kpi-bar {
+    margin-top: 12px;
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(to right,
+      #FEE2E2 0%, #FEE2E2 33%,
+      #FEF3C7 33%, #FEF3C7 66%,
+      #D1FAE5 66%, #D1FAE5 100%);
+    position: relative;
+  }
+  .kpi-bar-marker {
+    position: absolute; top: -4px;
+    width: 4px; height: 14px;
+    background: #1F2937;
+    border: 1px solid white;
+    border-radius: 1px;
+    transform: translateX(-2px);
+    box-shadow: 0 0 0 1px #1F2937;
+  }
+  .kpi-bar-legend {
+    display: flex; justify-content: space-between;
+    margin-top: 4px; font-size: 10px; color: #9CA3AF;
+  }
 
   /* ── CHARTS ── */
   .chart-grid {
@@ -96,16 +121,25 @@
   .chart-wrapper.tall { height: 340px; }
 
   /* ── TABLA ── */
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 10px 8px; background: #F9FAFB;
-       color: #6B7280; font-weight: 600; border-bottom: 1px solid #E5E7EB;
-       font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
-  td { padding: 11px 8px; border-bottom: 1px solid #F3F4F6; }
+  .tabla-card { background: white; border-radius: 12px; padding: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .tabla-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px;
+          table-layout: fixed; }
+  th { text-align: center; padding: 12px 10px; background: #F9FAFB;
+       color: #6B7280; font-weight: 600; border-bottom: 2px solid #E5E7EB;
+       font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+       vertical-align: middle; }
+  th.col-brigada { text-align: left; }
+  td { padding: 12px 10px; border-bottom: 1px solid #F3F4F6;
+       text-align: center; vertical-align: middle; }
+  td.col-brigada { text-align: left; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th.num { text-align: right; }
   tr.total-row { background: #F9FAFB; font-weight: 600; }
   tr.total-row td { border-bottom: none; padding-top: 14px; }
   .badge {
-    display: inline-block; padding: 3px 9px; border-radius: 4px;
+    display: inline-block; padding: 4px 10px; border-radius: 4px;
     font-size: 11px; font-weight: 600; white-space: nowrap;
   }
   .badge.verde { background: #D1FAE5; color: #065F46; }
@@ -114,9 +148,7 @@
   .badge.neutro { background: #E5E7EB; color: #4B5563; }
 
   /* ── LOADING / ERROR ── */
-  .loader {
-    text-align: center; padding: 80px 20px; color: #6B7280;
-  }
+  .loader { text-align: center; padding: 80px 20px; color: #6B7280; }
   .spinner {
     width: 48px; height: 48px; margin: 0 auto 20px;
     border: 4px solid #E5E7EB; border-top-color: #2D6A4F;
@@ -159,8 +191,7 @@
   }
   .login-box .login-btn:hover { background: #1B4332; }
   .login-box .login-err {
-    margin-top: 12px; color: #EF4444; font-size: 13px;
-    min-height: 18px;
+    margin-top: 12px; color: #EF4444; font-size: 13px; min-height: 18px;
   }
 
   /* ── RESPONSIVE ── */
@@ -172,11 +203,16 @@
     .header { padding: 18px 20px; flex-direction: column; align-items: stretch; }
     .header h1 { font-size: 22px; }
     .filter-bar { flex-wrap: wrap; }
-    .kpi-value { font-size: 26px; }
+    .kpi-value { font-size: 24px; }
     .chart-wrapper { height: 240px; }
     .chart-wrapper.tall { height: 280px; }
-    table { font-size: 12px; }
+    table { font-size: 11px; }
     th, td { padding: 8px 4px; }
+  }
+
+  .section-h {
+    font-size: 14px; font-weight: 700; color: #374151;
+    margin: 20px 0 10px; padding: 0 4px;
   }
 </style>
 </head>
@@ -218,21 +254,28 @@
     </div>
     <div id="errorArea"></div>
     <div id="dashContent" style="display:none">
+
       <!-- KPI CARDS -->
       <div class="kpi-grid" id="kpiGrid"></div>
 
       <!-- CHARTS -->
       <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-title">Comparativa por brigada</div>
-          <div class="chart-subtitle" id="subBarrasBrig">—</div>
-          <div class="chart-wrapper"><canvas id="chart1"></canvas></div>
+        <div class="chart-card chart-full">
+          <div class="chart-title">Comparativa Rentabilidad: Registro vs Holded</div>
+          <div class="chart-subtitle" id="subComparativa">—</div>
+          <div class="chart-wrapper"><canvas id="chartComparativa"></canvas></div>
         </div>
 
         <div class="chart-card">
           <div class="chart-title">Distribución por tipo de instalación</div>
           <div class="chart-subtitle" id="subDonut">—</div>
           <div class="chart-wrapper"><canvas id="chart2"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Comparativa por brigada</div>
+          <div class="chart-subtitle" id="subBarrasBrig">—</div>
+          <div class="chart-wrapper"><canvas id="chart1"></canvas></div>
         </div>
 
         <div class="chart-card chart-full">
@@ -243,46 +286,72 @@
 
         <div class="chart-card">
           <div class="chart-title">Top 10 materiales consumidos</div>
-          <div class="chart-subtitle" id="subTop">€ Coste estimado</div>
+          <div class="chart-subtitle">€ Coste estimado del mes</div>
           <div class="chart-wrapper tall"><canvas id="chart4"></canvas></div>
         </div>
 
         <div class="chart-card">
           <div class="chart-title">Calidad documental por semana</div>
-          <div class="chart-subtitle">% instalaciones conformes</div>
+          <div class="chart-subtitle">% instalaciones conformes (excluye fallidas)</div>
           <div class="chart-wrapper tall"><canvas id="chart5"></canvas></div>
         </div>
+      </div>
 
-        <!-- TABLA RESUMEN BRIGADAS -->
-        <div class="chart-card chart-full">
-          <div class="chart-title">Resumen por brigada</div>
-          <div class="chart-subtitle">Vista comparativa con semáforos de objetivos</div>
-          <div style="overflow-x:auto">
-            <table id="tablaBrigadas">
-              <thead>
-                <tr>
-                  <th>Brigada</th>
-                  <th class="num">Obras</th>
-                  <th class="num">Metros</th>
-                  <th class="num">m/brig-día</th>
-                  <th class="num">Facturado</th>
-                  <th class="num">Coste</th>
-                  <th class="num">Margen</th>
-                  <th>% Margen</th>
-                  <th>Conformidad</th>
-                  <th>Inst. objetivo</th>
-                </tr>
-              </thead>
-              <tbody id="tablaBrigadasBody"></tbody>
-            </table>
-          </div>
+      <!-- TABLA 1: PRODUCTIVIDAD POR BRIGADA -->
+      <div class="tabla-card">
+        <div class="chart-title">Resumen Operativo por Brigada</div>
+        <div class="chart-subtitle">Productividad, disponibilidad y conformidad</div>
+        <div class="tabla-wrap">
+          <table id="tablaOperativa">
+            <thead>
+              <tr>
+                <th class="col-brigada">Brigada</th>
+                <th>Obras</th>
+                <th>Inst/día</th>
+                <th>Metros</th>
+                <th>m/día</th>
+                <th>Disponibilidad</th>
+                <th>Días ausencia</th>
+                <th>Finalizadas</th>
+                <th>Fallidas</th>
+                <th>Km exceso</th>
+              </tr>
+            </thead>
+            <tbody id="tablaOperativaBody"></tbody>
+          </table>
         </div>
       </div>
+
+      <!-- TABLA 2: ECONÓMICO POR BRIGADA -->
+      <div class="tabla-card">
+        <div class="chart-title">Resumen Económico por Brigada</div>
+        <div class="chart-subtitle">Ingresos, costes y margen neto · datos Holded</div>
+        <div class="tabla-wrap">
+          <table id="tablaEconomica">
+            <thead>
+              <tr>
+                <th class="col-brigada">Brigada</th>
+                <th>Inst. fact.</th>
+                <th>Ingresos Holded</th>
+                <th>Ingreso medio</th>
+                <th>€/día</th>
+                <th>Coste material</th>
+                <th>Coste estructura</th>
+                <th>Margen neto</th>
+                <th>% Margen</th>
+                <th>Bonus ESMOVE</th>
+              </tr>
+            </thead>
+            <tbody id="tablaEconomicaBody"></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <div style="text-align:center; color:#9CA3AF; font-size:11px; padding:20px 0">
-    Búfala Tech · Dashboard v1.0 · <span id="footerVersion">—</span>
+    Búfala Tech · Dashboard v2.0 · <span id="footerVersion">—</span>
   </div>
 </div>
 
@@ -295,18 +364,15 @@ const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
 
 // Color palette
-const COL_VERDE   = '#2D6A4F';
-const COL_VERDE_L = '#52B788';
-const COL_AZUL    = '#3B82F6';
-const COL_ROJO    = '#EF4444';
-const COL_AMBAR   = '#F59E0B';
+const COL_VERDE     = '#2D6A4F';
+const COL_VERDE_L   = '#52B788';
+const COL_AZUL      = '#3B82F6';
+const COL_ROJO      = '#EF4444';
+const COL_AMBAR     = '#F59E0B';
 const COL_ESMERALDA = '#10B981';
-const COL_GRIS    = '#9CA3AF';
+const COL_GRIS      = '#9CA3AF';
 
-// Charts (instancias para destruir antes de re-pintar)
 let chartInstances = {};
-
-// Filtros actuales
 let currentMes = null;
 let currentBrigada = "todas";
 
@@ -323,7 +389,6 @@ function checkLogin() {
     document.getElementById('passwordInput').focus();
   }
 }
-
 function tryLogin() {
   const pwd = document.getElementById('passwordInput').value;
   if (pwd === PASSWORD) {
@@ -338,13 +403,11 @@ function tryLogin() {
     document.getElementById('passwordInput').focus();
   }
 }
-
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
   localStorage.removeItem(STORAGE_KEY);
   location.reload();
 }
-
 document.getElementById('passwordInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') tryLogin();
 });
@@ -352,11 +415,10 @@ document.getElementById('passwordInput').addEventListener('keydown', (e) => {
 // ═══════════════════════════════════════════════════════════════
 // FORMATEO
 // ═══════════════════════════════════════════════════════════════
-const fmtEur = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:0, maximumFractionDigits:0 });
+const fmtEur  = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:0, maximumFractionDigits:0 });
 const fmtEurD = new Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR', minimumFractionDigits:2, maximumFractionDigits:2 });
-const fmtNum = new Intl.NumberFormat('es-ES');
+const fmtNum  = new Intl.NumberFormat('es-ES');
 const fmtNum1 = new Intl.NumberFormat('es-ES', { minimumFractionDigits:1, maximumFractionDigits:1 });
-const fmtPct = (v) => (typeof v === 'number' ? v.toFixed(1) + '%' : '—');
 
 function nombreMes(yyyymm) {
   if (!yyyymm || !/^\d{4}-\d{2}$/.test(yyyymm)) return yyyymm || '';
@@ -366,11 +428,9 @@ function nombreMes(yyyymm) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INIT
+// CARGA DE DATOS
 // ═══════════════════════════════════════════════════════════════
-async function initDashboard() {
-  await loadDashboardData();
-}
+async function initDashboard() { await loadDashboardData(); }
 
 async function loadDashboardData() {
   document.getElementById('loader').style.display = 'block';
@@ -411,43 +471,37 @@ function renderDashboard(data) {
   document.getElementById('loader').style.display = 'none';
   document.getElementById('dashContent').style.display = 'block';
 
-  // Subtitle y footer
   document.getElementById('subtitle').textContent =
     data.meta.mesLabel + ' · ' +
     (data.meta.brigadaFiltro === 'todas' ? 'Todas las brigadas' : data.meta.brigadaFiltro) +
     ' · Actualizado ' + new Date(data.meta.generado).toLocaleString('es-ES');
   document.getElementById('footerVersion').textContent = data.meta.version;
 
-  // Filtros (poblar la primera vez si no están)
   populateFiltros(data);
+  renderKPIs(data.kpis, data.meta);
+  renderChart_Comparativa(data.graficos.comparativaRentabilidad);
+  renderChart_Barras(data.graficos.barrasBrigadas);
+  renderChart_Donut(data.graficos.donutTipoInst);
+  renderChart_Tendencia(data.graficos.tendenciaMensual);
+  renderChart_TopMateriales(data.graficos.topMateriales);
+  renderChart_Calidad(data.graficos.calidadSemanal);
 
-  // KPIs
-  renderKPIs(data.kpis);
-
-  // Charts
-  renderChart1_Barras(data.graficos.barrasBrigadas);
-  renderChart2_Donut(data.graficos.donutTipoInst);
-  renderChart3_Tendencia(data.graficos.tendenciaMensual);
-  renderChart4_TopMateriales(data.graficos.topMateriales);
-  renderChart5_Calidad(data.graficos.calidadSemanal);
-
-  // Subtítulos dinámicos
   document.getElementById('subBarrasBrig').textContent = data.meta.mesLabel;
   document.getElementById('subDonut').textContent =
     data.meta.mesLabel + ' · ' + data.kpis.instalaciones.valor + ' obras';
   document.getElementById('subTendencia').textContent =
     'Año ' + data.graficos.tendenciaMensual.anio + ' · ' +
     'Barras: nº obras · Línea: € facturado';
+  document.getElementById('subComparativa').textContent =
+    data.meta.mesLabel + ' · Compara datos del Registro vs los facturados en Holded';
 
-  // Tabla brigadas
-  renderTablaBrigadas(data.tablaBrigadas);
+  renderTablaOperativa(data.tablaBrigadas);
+  renderTablaEconomica(data.tablaBrigadas);
 }
 
 function populateFiltros(data) {
   const selMes = document.getElementById('filtroMes');
   const selBrig = document.getElementById('filtroBrigada');
-
-  // Solo poblar la primera vez
   if (selMes.options.length === 0) {
     data.filtros.mesesDisponibles.slice().reverse().forEach(mes => {
       const opt = document.createElement('option');
@@ -466,126 +520,191 @@ function populateFiltros(data) {
   selBrig.value = data.meta.brigadaFiltro;
 }
 
-// ─── KPI CARDS ───
-function renderKPIs(k) {
+// ═══════════════════════════════════════════════════════════════
+// KPI CARDS — con barra visual de progreso
+// ═══════════════════════════════════════════════════════════════
+function renderKPIs(k, meta) {
   const grid = document.getElementById('kpiGrid');
   grid.innerHTML = '';
 
-  // Helper: card KPI estándar
-  function card(label, valor, unidad, semaforo, trendHtml, subHtml) {
+  // Helper: barra de progreso visual con marcador
+  // bar(valor, rojo→ambar, ambar→verde): si valor < rojo umbral, marcador a la izquierda; etc
+  function bar(valor, u1, u2, maxOverride) {
+    if (valor === null || valor === undefined || u1 === null) return '';
+    // Calculamos posición 0-100 del marcador
+    const max = maxOverride || (u2 * 1.3);   // visual: dejamos 30% más allá de verde
+    const pos = Math.max(0, Math.min(100, (valor / max) * 100));
+    return '<div class="kpi-bar"><div class="kpi-bar-marker" style="left:' + pos.toFixed(1) + '%"></div></div>' +
+           '<div class="kpi-bar-legend"><span>0</span><span>' + u1 + '</span><span>' + u2 + '</span><span>' + Math.round(max) + '</span></div>';
+  }
+
+  function card(opts) {
     const c = document.createElement('div');
-    c.className = 'kpi-card ' + (semaforo || 'verde');
+    c.className = 'kpi-card ' + (opts.semaforo || 'verde');
     c.innerHTML =
-      '<div class="kpi-label">' + label + '</div>' +
-      '<div class="kpi-value">' + valor + (unidad ? ' <span class="kpi-unit">' + unidad + '</span>' : '') + '</div>' +
-      (subHtml ? '<div class="kpi-sub">' + subHtml + '</div>' : '') +
-      (trendHtml ? '<div class="kpi-trend ' + (trendHtml.cls || 'neutro') + '">' + trendHtml.html + '</div>' : '');
+      '<div class="kpi-label">' + opts.label + '</div>' +
+      '<div class="kpi-value ' + (opts.danger ? 'danger' : '') + '">' + opts.valor +
+        (opts.unidad ? ' <span class="kpi-unit">' + opts.unidad + '</span>' : '') + '</div>' +
+      (opts.sub ? '<div class="kpi-sub">' + opts.sub + '</div>' : '') +
+      (opts.trend ? '<div class="kpi-trend ' + (opts.trend.cls || 'neutro') + '">' + opts.trend.html + '</div>' : '') +
+      (opts.bar || '');
     grid.appendChild(c);
   }
 
-  // 1. Instalaciones
-  card(
-    'Instalaciones',
-    k.instalaciones.valor,
-    'obras',
-    k.instalaciones.semaforo,
-    k.instalaciones.anterior > 0
+  // ─── KPI 1: Instalaciones ───
+  card({
+    label: 'Instalaciones',
+    valor: k.instalaciones.valor,
+    unidad: 'obras',
+    semaforo: k.instalaciones.semaforo,
+    sub: 'Objetivo: ' + k.instalaciones.objetivo,
+    trend: k.instalaciones.anterior > 0
       ? { cls: k.instalaciones.deltaPct > 0 ? 'up' : 'down',
           html: (k.instalaciones.deltaPct > 0 ? '▲' : '▼') + ' ' +
                 Math.abs(k.instalaciones.deltaPct).toFixed(1) + '% vs anterior (' + k.instalaciones.anterior + ')' }
       : null,
-    'Objetivo: ' + k.instalaciones.objetivo + ' · ámbar: ' + k.instalaciones.ambar
-  );
+    bar: bar(k.instalaciones.valor, k.instalaciones.ambar, k.instalaciones.objetivo)
+  });
 
-  // 2. Facturado
-  card(
-    'Importe facturado',
-    fmtEur.format(k.facturadoBase.valor),
-    '',
-    k.facturadoBase.semaforo,
-    k.facturadoBase.anterior > 0
-      ? { cls: k.facturadoBase.deltaPct > 0 ? 'up' : 'down',
-          html: (k.facturadoBase.deltaPct > 0 ? '▲' : '▼') + ' ' +
-                Math.abs(k.facturadoBase.deltaPct).toFixed(1) + '% vs anterior' }
+  // ─── KPI 2: Facturado Holded ───
+  card({
+    label: 'Facturado Holded',
+    valor: fmtEur.format(k.facturadoHolded.valor),
+    semaforo: k.facturadoHolded.semaforo,
+    sub: k.facturadoHolded.nInst + ' inst. facturadas · objetivo: ' + fmtEur.format(k.facturadoHolded.objetivo),
+    trend: k.facturadoHolded.anterior > 0
+      ? { cls: k.facturadoHolded.deltaPct > 0 ? 'up' : 'down',
+          html: (k.facturadoHolded.deltaPct > 0 ? '▲' : '▼') + ' ' +
+                Math.abs(k.facturadoHolded.deltaPct).toFixed(1) + '% vs anterior' }
       : null,
-    null
-  );
+    bar: bar(k.facturadoHolded.valor, k.facturadoHolded.umbral1, k.facturadoHolded.umbral2)
+  });
 
-  // 3. Margen %
-  card(
-    'Margen',
-    k.margenPct.valor.toFixed(1) + '%',
-    '',
-    k.margenPct.semaforo,
-    k.margenPct.anterior > 0
+  // ─── KPI 3: Margen bruto % (Registro) ───
+  card({
+    label: 'Margen bruto',
+    valor: k.margenPct.valor.toFixed(1) + '%',
+    semaforo: k.margenPct.semaforo,
+    sub: fmtEurD.format(k.margenPct.valorEur) + ' (Ingresos − Coste material)',
+    trend: k.margenPct.anterior > 0
       ? { cls: k.margenPct.deltaPp >= 0 ? 'up' : 'down',
           html: (k.margenPct.deltaPp >= 0 ? '▲' : '▼') + ' ' +
                 Math.abs(k.margenPct.deltaPp).toFixed(1) + ' pp vs anterior' }
       : null,
-    fmtEurD.format(k.margenPct.valorEur) + ' € margen total'
-  );
+    bar: bar(k.margenPct.valor, k.margenPct.umbral1, k.margenPct.umbral2)
+  });
 
-  // 4. Productividad
-  card(
-    'Productividad',
-    fmtNum1.format(k.productividad.metrosDia),
-    'm/brig-día',
-    k.productividad.semaforo,
-    null,
-    fmtNum.format(k.productividad.metrosTotal) + ' m en ' +
-    fmtNum1.format(k.productividad.diasTrabajados) + ' brig-día · objetivo: ' +
-    k.productividad.objetivo
-  );
+  // ─── KPI 4: Margen NETO Holded (€) ───
+  const margenNetoEur = k.margenHolded.valorEur;
+  card({
+    label: 'Margen neto Holded',
+    valor: fmtEur.format(margenNetoEur),
+    danger: margenNetoEur < 0,
+    semaforo: k.margenHolded.semaforo,
+    sub: 'Después de materiales (' + fmtEur.format(k.margenHolded.costeMaterial) +
+         ') y estructura (' + fmtEur.format(k.margenHolded.costeEstructura) + ')'
+  });
 
-  // 5. Conformidad
-  card(
-    'Conformidad documental',
-    k.conformidad.pct.toFixed(1) + '%',
-    '',
-    k.conformidad.semaforo,
-    null,
-    k.conformidad.conformes + ' de ' + k.conformidad.total + ' conformes'
-  );
+  // ─── KPI 5: Productividad m/día ───
+  card({
+    label: 'Productividad',
+    valor: fmtNum1.format(k.productividad.metrosDia),
+    unidad: 'm/día',
+    semaforo: k.productividad.semaforo,
+    sub: fmtNum.format(k.productividad.metrosTotal) + ' m en ' +
+         fmtNum1.format(k.productividad.diasTrabajados) + ' días · objetivo: ' + k.productividad.objetivo,
+    bar: bar(k.productividad.metrosDia, k.productividad.umbral1, k.productividad.umbral2)
+  });
 
-  // 6. Visitas fallidas
-  card(
-    'Visitas fallidas',
-    k.visitasFallidas.valor,
-    'obras',
-    k.visitasFallidas.semaforo,
-    k.visitasFallidas.anterior > 0
-      ? { cls: k.visitasFallidas.valor < k.visitasFallidas.anterior ? 'up' : 'down',
-          html: (k.visitasFallidas.valor - k.visitasFallidas.anterior >= 0 ? '▲ +' : '▼ ') +
-                (k.visitasFallidas.valor - k.visitasFallidas.anterior) + ' vs anterior' }
-      : null,
-    null
-  );
+  // ─── KPI 6: Finalizadas % (fusiona Conformidad + Fallidas) ───
+  card({
+    label: 'Instalaciones finalizadas',
+    valor: k.finalizadas.pct.toFixed(1) + '%',
+    semaforo: k.finalizadas.semaforo,
+    sub: k.finalizadas.finalizadas + ' de ' + k.finalizadas.total +
+         (k.finalizadas.fallidas > 0 ? ' · ' + k.finalizadas.fallidas + ' fallida' + (k.finalizadas.fallidas > 1 ? 's' : '') : '')
+  });
+
+  // ─── KPI 7: Disponibilidad ───
+  card({
+    label: 'Disponibilidad equipos',
+    valor: k.disponibilidad.pct.toFixed(1) + '%',
+    semaforo: k.disponibilidad.semaforo,
+    sub: k.disponibilidad.diasTecEfectivos + '/' + k.disponibilidad.diasTecNominales +
+         ' días-técnico' +
+         (k.disponibilidad.diasAusencias > 0
+           ? ' · ' + k.disponibilidad.diasAusencias + ' días baja'
+           : ' · sin ausencias')
+  });
+
+  // ─── KPI 8: Bonus ESMOVE ───
+  card({
+    label: 'Bonus ESMOVE',
+    valor: fmtEur.format(k.bonus.valor),
+    semaforo: k.bonus.semaforo,
+    sub: k.bonus.valor > 0
+      ? 'Atribuido al mes según cláusula 3 del contrato marco'
+      : 'Aún no alcanzado el mínimo de 10 inst. limpias'
+  });
+
+  // ─── KPI 9: Km adicionales ───
+  card({
+    label: 'Km adicionales',
+    valor: fmtNum.format(k.kmExceso.valor),
+    unidad: 'km',
+    semaforo: 'neutro',
+    sub: 'Exceso sobre los 50 km de ida + vuelta · ' + fmtEur.format(k.kmExceso.valor * 0.30) + ' facturado'
+  });
 }
 
-// ─── HELPER: destruir chart si existe ───
+// ═══════════════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════════════
 function destroyChart(id) {
-  if (chartInstances[id]) {
-    chartInstances[id].destroy();
-    delete chartInstances[id];
-  }
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
 
-// ─── CHART 1: Barras agrupadas por brigada ───
-function renderChart1_Barras(data) {
+// ─── COMPARATIVA RENTABILIDAD ───
+function renderChart_Comparativa(data) {
+  if (!data) return;
+  destroyChart('cComp');
+  chartInstances.cComp = new Chart(document.getElementById('chartComparativa'), {
+    type: 'bar',
+    data: {
+      labels: data.metricas,
+      datasets: [
+        { label: data.normal.label, data: data.normal.datos, backgroundColor: COL_VERDE_L },
+        { label: data.holded.label, data: data.holded.datos, backgroundColor: COL_VERDE }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end' },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const m = c.label;
+              const v = c.parsed.y;
+              if (m.indexOf('€') !== -1) return c.dataset.label + ': ' + fmtEurD.format(v);
+              return c.dataset.label + ': ' + v;
+            }
+          }
+        }
+      },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+// ─── BARRAS BRIGADAS ───
+function renderChart_Barras(data) {
   destroyChart('c1');
-  const ctx = document.getElementById('chart1').getContext('2d');
   const colors = [COL_AZUL, COL_ROJO, COL_AMBAR, COL_VERDE_L, COL_ESMERALDA];
-
-  // Eje doble: Inst (izquierda) + €/% (derecha)
-  // Por simplicidad mostramos Inst y Facturado € en barras agrupadas (escalas distintas en el mismo gráfico es confuso).
-  // Mejor: hacemos 4 grupos de barras, una por métrica, con brigadas como series.
   const datasets = data.series.map((s, i) => ({
-    label: s.brigada,
-    data: s.datos,
-    backgroundColor: colors[i % colors.length]
+    label: s.brigada, data: s.datos, backgroundColor: colors[i % colors.length]
   }));
-
-  chartInstances.c1 = new Chart(ctx, {
+  chartInstances.c1 = new Chart(document.getElementById('chart1'), {
     type: 'bar',
     data: { labels: data.metricas, datasets: datasets },
     options: {
@@ -609,19 +728,15 @@ function renderChart1_Barras(data) {
   });
 }
 
-// ─── CHART 2: Donut tipo instalación ───
-function renderChart2_Donut(data) {
+// ─── DONUT ───
+function renderChart_Donut(data) {
   destroyChart('c2');
   const total = data.datos.reduce((a, b) => a + b, 0);
   chartInstances.c2 = new Chart(document.getElementById('chart2'), {
     type: 'doughnut',
     data: {
       labels: data.labels,
-      datasets: [{
-        data: data.datos,
-        backgroundColor: [COL_VERDE, COL_AMBAR, COL_AZUL],
-        borderWidth: 0
-      }]
+      datasets: [{ data: data.datos, backgroundColor: [COL_VERDE, COL_AMBAR, COL_AZUL], borderWidth: 0 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -641,23 +756,18 @@ function renderChart2_Donut(data) {
   });
 }
 
-// ─── CHART 3: Tendencia anual ───
-function renderChart3_Tendencia(data) {
+// ─── TENDENCIA ANUAL ───
+function renderChart_Tendencia(data) {
   destroyChart('c3');
   chartInstances.c3 = new Chart(document.getElementById('chart3'), {
     type: 'bar',
     data: {
       labels: data.labels,
       datasets: [
-        {
-          type: 'bar', label: 'Instalaciones', data: data.instalaciones,
-          backgroundColor: COL_AZUL, yAxisID: 'y'
-        },
-        {
-          type: 'line', label: 'Facturado (€)', data: data.facturado,
+        { type: 'bar', label: 'Instalaciones', data: data.instalaciones, backgroundColor: COL_AZUL, yAxisID: 'y' },
+        { type: 'line', label: 'Facturado (€)', data: data.facturado,
           borderColor: COL_ESMERALDA, backgroundColor: 'transparent',
-          borderWidth: 3, tension: 0.3, yAxisID: 'y1', pointRadius: 4
-        }
+          borderWidth: 3, tension: 0.3, yAxisID: 'y1', pointRadius: 4 }
       ]
     },
     options: {
@@ -666,17 +776,14 @@ function renderChart3_Tendencia(data) {
         legend: { position: 'top', align: 'end' },
         tooltip: {
           callbacks: {
-            label: (c) => {
-              if (c.dataset.label.indexOf('Facturado') !== -1) {
-                return c.dataset.label + ': ' + fmtEur.format(c.parsed.y);
-              }
-              return c.dataset.label + ': ' + c.parsed.y;
-            }
+            label: (c) => c.dataset.label.indexOf('Facturado') !== -1
+              ? c.dataset.label + ': ' + fmtEur.format(c.parsed.y)
+              : c.dataset.label + ': ' + c.parsed.y
           }
         }
       },
       scales: {
-        y: { type: 'linear', position: 'left', title: { display: true, text: 'Obras' }, beginAtZero: true },
+        y:  { type: 'linear', position: 'left',  title: { display: true, text: 'Obras' }, beginAtZero: true },
         y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false },
               title: { display: true, text: '€ Facturado' }, beginAtZero: true,
               ticks: { callback: (v) => fmtEur.format(v) } }
@@ -685,19 +792,15 @@ function renderChart3_Tendencia(data) {
   });
 }
 
-// ─── CHART 4: Top materiales ───
-function renderChart4_TopMateriales(data) {
+// ─── TOP MATERIALES ───
+function renderChart_TopMateriales(data) {
   destroyChart('c4');
   const items = data.items || [];
   chartInstances.c4 = new Chart(document.getElementById('chart4'), {
     type: 'bar',
     data: {
       labels: items.map(i => i.nombre),
-      datasets: [{
-        label: '€',
-        data: items.map(i => i.coste),
-        backgroundColor: COL_VERDE
-      }]
+      datasets: [{ label: '€', data: items.map(i => i.coste), backgroundColor: COL_VERDE }]
     },
     options: {
       indexAxis: 'y',
@@ -718,32 +821,26 @@ function renderChart4_TopMateriales(data) {
   });
 }
 
-// ─── CHART 5: Calidad semanal ───
-function renderChart5_Calidad(data) {
+// ─── CALIDAD SEMANAL ───
+function renderChart_Calidad(data) {
   destroyChart('c5');
-  // Calcular % conformidad por semana
   const totales = data.labels.map((_, i) =>
     (data.conformes[i] || 0) + (data.noConformes[i] || 0) + (data.fallidas[i] || 0)
   );
   const pcts = data.labels.map((_, i) =>
     totales[i] > 0 ? ((data.conformes[i] || 0) / totales[i] * 100) : 0
   );
-
   chartInstances.c5 = new Chart(document.getElementById('chart5'), {
     type: 'line',
     data: {
       labels: data.labels,
       datasets: [
-        {
-          label: '% Conformidad', data: pcts,
+        { label: '% Conformidad', data: pcts,
           borderColor: COL_ESMERALDA, backgroundColor: 'rgba(16,185,129,0.1)',
-          fill: true, borderWidth: 3, tension: 0.4, pointRadius: 6
-        },
-        {
-          label: 'Objetivo 100%', data: data.labels.map(() => 100),
+          fill: true, borderWidth: 3, tension: 0.4, pointRadius: 6 },
+        { label: 'Objetivo 100%', data: data.labels.map(() => 100),
           borderColor: '#D1D5DB', borderDash: [5,5], borderWidth: 2,
-          pointRadius: 0, fill: false
-        }
+          pointRadius: 0, fill: false }
       ]
     },
     options: {
@@ -765,58 +862,129 @@ function renderChart5_Calidad(data) {
   });
 }
 
-// ─── TABLA BRIGADAS ───
-function renderTablaBrigadas(filas) {
-  const tbody = document.getElementById('tablaBrigadasBody');
+// ═══════════════════════════════════════════════════════════════
+// TABLAS BRIGADAS
+// ═══════════════════════════════════════════════════════════════
+function badge(texto, sem) {
+  return '<span class="badge ' + (sem || 'neutro') + '">' + texto + '</span>';
+}
+
+function renderTablaOperativa(filas) {
+  const tbody = document.getElementById('tablaOperativaBody');
   tbody.innerHTML = '';
-
-  function badge(texto, sem) {
-    return '<span class="badge ' + (sem || 'neutro') + '">' + texto + '</span>';
-  }
-
-  // Por brigada
   filas.forEach(f => {
     const tr = document.createElement('tr');
     tr.innerHTML =
-      '<td><strong>' + f.brigada + '</strong></td>' +
-      '<td class="num">' + f.instalaciones + '</td>' +
-      '<td class="num">' + fmtNum.format(f.metrosTotal) + ' m</td>' +
-      '<td class="num">' + fmtNum1.format(f.metrosDia) + '</td>' +
-      '<td class="num">' + fmtEur.format(f.facturado) + '</td>' +
-      '<td class="num">' + fmtEur.format(f.coste) + '</td>' +
-      '<td class="num">' + fmtEur.format(f.margen) + '</td>' +
-      '<td>' + badge(f.margenPct.toFixed(1) + '%', f.semaforos.margenPct) + '</td>' +
-      '<td>' + badge(f.conformidad.toFixed(1) + '%', f.semaforos.conformidad) + '</td>' +
-      '<td>' + badge(f.instalaciones + '/' + f.objetivoInst, f.semaforos.instalaciones) + '</td>';
+      '<td class="col-brigada"><strong>' + f.brigada + '</strong></td>' +
+      '<td>' + badge(f.instalaciones + '/' + Math.round(f.objetivoInst), f.semaforos.instalaciones) + '</td>' +
+      '<td>' + fmtNum1.format(f.instDia || 0) + '</td>' +
+      '<td>' + fmtNum.format(f.metrosTotal) + ' m</td>' +
+      '<td>' + badge(fmtNum1.format(f.metrosDia), f.semaforos.productividad) + '</td>' +
+      '<td>' + badge((f.disponibilidadPct != null ? f.disponibilidadPct.toFixed(1) : '—') + '%', f.semaforos.disponibilidad || 'neutro') + '</td>' +
+      '<td>' + (f.diasAusencias || 0) + '</td>' +
+      '<td>' + badge(f.finalizadas || 0, f.semaforos.finalizadas || 'verde') + '</td>' +
+      '<td>' + badge((f.fallidas || 0), f.fallidas > 0 ? 'rojo' : 'verde') + '</td>' +
+      '<td>' + (f.kmExceso || 0) + ' km</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Fila TOTAL
+  const t = {
+    instalaciones: filas.reduce((s, f) => s + f.instalaciones, 0),
+    metrosTotal:   filas.reduce((s, f) => s + f.metrosTotal, 0),
+    bde:           filas.reduce((s, f) => s + (f.brigadasDiaEquiv || 0), 0),
+    diasAusencias: filas.reduce((s, f) => s + (f.diasAusencias || 0), 0),
+    finalizadas:   filas.reduce((s, f) => s + (f.finalizadas || 0), 0),
+    fallidas:      filas.reduce((s, f) => s + (f.fallidas || 0), 0),
+    objetivoInst:  filas.reduce((s, f) => s + (f.objetivoInst || 0), 0),
+    kmExceso:      filas.reduce((s, f) => s + (f.kmExceso || 0), 0)
+  };
+  const tInstDia = t.bde > 0 ? (t.instalaciones / t.bde) : 0;
+  const tMetrosDia = t.bde > 0 ? (t.metrosTotal / t.bde) : 0;
+
+  // Disponibilidad ponderada: necesitamos sumar efectivos y nominales globalmente
+  // Como tablaBrigadas no incluye días-técnico, lo aproximamos con media ponderada por instalaciones
+  let pondNum = 0, pondDen = 0;
+  filas.forEach(f => {
+    if (f.disponibilidadPct != null) {
+      pondNum += f.disponibilidadPct * (f.instalaciones || 1);
+      pondDen += (f.instalaciones || 1);
+    }
+  });
+  const tDisp = pondDen > 0 ? (pondNum / pondDen) : 0;
+
+  const tr = document.createElement('tr');
+  tr.className = 'total-row';
+  tr.innerHTML =
+    '<td class="col-brigada">TOTAL</td>' +
+    '<td>' + t.instalaciones + '/' + Math.round(t.objetivoInst) + '</td>' +
+    '<td>' + fmtNum1.format(tInstDia) + '</td>' +
+    '<td>' + fmtNum.format(t.metrosTotal) + ' m</td>' +
+    '<td>' + fmtNum1.format(tMetrosDia) + '</td>' +
+    '<td>' + tDisp.toFixed(1) + '%</td>' +
+    '<td>' + t.diasAusencias + '</td>' +
+    '<td>' + t.finalizadas + '</td>' +
+    '<td>' + t.fallidas + '</td>' +
+    '<td>' + t.kmExceso + ' km</td>';
+  tbody.appendChild(tr);
+}
+
+function renderTablaEconomica(filas) {
+  const tbody = document.getElementById('tablaEconomicaBody');
+  tbody.innerHTML = '';
+  filas.forEach(f => {
+    const fact = f.facturadoHolded != null ? f.facturadoHolded : f.facturado;
+    const nIH = f.nInstHolded != null ? f.nInstHolded : f.instalaciones;
+    const ingMedio = nIH > 0 ? fact / nIH : 0;
+    const ingDia = f.brigadasDiaEquiv > 0 ? fact / f.brigadasDiaEquiv : 0;
+    const costEst = f.costeEstructura != null ? f.costeEstructura : 0;
+    const margenNeto = fact - f.coste - costEst;
+    const margenPct = fact > 0 ? (margenNeto / fact * 100) : 0;
+    const semMarg = margenNeto >= 0 ? 'verde' : 'rojo';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="col-brigada"><strong>' + f.brigada + '</strong></td>' +
+      '<td>' + nIH + '</td>' +
+      '<td>' + fmtEur.format(fact) + '</td>' +
+      '<td>' + fmtEur.format(ingMedio) + '</td>' +
+      '<td>' + fmtEur.format(ingDia) + '</td>' +
+      '<td>' + fmtEur.format(f.coste) + '</td>' +
+      '<td>' + fmtEur.format(costEst) + '</td>' +
+      '<td>' + badge(fmtEur.format(margenNeto), semMarg) + '</td>' +
+      '<td>' + badge(margenPct.toFixed(1) + '%', semMarg) + '</td>' +
+      '<td>' + fmtEur.format(f.bonus || 0) + '</td>';
     tbody.appendChild(tr);
   });
 
   // Total
   const t = {
-    instalaciones: filas.reduce((s, f) => s + f.instalaciones, 0),
-    facturado:     filas.reduce((s, f) => s + f.facturado, 0),
-    coste:         filas.reduce((s, f) => s + f.coste, 0),
-    margen:        filas.reduce((s, f) => s + f.margen, 0),
-    metrosTotal:   filas.reduce((s, f) => s + f.metrosTotal, 0),
-    objetivoInst:  filas.reduce((s, f) => s + f.objetivoInst, 0)
+    nIH:      filas.reduce((s, f) => s + (f.nInstHolded != null ? f.nInstHolded : f.instalaciones), 0),
+    fact:     filas.reduce((s, f) => s + (f.facturadoHolded != null ? f.facturadoHolded : f.facturado), 0),
+    coste:    filas.reduce((s, f) => s + f.coste, 0),
+    costEst:  filas.reduce((s, f) => s + (f.costeEstructura || 0), 0),
+    bde:      filas.reduce((s, f) => s + (f.brigadasDiaEquiv || 0), 0),
+    bonus:    filas.reduce((s, f) => s + (f.bonus || 0), 0)
   };
-  const tMargenPct = t.facturado > 0 ? (t.margen / t.facturado * 100) : 0;
-  const tConfBase = filas.reduce((s, f) => s + (f.conformidad * f.instalaciones), 0);
-  const tConf = t.instalaciones > 0 ? (tConfBase / t.instalaciones) : 0;
+  const tIngMedio = t.nIH > 0 ? t.fact / t.nIH : 0;
+  const tIngDia = t.bde > 0 ? t.fact / t.bde : 0;
+  const tMargenNeto = t.fact - t.coste - t.costEst;
+  const tMargenPct = t.fact > 0 ? (tMargenNeto / t.fact * 100) : 0;
+  const sem = tMargenNeto >= 0 ? 'verde' : 'rojo';
 
   const tr = document.createElement('tr');
   tr.className = 'total-row';
   tr.innerHTML =
-    '<td>TOTAL</td>' +
-    '<td class="num">' + t.instalaciones + '</td>' +
-    '<td class="num">' + fmtNum.format(t.metrosTotal) + ' m</td>' +
-    '<td class="num">—</td>' +
-    '<td class="num">' + fmtEur.format(t.facturado) + '</td>' +
-    '<td class="num">' + fmtEur.format(t.coste) + '</td>' +
-    '<td class="num">' + fmtEur.format(t.margen) + '</td>' +
-    '<td>' + badge(tMargenPct.toFixed(1) + '%', '') + '</td>' +
-    '<td>' + badge(tConf.toFixed(1) + '%', '') + '</td>' +
-    '<td>' + badge(t.instalaciones + '/' + Math.round(t.objetivoInst), '') + '</td>';
+    '<td class="col-brigada">TOTAL</td>' +
+    '<td>' + t.nIH + '</td>' +
+    '<td>' + fmtEur.format(t.fact) + '</td>' +
+    '<td>' + fmtEur.format(tIngMedio) + '</td>' +
+    '<td>' + fmtEur.format(tIngDia) + '</td>' +
+    '<td>' + fmtEur.format(t.coste) + '</td>' +
+    '<td>' + fmtEur.format(t.costEst) + '</td>' +
+    '<td>' + badge(fmtEur.format(tMargenNeto), sem) + '</td>' +
+    '<td>' + badge(tMargenPct.toFixed(1) + '%', sem) + '</td>' +
+    '<td>' + fmtEur.format(t.bonus) + '</td>';
   tbody.appendChild(tr);
 }
 
