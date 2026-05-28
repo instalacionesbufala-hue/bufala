@@ -154,9 +154,54 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .material-unit{font-size:12px; color:var(--text-muted); width:30px; flex-shrink:0; text-align:left}
 
 /* ── Bloque de fotos para trabajos especiales (altura, soterramiento) ── */
+.trabajo-block { padding:14px 0; border-bottom:1px solid var(--border); }
+.trabajo-block:last-child { border-bottom:none; }
+.trabajo-row { display:flex; align-items:center; gap:12px; }
+.trabajo-toggle {
+  display:flex; align-items:center; gap:8px;
+  background:white; color:#6B7280;
+  border:2px solid #D1D5DB; border-radius:8px; padding:8px 14px;
+  font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0;
+  transition:all .15s; min-width:105px; justify-content:flex-start;
+}
+.trabajo-toggle-indicator {
+  width:18px; height:18px; border-radius:4px;
+  border:2px solid #D1D5DB; background:white;
+  flex-shrink:0; position:relative;
+}
+.trabajo-toggle.activo {
+  background:#ECFDF5; color:#065F46; border-color:#10B981;
+}
+.trabajo-toggle.activo .trabajo-toggle-indicator {
+  background:#10B981; border-color:#10B981;
+}
+.trabajo-toggle.activo .trabajo-toggle-indicator::after {
+  content:'✓'; position:absolute; color:white; font-size:14px; font-weight:700;
+  top:50%; left:50%; transform:translate(-50%,-50%); line-height:1;
+}
+.trabajo-info { flex:1; min-width:0; }
+.trabajo-name {
+  font-size:14px; font-weight:500; color:var(--text);
+  display:flex; align-items:center; gap:6px;
+}
+.trabajo-price { font-size:12px; color:var(--text-muted); margin-top:2px; }
+.trabajo-detail {
+  margin-top:12px; padding:12px 14px;
+  background:#ECFDF5; border-left:3px solid #10B981; border-radius:0 8px 8px 0;
+}
+.trabajo-presup-warn {
+  background:#FFFBEB; border:1px solid #F59E0B; color:#92400E;
+  padding:10px 12px; border-radius:6px; font-size:12.5px; line-height:1.4;
+  margin-bottom:12px;
+}
+.trabajo-metros-row {
+  display:flex; align-items:center; gap:10px; margin-bottom:12px;
+}
+.trabajo-metros-label { font-size:13px; font-weight:600; color:var(--text); }
+
 .trabajo-fotos-wrap{
-  margin-top:12px; padding:12px; background:var(--accent-light);
-  border:1px solid var(--accent); border-radius:8px;
+  margin-top:0; padding:12px; background:white;
+  border:1px solid var(--border); border-radius:8px;
 }
 .trabajo-fotos-label{
   font-size:13px; font-weight:600; color:var(--accent); margin-bottom:8px;
@@ -769,9 +814,9 @@ const PROTECCIONES = [
 ];
 
 const TRABAJOS = [
-  {id:'altAndamio', name:'Trabajo en altura — andamio', unit:'ud', tip:'Andamio homologado. PRL obligatoria. Requiere autorización previa ESMOVE.'},
-  {id:'altElevadora', name:'Trabajo en altura — elevadora', unit:'ud', tip:'Plataforma elevadora motorizada. Solo con autorización ESMOVE y operador habilitado.'},
-  {id:'soterrM', name:'Trabajo de soterramiento', unit:'m', tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado.'}
+  {id:'altAndamio',   name:'Trabajo en altura — andamio',   type:'toggle',         priceLabel:'120 € fijo',     unit:'ud', tip:'Medio manual. Andamio homologado (es propiedad de Búfala). PRL obligatoria. Requiere autorización previa ESMOVE.'},
+  {id:'altElevadora', name:'Trabajo en altura — elevadora', type:'toggle-presup',  priceLabel:'PREVIO PRESUP*', unit:'ud', tip:'Medio mecánico. Plataforma elevadora motorizada. Requiere presupuesto previo (la tarifa la fija el admin según el caso).'},
+  {id:'soterrM',      name:'Trabajo de soterramiento',      type:'toggle-metros',  priceLabel:'20 €/m',          unit:'m',  tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado posterior.'}
 ];
 
 const CHECKLIST = [
@@ -1040,21 +1085,27 @@ function validateScreen(num){
     if (m <= 0){ showError('Indica los metros de línea'); return false; }
   }
   if (num === 8 && !state.isSuper){
-    // Para cada trabajo especial con cantidad > 0, exigir al menos 1 foto
-    const trabajosConCantidad = [
-      {id:'altAndamio',   label:'Trabajo en altura — andamio'},
-      {id:'altElevadora', label:'Trabajo en altura — elevadora'},
-      {id:'soterrM',      label:'Soterramiento'}
+    // Validación trabajos especiales: si está activado el toggle, exigir foto
+    // y (para zanja) metros > 0
+    const trabajos = [
+      {id:'altAndamio',   label:'Trabajo en altura — andamio',   needMetros:false},
+      {id:'altElevadora', label:'Trabajo en altura — elevadora', needMetros:false},
+      {id:'soterrM',      label:'Trabajo de soterramiento',      needMetros:true}
     ];
-    for (const t of trabajosConCantidad){
-      const inp = document.getElementById('mat_' + t.id);
-      const cantidad = inp ? (parseFloat(inp.value) || 0) : 0;
-      if (cantidad > 0){
-        const fotos = state.trabajosFotos[t.id] || [];
-        if (fotos.length === 0){
-          showError('Sube al menos 1 foto de "' + t.label + '"');
+    for (const t of trabajos){
+      if (!isTrabajoEspecialActivo(t.id)) continue;  // toggle apagado → ignora
+      if (t.needMetros){
+        const inp = document.getElementById('mat_' + t.id);
+        const m = inp ? (parseFloat(inp.value) || 0) : 0;
+        if (m <= 0){
+          showError('Indica los metros de zanja en "' + t.label + '"');
           return false;
         }
+      }
+      const fotos = state.trabajosFotos[t.id] || [];
+      if (fotos.length === 0){
+        showError('Sube al menos 1 foto de "' + t.label + '"');
+        return false;
       }
     }
   }
@@ -1382,7 +1433,53 @@ function copyWa(){
 // ═══════════════════════════════════════════════════════════════
 function renderMaterialItem(item){
   if (item.section) return '<div class="section-h">' + item.section + '</div>';
-  const esTrabajoEspecial = ['altAndamio','altElevadora','soterrM'].indexOf(item.id) !== -1;
+
+  // Trabajos especiales con toggle (andamio, elevadora, soterramiento)
+  if (item.type === 'toggle' || item.type === 'toggle-presup' || item.type === 'toggle-metros'){
+    const presup = item.type === 'toggle-presup';
+    const metros = item.type === 'toggle-metros';
+    return '<div class="material-block trabajo-block">' +
+      '<div class="trabajo-row">' +
+        '<button type="button" class="trabajo-toggle" id="tgl_' + item.id + '" onclick="toggleTrabajoEspecial(\'' + item.id + '\')">' +
+          '<span class="trabajo-toggle-indicator"></span>' +
+          '<span class="trabajo-toggle-label">Aplicar</span>' +
+        '</button>' +
+        '<div class="trabajo-info">' +
+          '<div class="trabajo-name">' + item.name +
+            '<button type="button" class="info-btn" onclick="toggleTip(event,\'' + item.id + '\')">i</button>' +
+          '</div>' +
+          '<div class="trabajo-price">' + (item.priceLabel || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
+      '<div class="trabajo-detail" id="trabDetail_' + item.id + '" style="display:none">' +
+        (presup ? (
+          '<div class="trabajo-presup-warn">' +
+            '⚠️ Esta partida se factura con <strong>presupuesto previo</strong>. ' +
+            'En la pre-factura aparecerá como PREVIO PRESUP* y el importe lo ajustará el admin.' +
+          '</div>'
+        ) : '') +
+        (metros ? (
+          '<div class="trabajo-metros-row">' +
+            '<label class="trabajo-metros-label">Metros de zanja:</label>' +
+            '<input type="number" inputmode="decimal" min="0" step="0.1" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
+            '<span class="material-unit">m</span>' +
+          '</div>'
+        ) : '') +
+        // Bloque de fotos (siempre dentro del detalle)
+        '<div class="trabajo-fotos-wrap">' +
+          '<div class="trabajo-fotos-label">📷 Fotos del trabajo <span class="trabajo-fotos-req">(mín. 1 obligatoria)</span></div>' +
+          '<label class="trabajo-fotos-btn" for="trabFotosInput_' + item.id + '">' +
+            '<span>＋ Añadir foto(s)</span>' +
+          '</label>' +
+          '<input type="file" id="trabFotosInput_' + item.id + '" accept="image/*" multiple style="display:none" onchange="handleTrabajoFoto(event,\'' + item.id + '\')">' +
+          '<div class="trabajo-fotos-grid" id="trabFotosGrid_' + item.id + '"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Render normal para otros materiales (con input numérico)
   return '<div class="material-block">' +
     '<div class="material-row">' +
       '<div class="material-name-wrap">' +
@@ -1391,32 +1488,31 @@ function renderMaterialItem(item){
         '</div>' +
         (item.sub ? '<div class="material-sub">' + item.sub + '</div>' : '') +
       '</div>' +
-      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0"' +
-        (esTrabajoEspecial ? ' oninput="onTrabajoEspecialInput(\'' + item.id + '\')"' : '') +
-      '>' +
+      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
       '<span class="material-unit">' + item.unit + '</span>' +
     '</div>' +
     '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
-    (esTrabajoEspecial ? (
-      '<div class="trabajo-fotos-wrap" id="trabFotosWrap_' + item.id + '" style="display:none">' +
-        '<div class="trabajo-fotos-label">📷 Fotos del trabajo <span class="trabajo-fotos-req">(mín. 1 obligatoria)</span></div>' +
-        '<label class="trabajo-fotos-btn" for="trabFotosInput_' + item.id + '">' +
-          '<span>＋ Añadir foto(s)</span>' +
-        '</label>' +
-        '<input type="file" id="trabFotosInput_' + item.id + '" accept="image/*" multiple style="display:none" onchange="handleTrabajoFoto(event,\'' + item.id + '\')">' +
-        '<div class="trabajo-fotos-grid" id="trabFotosGrid_' + item.id + '"></div>' +
-      '</div>'
-    ) : '') +
   '</div>';
 }
 
-// Mostrar/ocultar bloque de fotos al cambiar el input del trabajo especial
-function onTrabajoEspecialInput(itemId){
-  const input = document.getElementById('mat_' + itemId);
-  const wrap = document.getElementById('trabFotosWrap_' + itemId);
-  if (!input || !wrap) return;
-  const cantidad = parseFloat(input.value) || 0;
-  wrap.style.display = cantidad > 0 ? 'block' : 'none';
+// Toggle de trabajo especial: activa/desactiva el detalle
+function toggleTrabajoEspecial(itemId){
+  const btn = document.getElementById('tgl_' + itemId);
+  const detail = document.getElementById('trabDetail_' + itemId);
+  if (!btn || !detail) return;
+  const isActive = btn.classList.toggle('activo');
+  detail.style.display = isActive ? 'block' : 'none';
+  // Si se desactiva, limpiar el campo de metros (si lo hay) pero NO las fotos
+  if (!isActive){
+    const inp = document.getElementById('mat_' + itemId);
+    if (inp) inp.value = '';
+  }
+}
+
+// Helper: ¿está activo este trabajo especial?
+function isTrabajoEspecialActivo(itemId){
+  const btn = document.getElementById('tgl_' + itemId);
+  return !!(btn && btn.classList.contains('activo'));
 }
 
 // Etiqueta legible por id de trabajo (para nombrar las fotos)
@@ -1508,8 +1604,17 @@ function recolectarDatos(esFallida){
   // Protecciones
   PROTECCIONES.forEach(p => { if (!p.section) datos[p.id] = matNum(p.id); });
 
-  // Trabajos
-  TRABAJOS.forEach(t => { datos[t.id] = matNum(t.id); });
+  // Trabajos especiales (toggle): si activo, 1 ud para andamio/elevadora;
+  // metros leídos del input para soterramiento. Si no activo, 0.
+  TRABAJOS.forEach(t => {
+    if (t.type === 'toggle' || t.type === 'toggle-presup'){
+      datos[t.id] = isTrabajoEspecialActivo(t.id) ? 1 : 0;
+    } else if (t.type === 'toggle-metros'){
+      datos[t.id] = isTrabajoEspecialActivo(t.id) ? matNum(t.id) : 0;
+    } else {
+      datos[t.id] = matNum(t.id);  // fallback
+    }
+  });
 
   // Hitos
   datos.hitoMontaje = state.hitos.h1;
