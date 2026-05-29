@@ -448,7 +448,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260528-1945";
+const DASHBOARD_BUILD = "20260529-1330";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -893,6 +893,7 @@ function renderChart_Tendencia(data) {
       labels: data.labels,
       datasets: [
         { type: 'bar', label: 'Instalaciones', data: data.instalaciones, backgroundColor: COL_AZUL, yAxisID: 'y' },
+        { type: 'bar', label: 'Fallidas', data: data.fallidas || [], backgroundColor: COL_ROJO, yAxisID: 'y' },
         { type: 'line', label: 'Facturado (€)', data: data.facturado,
           borderColor: COL_ESMERALDA, backgroundColor: 'transparent',
           borderWidth: 3, tension: 0.3, yAxisID: 'y1', pointRadius: 4 }
