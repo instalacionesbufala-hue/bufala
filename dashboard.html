@@ -454,7 +454,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260529-1500";
+const DASHBOARD_BUILD = "20260529-1620";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -594,8 +594,11 @@ function renderDashboard(data) {
   document.getElementById('subTendencia').textContent =
     'Año ' + data.graficos.tendenciaMensual.anio + ' · ' +
     'Barras: nº obras · Línea: € facturado';
+  var cr = data.graficos.comparativaRentabilidad || {};
   document.getElementById('subComparativa').textContent =
-    data.meta.mesLabel + ' · Beneficio neto = Ingresos − materiales − estructura (nóminas, renting, combustible)';
+    data.meta.mesLabel +
+    ' · Instalaciones: Registro ' + (cr.instRegistro || 0) + ' · Holded ' + (cr.instHolded || 0) +
+    ' · Beneficio neto = Ingresos − materiales − estructura (nóminas, renting, combustible)';
 
   renderTablaOperativa(data.tablaBrigadas);
   renderTablaEconomica(data.tablaBrigadas);
