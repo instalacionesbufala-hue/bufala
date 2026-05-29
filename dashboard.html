@@ -358,9 +358,15 @@
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">Comparativa por brigada</div>
+          <div class="chart-title">Facturado y margen (€) por brigada</div>
           <div class="chart-subtitle" id="subBarrasBrig">—</div>
           <div class="chart-wrapper"><canvas id="chart1"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Instalaciones y margen % por brigada</div>
+          <div class="chart-subtitle" id="subOperativaBrig">—</div>
+          <div class="chart-wrapper"><canvas id="chartOpBrig"></canvas></div>
         </div>
 
         <div class="chart-card chart-full">
@@ -448,7 +454,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260529-1330";
+const DASHBOARD_BUILD = "20260529-1410";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -574,12 +580,14 @@ function renderDashboard(data) {
   renderBonusSemanal(data.kpis.bonus, data.meta);
   renderChart_Comparativa(data.graficos.comparativaRentabilidad);
   renderChart_Barras(data.graficos.barrasBrigadas);
+  renderChart_OperativaBrig(data.graficos.comparativaOperativa);
   renderChart_Donut(data.graficos.donutTipoInst);
   renderChart_Tendencia(data.graficos.tendenciaMensual);
   renderChart_TopMateriales(data.graficos.topMateriales);
   renderChart_Calidad(data.graficos.calidadSemanal);
 
   document.getElementById('subBarrasBrig').textContent = data.meta.mesLabel;
+  document.getElementById('subOperativaBrig').textContent = data.meta.mesLabel;
   document.getElementById('subDonut').textContent =
     data.meta.mesLabel + ' · ' + data.kpis.instalaciones.valor + ' obras';
   document.getElementById('subTendencia').textContent =
@@ -852,6 +860,42 @@ function renderChart_Barras(data) {
         }
       },
       scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+// ─── OPERATIVA BRIGADAS (Inst + Margen %, doble eje) ───
+function renderChart_OperativaBrig(data) {
+  destroyChart('cOp');
+  chartInstances.cOp = new Chart(document.getElementById('chartOpBrig'), {
+    type: 'bar',
+    data: {
+      labels: data.brigadas,
+      datasets: [
+        { label: 'Instalaciones', data: data.inst, backgroundColor: COL_AZUL, yAxisID: 'y' },
+        { label: 'Margen %', data: data.margenPct, backgroundColor: COL_AMBAR, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end' },
+        tooltip: {
+          callbacks: {
+            label: (c) => c.dataset.label === 'Margen %'
+              ? c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%'
+              : c.dataset.label + ': ' + c.parsed.y
+          }
+        }
+      },
+      scales: {
+        y:  { type: 'linear', position: 'left',  beginAtZero: true,
+              title: { display: true, text: 'Instalaciones' } },
+        y1: { type: 'linear', position: 'right', beginAtZero: true,
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: 'Margen %' },
+              ticks: { callback: (v) => v + '%' } }
+      }
     }
   });
 }
