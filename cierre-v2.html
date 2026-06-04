@@ -773,7 +773,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 // ═══════════════════════════════════════════════════════════════
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
 const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
-const VIDEO_MAX_SIZE  = 200 * 1024 * 1024; // 200 MB máximo por vídeo (subida por chunks)
+const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
 const CHUNK_SIZE_RAW  = 12 * 1024 * 1024;  // 12 MB raw → ~16 MB en base64, dentro del límite seguro
 const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
 const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
@@ -869,7 +869,8 @@ const state = {
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
   isSuper: false,
-  cierreId: null       // se genera al enviar — identifica los chunks de vídeo
+  cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
+  videoBg: { token:0, promise:null, meta:null, sig:null, active:false, pct:0, phase:'', done:false, error:null }
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1053,6 +1054,13 @@ function nextScreen(){
   if (!validateScreen(state.currentScreen)) return;
   if (state.currentScreen === 12){ submitClosure(false); return; }
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
+
+  // v3.10.5: al salir de la pantalla de vídeo, valida tamaño y arranca la subida en background
+  if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
+    const errV = validarTamanoVideos();
+    if (errV){ alert('⚠️ ' + errV); return; }
+    iniciarSubidaVideosBackground();
+  }
 
   let next = state.currentScreen + 1;
   // Saltar pantallas en modo super
@@ -1352,12 +1360,20 @@ function handleFailMedia(e){
 
 function updateUploadIndicator(){
   const photoCount = Object.keys(state.photos).length;
-  if (state.videos.length || photoCount > 0){
+  const vb = state.videoBg;
+  const hayVideoBg = vb && (vb.active || vb.done || vb.error);
+  if (state.videos.length || photoCount > 0 || hayVideoBg){
     document.getElementById('uploadIndicator').classList.add('active');
     const requiredPhotos = getRequiredPhotosCount();
-    document.getElementById('uploadText').textContent =
-      'Fotos: ' + photoCount + '/' + requiredPhotos +
-      (state.videos.length ? ' · Vídeo OK' : '');
+    let txt = 'Fotos: ' + photoCount + '/' + requiredPhotos;
+    if (hayVideoBg){
+      if (vb.error)      txt += ' · 📹 vídeo: error';
+      else if (vb.done)  txt += ' · 📹 vídeo ✓';
+      else               txt += ' · 📹 vídeo ' + (vb.phase === 'comprimiendo' ? 'optimizando…' : (vb.pct || 0) + '%');
+    } else if (state.videos.length){
+      txt += ' · Vídeo OK';
+    }
+    document.getElementById('uploadText').textContent = txt;
   }
 }
 
@@ -1719,8 +1735,8 @@ async function submitClosure(esFallida){
     return;
   }
 
-  // Generar cierreId único (numInst + timestamp) — identifica chunks de vídeo
-  state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
+  // cierreId: si la subida en background ya lo generó, reutilizarlo (los chunks están bajo ese id)
+  if (!state.cierreId) state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
 
   // Recolectar datos
   const datos = recolectarDatos(esFallida);
@@ -1786,9 +1802,18 @@ async function submitClosure(esFallida){
       document.getElementById('dataBar').style.width = '40%';
     }
 
-    // ── 3. Vídeos por CHUNKS (subida independiente al POST principal) ──
+    // ── 3. Vídeos: usar la subida en segundo plano si está en curso/hecha;
+    //    si no (o si falló), subir aquí como red de seguridad ──
     if (!esFallida && !state.isSuper && state.videos.length){
-      datos.videos = await uploadVideosChunked(state.videos, state.cierreId, 0);
+      if (state.videoBg.promise && _sigVideos(state.videos) === state.videoBg.sig && !state.videoBg.error){
+        document.getElementById('doneText').textContent = 'Terminando subida del vídeo...';
+        datos.videos = await state.videoBg.promise;   // normalmente ya estará resuelto
+        datos.cierreId = state.cierreId;
+      } else {
+        state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();  // id limpio para la red de seguridad
+        datos.cierreId = state.cierreId;
+        datos.videos = await uploadVideosChunked(state.videos, state.cierreId, 0);
+      }
     }
 
     // ── 4. Fallida (fotos + vídeos en INCIDENCIAS) ──
@@ -1850,7 +1875,7 @@ async function submitClosure(esFallida){
 // soportado, memoria, timeout), devuelve el archivo ORIGINAL sin
 // error → el wizard sigue funcionando como antes.
 async function comprimirVideo(file, onProgress){
-  const TIMEOUT_MS = 120000;
+  const TIMEOUT_MS = 240000; // 4 min: da tiempo a comprimir vídeos largos antes de caer al original
   const MAX_WIDTH = 1280;
   const MAX_HEIGHT = 1280;
   const VIDEO_BITRATE = 1500000;
@@ -1983,7 +2008,7 @@ async function comprimirVideo(file, onProgress){
   });
 }
 
-async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
+async function uploadVideosChunked(videos, cierreId, videoIndexOffset, onProgress){
   const meta = [];
   for (let vi = 0; vi < videos.length; vi++){
     const v = videos[vi];
@@ -1997,6 +2022,7 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
       const comprimido = await comprimirVideo(file, (pct) => {
         document.getElementById('doneText').textContent =
           'Optimizando vídeo ' + (vi+1) + '/' + videos.length + ' · ' + pct + '%';
+        if (onProgress) onProgress(pct, 'comprimiendo');
       });
       if (comprimido !== file){
         file = comprimido;
@@ -2018,12 +2044,15 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
     document.getElementById('doneText').textContent =
       'Subiendo vídeo ' + (vi+1) + '/' + videos.length + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)...';
 
-    for (let ci = 0; ci < totalChunks; ci++){
+    // v3.10.5: subida de chunks EN PARALELO (3 a la vez) para acelerar.
+    // El chunk 0 va solo primero (crea la carpeta temporal en Drive sin carreras);
+    // el resto se envían en lotes concurrentes.
+    const CHUNK_CONCURRENCY = 3;
+    let chunksHechos = 0;
+    const enviarChunk = async (ci) => {
       const start = ci * CHUNK_SIZE_RAW;
       const end   = Math.min(start + CHUNK_SIZE_RAW, file.size);
-      const slice = file.slice(start, end);
-      const b64data = await blobToBase64Raw(slice);
-
+      const b64data = await blobToBase64Raw(file.slice(start, end));
       await postChunk({
         action:      'videoChunk',
         cierreId:    cierreId,
@@ -2032,12 +2061,18 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset){
         totalChunks: String(totalChunks),
         base64:      b64data
       });
-
-      // Actualizar barra de progreso del vídeo
-      const overall = ((vi + (ci + 1) / totalChunks) / videos.length) * 100;
+      chunksHechos++;
+      const overall = ((vi + chunksHechos / totalChunks) / videos.length) * 100;
       const pct = Math.min(99, Math.round(overall));
       document.getElementById('vidPct').textContent = pct + '%';
       document.getElementById('vidBar').style.width = pct + '%';
+      if (onProgress) onProgress(pct, 'subiendo');
+    };
+    if (totalChunks > 0) await enviarChunk(0);              // crea la carpeta temporal
+    for (let ci = 1; ci < totalChunks; ci += CHUNK_CONCURRENCY){
+      const lote = [];
+      for (let k = 0; k < CHUNK_CONCURRENCY && (ci + k) < totalChunks; k++) lote.push(enviarChunk(ci + k));
+      await Promise.all(lote);
     }
 
     meta.push({
@@ -2069,6 +2104,41 @@ function blobToBase64Raw(blob){
 }
 
 // POST de un chunk al Apps Script (fetch no-cors, esperamos a que termine)
+function _sigVideos(videos){
+  return (videos || []).map(v => (v.file && (v.file.name + ':' + v.file.size)) || v.name).join('|');
+}
+
+// v3.10.5: arranca (o re-arranca si cambió la selección) el procesado + subida del
+// vídeo EN SEGUNDO PLANO, para solaparlo con el rellenado del wizard.
+function iniciarSubidaVideosBackground(){
+  if (state.isSuper) return;
+  if (!state.videos || state.videos.length === 0) return;
+  const sig = _sigVideos(state.videos);
+  if (state.videoBg.sig === sig && state.videoBg.promise) return; // ya en curso/hecho para estos vídeos
+  // Selección nueva o cambiada → nuevo cierreId (carpeta temporal limpia) e invalida lo anterior
+  state.videoBg.token++;
+  const myToken = state.videoBg.token;
+  state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
+  Object.assign(state.videoBg, { sig:sig, active:true, done:false, error:null, pct:0, phase:'comprimiendo', meta:null });
+  updateUploadIndicator();
+  const cid = state.cierreId;
+  state.videoBg.promise = uploadVideosChunked(state.videos, cid, 0, (pct, phase) => {
+    if (myToken !== state.videoBg.token) return;          // progreso obsoleto
+    state.videoBg.pct = pct; state.videoBg.phase = phase || '';
+    updateUploadIndicator();
+  }).then(meta => {
+    if (myToken !== state.videoBg.token) return null;     // resultado obsoleto
+    Object.assign(state.videoBg, { meta:meta, done:true, active:false, pct:100, phase:'' });
+    updateUploadIndicator();
+    return meta;
+  }).catch(err => {
+    if (myToken !== state.videoBg.token) return null;
+    Object.assign(state.videoBg, { error:err, active:false });
+    updateUploadIndicator();
+    throw err;
+  });
+}
+
 function postChunk(params){
   return new Promise((resolve, reject) => {
     const fd = new FormData();
