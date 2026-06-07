@@ -688,8 +688,8 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   <div class="hito-card hito-card-opt" id="hitoDesmCard" onclick="toggleHito(this,'desm')">
     <div class="hito-num">+</div>
     <div>
-      <div class="hito-name">Desmontaje de hardware<span class="hito-badge-opt">OPCIONAL</span></div>
-      <div class="hito-desc">Márcalo solo si has desmontado un cargador anterior</div>
+      <div class="hito-name">Desmontaje de hardware<span class="hito-badge-opt" id="hitoDesmBadge">OPCIONAL</span></div>
+      <div class="hito-desc" id="hitoDesmDesc">Márcalo solo si has desmontado un cargador anterior</div>
     </div>
     <div class="checkbox" style="margin-left:auto">✓</div>
   </div>
@@ -908,6 +908,7 @@ const state = {
   pdfActa: null,
   hitos: {h1:false, h2:false, h3:false},
   desmontajeHw: false, // ligado a la foto #12 y al hito opcional de la pantalla 10
+  citaDesmontaje: false, // true si la cita (param hardware o ?desmontaje=1) indica desmontaje
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
@@ -984,6 +985,12 @@ function parseUrlParams(){
     hardware:   p.get('hardware')   || '',
     fecha:      p.get('fecha')      || p.get('fechaIso') || ''
   };
+
+  // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
+  // (p.ej. "DESMONTAJE + HARDWARE MONTAJE Y CONEXIONADO") o si el calendario
+  // pasa ?desmontaje=1 explícito. Se pre-activará al elegir tipo (no en fallida).
+  state.citaDesmontaje = (p.get('desmontaje') === '1') ||
+                         /desmont/i.test(state.cita.hardware || '');
 
   document.getElementById('dataCliente').textContent   = state.cita.cliente   || '—';
   document.getElementById('dataDireccion').textContent = state.cita.direccion || '—';
@@ -1145,10 +1152,11 @@ function validateScreen(num){
       if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return false;
       if (f.soloComunitaria     && state.type !== 'comunitaria')     return false;
       if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return false;
-      return f.obligatoria === true && !state.photos[f.n];
+      const obligatoria = (f.obligatoria === true) || (f.desmonte && state.desmontajeHw);
+      return obligatoria && !state.photos[f.n];
     });
     if (faltan.length){
-      showError('Faltan fotos obligatorias: ' + faltan.map(f => f.nombre).join(', '));
+      showError('Faltan fotos obligatorias: ' + faltan.map(f => f.label || f.nombre).join(', '));
       return false;
     }
   }
@@ -1212,7 +1220,11 @@ function selectType(t){
   };
   if (idMap[t]) document.getElementById(idMap[t]).classList.add('selected');
 
-  if (t === 'fallida'){ setTimeout(() => showScreen('failed'), 200); return; }
+  if (t === 'fallida'){
+    state.desmontajeHw = false;   // en fallida el desmontaje no aplica (desaparece)
+    syncDesmontajeHito();
+    setTimeout(() => showScreen('failed'), 200); return;
+  }
 
   // Bornas: visibles solo en comunitaria
   document.getElementById('bornasMsg').style.display = (t === 'comunitaria') ? 'flex' : 'none';
@@ -1231,6 +1243,9 @@ function selectType(t){
 
   // Auto-rellenar el kit de pre-instalación cuando es nuevo suministro
   applyKitPreinstAuto();
+
+  // Si la cita indica desmontaje, pre-marcar el hito y dejar la foto #12 obligatoria
+  aplicarDesmontajeCita();
 
   renderPhotos();
   renderChecklist();
@@ -1279,6 +1294,15 @@ function applyBornasAuto(){
       if (!bt.dataset.touched){ bt.value = '1'; if (tt) tt.style.display = 'inline-block'; }
       if (!bm.dataset.touched){ bm.value = '0'; if (tm) tm.style.display = 'none'; }
     }
+  } else if (state.type === 'nuevoSuministro' || state.type === 'unifamiliar'){
+    // Nuevo suministro / unifamiliar: NO llevan borna doble de centralización.
+    // En nuevo suministro la borna simple ya va dentro del kit de nuevo suministro.
+    // Forzamos 0 y reseteamos "touched" para que el autorrelleno vuelva a funcionar
+    // si se cambia de nuevo a comunitaria.
+    delete bm.dataset.touched; delete bt.dataset.touched;
+    bm.value = '0'; bt.value = '0';
+    if (tm) tm.style.display = 'none';
+    if (tt) tt.style.display = 'none';
   }
 }
 
@@ -1311,12 +1335,14 @@ function renderPhotos(){
     if (f.soloComunitaria     && state.type !== 'comunitaria')     return;
     if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return;
     const card = document.createElement('label');
-    card.className = 'photo-card' + (f.opcional ? ' optional' : '');
+    const obligDesm = f.desmonte && state.desmontajeHw;   // foto #12 obligatoria si hay desmontaje
+    const esOpcional = f.opcional && !obligDesm;
+    card.className = 'photo-card' + (esOpcional ? ' optional' : '');
     const photoData = state.photos[f.n];
     card.innerHTML =
       '<div class="photo-num">' + f.n + '. </div>' +
       '<div class="photo-label">' + (f.label || f.nombre) + '</div>' +
-      '<div class="photo-tag">' + (f.opcional ? 'Opcional' : 'Obligatoria') + '</div>' +
+      '<div class="photo-tag">' + (esOpcional ? 'Opcional' : 'Obligatoria') + '</div>' +
       '<div class="photo-status">' + (photoData ? '✓' : '') + '</div>' +
       '<input type="file" accept="image/*" style="display:none">';
     if (photoData) card.classList.add('uploaded');
@@ -1509,6 +1535,18 @@ function syncDesmontajeHito(){
   if (card) card.classList.toggle('checked', !!state.desmontajeHw);
   const warn = document.getElementById('hitoDesmWarn');
   if (warn && state.desmontajeHw) warn.style.display = 'none';
+}
+
+// Si la cita indica desmontaje, pre-marca el hito (sigue siendo desmarcable) y la
+// foto #12 pasa a obligatoria. No se llama en fallida (allí se limpia el desmontaje).
+function aplicarDesmontajeCita(){
+  if (!state.citaDesmontaje) return;
+  state.desmontajeHw = true;
+  const badge = document.getElementById('hitoDesmBadge');
+  if (badge) badge.textContent = 'DE LA CITA';
+  const desc = document.getElementById('hitoDesmDesc');
+  if (desc) desc.textContent = 'La cita incluye desmontaje · sube la foto (obligatoria). Puedes desmarcarlo si finalmente no procede.';
+  syncDesmontajeHito();
 }
 
 function irAFotosDesmonte(){
