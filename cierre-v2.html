@@ -247,7 +247,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   background:var(--bg-card); border:2px dashed var(--border); border-radius:10px;
   padding:14px 8px; text-align:center; cursor:pointer; transition:all .15s;
   min-height:90px; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:4px;
+  justify-content:center; gap:4px; position:relative;
 }
 .photo-card:active{border-color:var(--accent)}
 .photo-card.uploaded{border-style:solid; border-color:var(--success); background:var(--accent-light)}
@@ -256,6 +256,12 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .photo-label{font-size:11px; color:var(--text); line-height:1.2; font-weight:600}
 .photo-tag{font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em}
 .photo-status{font-size:18px; margin-top:2px}
+.photo-del{
+  position:absolute; top:4px; right:4px; width:24px; height:24px;
+  background:rgba(220,38,38,.92); color:#fff; border:none; border-radius:50%;
+  font-size:16px; font-weight:700; line-height:1; cursor:pointer; z-index:2;
+  display:flex; align-items:center; justify-content:center;
+}
 
 .upload-zone{
   background:var(--bg-card); border:2px dashed var(--border); border-radius:12px;
@@ -300,6 +306,27 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .hito-card.checked .hito-num{background:var(--accent); border-color:var(--accent); color:white}
 .hito-name{font-size:15px; font-weight:600}
 .hito-desc{font-size:12px; color:var(--text-muted); margin-top:2px}
+
+/* ── Desmontaje de hardware (hito opcional destacado en naranja) ── */
+.hito-card-opt{border-color:#F59E0B; background:#FFFBEB}
+.hito-card-opt.checked{border-color:#F59E0B; background:#FEF3C7}
+.hito-card-opt .hito-num{background:#FEF3C7; border-color:#F59E0B; color:#92400E}
+.hito-card-opt.checked .hito-num{background:#F59E0B; border-color:#F59E0B; color:#fff}
+.hito-badge-opt{
+  display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+  background:#F59E0B; color:#fff; font-size:10px; font-weight:700;
+  letter-spacing:.04em; vertical-align:middle;
+}
+.hito-desm-warn{
+  background:#FFFBEB; border:1px solid #F59E0B; color:#92400E;
+  padding:10px 12px; border-radius:8px; font-size:13px; margin:0 0 8px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+}
+.hito-desm-gobtn{
+  background:#F59E0B; color:#fff; border:none; border-radius:6px;
+  padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer;
+}
+.hito-desm-gobtn:active{background:#D97706}
 
 .warning-box{
   background:rgba(217,119,6,.08); border:1px solid var(--warning); color:var(--warning);
@@ -657,6 +684,19 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <div><div class="hito-name">Gestión documental</div><div class="hito-desc">Fotos + Acta finalizadas</div></div>
     <div class="checkbox" style="margin-left:auto">✓</div>
   </div>
+
+  <div class="hito-card hito-card-opt" id="hitoDesmCard" onclick="toggleHito(this,'desm')">
+    <div class="hito-num">+</div>
+    <div>
+      <div class="hito-name">Desmontaje de hardware<span class="hito-badge-opt">OPCIONAL</span></div>
+      <div class="hito-desc">Márcalo solo si has desmontado un cargador anterior</div>
+    </div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-desm-warn" id="hitoDesmWarn" style="display:none">
+    <span>⚠️ Falta la foto de <strong>Desmonte de Hardware</strong>.</span>
+    <button type="button" class="hito-desm-gobtn" onclick="irAFotosDesmonte()">Ir a Fotos →</button>
+  </div>
 </section>
 
 <!-- ═══ PANTALLA 11: CHECKLIST ═══ -->
@@ -777,12 +817,13 @@ const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comp
 const CHUNK_SIZE_RAW  = 12 * 1024 * 1024;  // 12 MB raw → ~16 MB en base64, dentro del límite seguro
 const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
 const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
+const PHOTO_DESM_N = 12;                 // foto "Desmonte de Hardware" (ligada al hito desmontaje)
 
 // ═══════════════════════════════════════════════════════════════
 // DATOS Y ESTADO
 // ═══════════════════════════════════════════════════════════════
 const CANALIZACIONES = [
-  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Solo control de stock — no facturable', unit:'m', tip:'Tubo PVC rígido de 32mm. No tiene baremo en contrato. Solo control de stock.'},
+  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Material utilizado en la instalación', unit:'m', tip:'Tubo PVC rígido de 32 mm usado para canalizar la línea. Anota los metros utilizados.'},
   {id:'corr32', name:'Tubo corrugado 32mm', unit:'m', tip:'Tubo corrugado flexible de 32mm para canalizaciones empotradas o vistas en interior.'},
   {id:'acero32', name:'Tubo acero 32mm', unit:'m', tip:'Tubo de acero galvanizado de 32mm para tramos vistos en garajes o exterior.'},
   {id:'acero40', name:'Tubo acero 40mm', unit:'m', tip:'Tubo de acero galvanizado de 40mm para mayores secciones o múltiples conductores.'},
@@ -800,8 +841,8 @@ const PROTECCIONES = [
   {id:'cerradura', name:'Cerradura + llave', unit:'ud', tip:'Cerradura para cuadro o caja. Las llaves se entregan SIEMPRE al cliente.'},
 
   {section:'🕳️ Perforaciones'},
-  {id:'perfTab', name:'Perforación tabique <40mm', unit:'ud', tip:'Perforación en tabique o pared (<40mm). Se factura desde la 2ª — la 1ª está incluida.'},
-  {id:'perfForj', name:'Perforación forjado <32mm', unit:'ud', tip:'Perforación en forjado de hormigón (<32mm) entre plantas. Se factura DESDE LA 1ª — todas se cobran.'},
+  {id:'perfTab', name:'Perforación tabique <40mm', unit:'ud', tip:'Perforación en tabique o pared (<40mm). Anota TODAS las que realices.'},
+  {id:'perfForj', name:'Perforación forjado <32mm', unit:'ud', tip:'Perforación en forjado de hormigón (<32mm) entre plantas. Anota TODAS las que realices.'},
 
   {section:'🔧 Otros'},
   {id:'pica', name:'Pica de tierra (kit completo)', sub:'Pica + grapa + cable + arqueta + tapa', unit:'kit', tip:'Según ESMOVE: incluye pica 1500mm, grapa, cable 6mm², arqueta y tapa. NO se acepta pica sin arqueta.'},
@@ -814,9 +855,9 @@ const PROTECCIONES = [
 ];
 
 const TRABAJOS = [
-  {id:'altAndamio',   name:'Trabajo en altura — andamio',   type:'toggle',         priceLabel:'120 € fijo',     unit:'ud', tip:'Medio manual. Andamio homologado (es propiedad de Búfala). PRL obligatoria. Requiere autorización previa ESMOVE.'},
-  {id:'altElevadora', name:'Trabajo en altura — elevadora', type:'toggle-presup',  priceLabel:'PREVIO PRESUP*', unit:'ud', tip:'Medio mecánico. Plataforma elevadora motorizada. Requiere presupuesto previo (la tarifa la fija el admin según el caso).'},
-  {id:'soterrM',      name:'Trabajo de soterramiento',      type:'toggle-metros',  priceLabel:'20 €/m',          unit:'m',  tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado posterior.'}
+  {id:'altAndamio',   name:'Trabajo en altura — andamio',   type:'toggle',         unit:'ud', tip:'Medio manual. Andamio homologado (es propiedad de Búfala). PRL obligatoria. Requiere autorización previa ESMOVE.'},
+  {id:'altElevadora', name:'Trabajo en altura — elevadora', type:'toggle-presup',  unit:'ud', tip:'Medio mecánico. Plataforma elevadora motorizada. Requiere autorización previa de ESMOVE.'},
+  {id:'soterrM',      name:'Trabajo de soterramiento',      type:'toggle-metros',  unit:'m',  tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado posterior.'}
 ];
 
 const CHECKLIST = [
@@ -842,6 +883,7 @@ const FOTOS = [
   {n:8, nombre:"APP MENU", obligatoria:true},
   {n:9, nombre:"PICA DE TIERRA", obligatoria:false, opcional:true},
   {n:11, nombre:"BORNA DOBLE EN CONTADORES", obligatoria:false, soloComunitaria:true},
+  {n:12, nombre:"DESMONTE DE HARDWARE", label:"Desmonte de Hardware", obligatoria:false, opcional:true, desmonte:true},
   // ── BLOQUE B — fotos adicionales obligatorias en NUEVO SUMINISTRO ──
   {n:21, nombre:"NS - CGP PUERTA CERRADA",            obligatoria:true, soloNuevoSuministro:true},
   {n:22, nombre:"NS - CGP PUERTA ABIERTA",            obligatoria:true, soloNuevoSuministro:true},
@@ -865,6 +907,7 @@ const state = {
   trabajosFotos: {altAndamio: [], altElevadora: [], soterrM: []},  // fotos por trabajo especial
   pdfActa: null,
   hitos: {h1:false, h2:false, h3:false},
+  desmontajeHw: false, // ligado a la foto #12 y al hito opcional de la pantalla 10
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
@@ -1272,13 +1315,22 @@ function renderPhotos(){
     const photoData = state.photos[f.n];
     card.innerHTML =
       '<div class="photo-num">' + f.n + '. </div>' +
-      '<div class="photo-label">' + f.nombre + '</div>' +
+      '<div class="photo-label">' + (f.label || f.nombre) + '</div>' +
       '<div class="photo-tag">' + (f.opcional ? 'Opcional' : 'Obligatoria') + '</div>' +
       '<div class="photo-status">' + (photoData ? '✓' : '') + '</div>' +
       '<input type="file" accept="image/*" style="display:none">';
     if (photoData) card.classList.add('uploaded');
     const input = card.querySelector('input');
     input.addEventListener('change', (e) => handlePhoto(e, f.n, f.nombre, card));
+    // Foto de desmontaje: si ya hay imagen, botón para quitarla (desmarca el hito)
+    if (f.desmonte && photoData){
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'photo-del';
+      del.textContent = '×';
+      del.addEventListener('click', removeDesmontajePhoto);
+      card.appendChild(del);
+    }
     grid.appendChild(card);
   });
 }
@@ -1292,7 +1344,13 @@ function handlePhoto(e, num, nombre, card){
     name: num + '. ' + nombre + '.' + ext
   };
   card.classList.add('uploaded');
-  card.querySelector('.photo-status').textContent = '✓';
+  const st = card.querySelector('.photo-status'); if (st) st.textContent = '✓';
+  // Foto de desmontaje: subir la foto MARCA el hito de la pantalla 10
+  if (num === PHOTO_DESM_N){
+    state.desmontajeHw = true;
+    syncDesmontajeHito();
+    renderPhotos();   // re-render para mostrar el botón de quitar (×)
+  }
   updateUploadIndicator();
 }
 
@@ -1415,8 +1473,58 @@ function selectFase(value, el){
 // HITOS Y CHECKLIST
 // ═══════════════════════════════════════════════════════════════
 function toggleHito(card, key){
+  if (key === 'desm'){ toggleDesmontaje(card); return; }
   state.hitos[key] = !state.hitos[key];
   card.classList.toggle('checked');
+}
+
+// ── Desmontaje de hardware: acoplado bidireccionalmente con la foto #12 ──
+// Invariante: desmontajeHw === true  ⟺  foto #12 presente  ⟺  hito marcado.
+function toggleDesmontaje(card){
+  const warn = document.getElementById('hitoDesmWarn');
+  if (!state.desmontajeHw){
+    // Marcar EXIGE la foto (salvo en modo super, donde no hay pantalla de fotos)
+    if (state.isSuper || state.photos[PHOTO_DESM_N]){
+      state.desmontajeHw = true;
+      card.classList.add('checked');
+      if (warn) warn.style.display = 'none';
+    } else {
+      if (warn) warn.style.display = 'flex';  // aviso + botón "Ir a Fotos"
+    }
+  } else {
+    // Desmarcar: quitar también la foto para mantener la invariante
+    state.desmontajeHw = false;
+    card.classList.remove('checked');
+    if (warn) warn.style.display = 'none';
+    if (!state.isSuper && state.photos[PHOTO_DESM_N]){
+      delete state.photos[PHOTO_DESM_N];
+      renderPhotos();
+      updateUploadIndicator();
+    }
+  }
+}
+
+function syncDesmontajeHito(){
+  const card = document.getElementById('hitoDesmCard');
+  if (card) card.classList.toggle('checked', !!state.desmontajeHw);
+  const warn = document.getElementById('hitoDesmWarn');
+  if (warn && state.desmontajeHw) warn.style.display = 'none';
+}
+
+function irAFotosDesmonte(){
+  const warn = document.getElementById('hitoDesmWarn');
+  if (warn) warn.style.display = 'none';
+  showScreen(3);  // pantalla de fotos
+}
+
+// Quitar la foto #12 (botón × en su tarjeta): DESMARCA el hito
+function removeDesmontajePhoto(ev){
+  if (ev){ ev.preventDefault(); ev.stopPropagation(); }
+  delete state.photos[PHOTO_DESM_N];
+  state.desmontajeHw = false;
+  syncDesmontajeHito();
+  renderPhotos();
+  updateUploadIndicator();
 }
 
 function renderChecklist(){
@@ -1481,15 +1589,14 @@ function renderMaterialItem(item){
           '<div class="trabajo-name">' + item.name +
             '<button type="button" class="info-btn" onclick="toggleTip(event,\'' + item.id + '\')">i</button>' +
           '</div>' +
-          '<div class="trabajo-price">' + (item.priceLabel || '') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
       '<div class="trabajo-detail" id="trabDetail_' + item.id + '" style="display:none">' +
         (presup ? (
           '<div class="trabajo-presup-warn">' +
-            '⚠️ Esta partida se factura con <strong>presupuesto previo</strong>. ' +
-            'En la pre-factura aparecerá como PREVIO PRESUP* y el importe lo ajustará el admin.' +
+            '⚠️ Esta partida requiere <strong>autorización previa de ESMOVE</strong>. ' +
+            'Confirma que la tienes antes de ejecutarla.' +
           '</div>'
         ) : '') +
         (metros ? (
@@ -1653,6 +1760,7 @@ function recolectarDatos(esFallida){
   datos.hitoMontaje = state.hitos.h1;
   datos.hitoExplic  = state.hitos.h2;
   datos.hitoDocs    = state.hitos.h3;
+  datos.desmontajeHw = !!state.desmontajeHw;  // 2ª ud de montaje (desmontaje) si está marcado
 
   return datos;
 }
