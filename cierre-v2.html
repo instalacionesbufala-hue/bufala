@@ -1,4 +1,11 @@
 <!DOCTYPE html>
+<!-- BÚFALA — Wizard de cierre v2 · build v3.12.8 (jun 2026)
+     v3.12.8: robustez de envío — fotos procesadas al seleccionarlas (inmune a
+     referencias de fichero caducadas en Android), lecturas con mensaje de error
+     real + reintento (antes un fallo de lectura mostraba "undefined"), y subida
+     de vídeo con 3 intentos por fragmento. Backend Drive: sin cambios (v3.12.7).
+     v3.12.6: desmontaje HW (hito + foto #12, pre-marcado desde la cita), borna
+     doble a 0 en nuevo suministro/unifamiliar, sin precios visibles al técnico. -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1365,10 +1372,27 @@ function handlePhoto(e, num, nombre, card){
   if (!e.target.files.length) return;
   const file = e.target.files[0];
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  state.photos[num] = {
+  const entry = {
     file: file,
     name: num + '. ' + nombre + '.' + ext
   };
+  state.photos[num] = entry;
+  // v3.12.8: procesar la foto YA (comprimir + base64 en memoria). Si la lectura
+  // falla, se avisa al momento (con el técnico aún en la obra) y se retira la
+  // foto para que la vuelva a seleccionar.
+  entry.promise = procesarFotoEntry(entry, 'la foto "' + entry.name + '"')
+    .catch(err => {
+      if (state.photos[num] === entry){
+        delete state.photos[num];
+        if (num === PHOTO_DESM_N && !state.citaDesmontaje){
+          state.desmontajeHw = false;
+          syncDesmontajeHito();
+        }
+        renderPhotos();
+        updateUploadIndicator();
+      }
+      alert('⚠️ ' + err.message);
+    });
   card.classList.add('uploaded');
   const st = card.querySelector('.photo-status'); if (st) st.textContent = '✓';
   // Foto de desmontaje: subir la foto MARCA el hito de la pantalla 10
@@ -1431,10 +1455,22 @@ function handleFailMedia(e){
         name: 'FALLIDA_VIDEO_' + (countV++) + '.' + (ext || 'mp4')
       });
     } else {
-      state.fotosFallida.push({
+      const entry = {
         file: f,
         name: 'FALLIDA_' + (countF++) + '.' + (ext || 'jpg')
-      });
+      };
+      state.fotosFallida.push(entry);
+      // v3.12.8: procesar al seleccionar; si falla la lectura, retirar y avisar
+      entry.promise = procesarFotoEntry(entry, 'la foto ' + entry.name)
+        .catch(err => {
+          const i = state.fotosFallida.indexOf(entry);
+          if (i >= 0){
+            state.fotosFallida.splice(i, 1);
+            document.getElementById('failMediaZone').querySelector('.upload-title').textContent =
+              '✓ ' + (state.fotosFallida.length + state.videosFallida.length) + ' archivo(s)';
+          }
+          alert('⚠️ ' + err.message);
+        });
     }
   });
   document.getElementById('failMediaZone').classList.add('uploaded');
@@ -1707,7 +1743,16 @@ function handleTrabajoFoto(e, itemId){
   if (!state.trabajosFotos[itemId]) state.trabajosFotos[itemId] = [];
   files.forEach((f) => {
     const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
-    state.trabajosFotos[itemId].push({ file: f, ext: ext });
+    const entry = { file: f, ext: ext };
+    state.trabajosFotos[itemId].push(entry);
+    // v3.12.8: procesar al seleccionar; si falla la lectura, retirar y avisar
+    entry.promise = procesarFotoEntry(entry, 'una foto de ' + TRABAJO_LABEL[itemId])
+      .catch(err => {
+        const arr = state.trabajosFotos[itemId] || [];
+        const i = arr.indexOf(entry);
+        if (i >= 0){ arr.splice(i, 1); renderTrabajoMiniaturas(itemId); }
+        alert('⚠️ ' + err.message);
+      });
   });
   e.target.value = '';  // permite volver a seleccionar las mismas fotos
   renderTrabajoMiniaturas(itemId);
@@ -1843,17 +1888,37 @@ function compressImage(file, maxDim, quality){
 // ═══════════════════════════════════════════════════════════════
 // FILE → BASE64
 // ═══════════════════════════════════════════════════════════════
-function fileToBase64(file){
-  return new Promise((resolve, reject) => {
+// v3.12.8: lectura robusta — mensaje real (antes onerror rechazaba con el
+// evento, sin .message → la pantalla de error mostraba "undefined") y 1
+// reintento automático tras 400 ms (las lecturas pueden fallar puntualmente
+// bajo presión de memoria, p.ej. transcodificando un vídeo grande en paralelo).
+function fileToBase64(file, etiqueta){
+  const leer = () => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const str = reader.result;
       const base64 = str.split(',')[1];
       resolve({ base64: base64, contentType: file.type || 'application/octet-stream' });
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error('No se ha podido leer ' +
+      (etiqueta || (file && file.name) || 'el archivo') +
+      '. Vuelve a seleccionarlo e inténtalo de nuevo.'));
     reader.readAsDataURL(file);
   });
+  return leer().catch(() => new Promise(r => setTimeout(r, 400)).then(leer));
+}
+
+// v3.12.8: procesa una foto EN EL MOMENTO de seleccionarla (comprime + base64)
+// y guarda el resultado en memoria. Así el envío no depende de releer el fichero
+// original, cuya referencia puede caducar en Android (la cámara reescribe el
+// JPEG tras el HDR) o fallar bajo presión de memoria.
+async function procesarFotoEntry(entry, etiqueta){
+  const comprimida = await compressImage(entry.file);
+  const b64 = await fileToBase64(comprimida, etiqueta);
+  entry.b64 = b64.base64;
+  entry.contentType = b64.contentType;
+  entry.ready = true;
+  return entry;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1910,11 +1975,20 @@ async function submitClosure(esFallida){
       const totalFotos = fotoKeys.length + totalTrabFotos;
       let i = 0;
       for (const num of fotoKeys){
-        const ph = state.photos[num];
+        let ph = state.photos[num];
         document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
-        const compressed = await compressImage(ph.file);
-        const b64 = await fileToBase64(compressed);
-        fotosArr.push({ nombre: ph.name, base64: b64.base64, contentType: b64.contentType });
+        // v3.12.8: la foto se procesó al seleccionarla; aquí solo se reutiliza.
+        if (ph && !ph.b64 && ph.promise){ try { await ph.promise; } catch(e){} }
+        ph = state.photos[num];
+        if (!ph){
+          throw new Error('La foto ' + num + ' no se ha podido leer. Vuelve a la pantalla de Fotos, selecciónala de nuevo y reintenta.');
+        }
+        if (!ph.b64){
+          const compressed = await compressImage(ph.file);
+          const b64 = await fileToBase64(compressed, 'la foto "' + ph.name + '"');
+          ph.b64 = b64.base64; ph.contentType = b64.contentType;
+        }
+        fotosArr.push({ nombre: ph.name, base64: ph.b64, contentType: ph.contentType });
         i++;
         const pct = Math.round((i / Math.max(totalFotos, 1)) * 30); // hasta 30%
         document.getElementById('dataPct').textContent = pct + '%';
@@ -1927,9 +2001,13 @@ async function submitClosure(esFallida){
           const ph = fotos[j];
           const nombreBase = TRABAJO_LABEL[itemId] + '_' + (j + 1);
           document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
-          const compressed = await compressImage(ph.file);
-          const b64 = await fileToBase64(compressed);
-          fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: b64.base64, contentType: b64.contentType });
+          if (!ph.b64 && ph.promise){ try { await ph.promise; } catch(e){} }
+          if (!ph.b64){
+            const compressed = await compressImage(ph.file);
+            const b64 = await fileToBase64(compressed, 'una foto de ' + TRABAJO_LABEL[itemId]);
+            ph.b64 = b64.base64; ph.contentType = b64.contentType;
+          }
+          fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: ph.b64, contentType: ph.contentType });
           i++;
           const pct = Math.round((i / Math.max(totalFotos, 1)) * 30);
           document.getElementById('dataPct').textContent = pct + '%';
@@ -1942,7 +2020,7 @@ async function submitClosure(esFallida){
     // ── 2. Acta PDF ──
     if (!esFallida && !state.isSuper && state.pdfActa){
       document.getElementById('doneText').textContent = 'Procesando acta PDF...';
-      const b64 = await fileToBase64(state.pdfActa.file);
+      const b64 = await fileToBase64(state.pdfActa.file, 'el acta PDF');
       datos.acta = { nombre: state.pdfActa.name, base64: b64.base64 };
       document.getElementById('dataPct').textContent = '40%';
       document.getElementById('dataBar').style.width = '40%';
@@ -1968,9 +2046,13 @@ async function submitClosure(esFallida){
       let i = 0;
       for (const f of state.fotosFallida){
         document.getElementById('doneText').textContent = 'Procesando archivo ' + (i+1) + '...';
-        const compressed = await compressImage(f.file);
-        const b64 = await fileToBase64(compressed);
-        fotosF.push({ nombre: f.name, base64: b64.base64, contentType: b64.contentType });
+        if (!f.b64 && f.promise){ try { await f.promise; } catch(e){} }
+        if (!f.b64){
+          const compressed = await compressImage(f.file);
+          const b64 = await fileToBase64(compressed, 'la foto ' + f.name);
+          f.b64 = b64.base64; f.contentType = b64.contentType;
+        }
+        fotosF.push({ nombre: f.name, base64: f.b64, contentType: f.contentType });
         i++;
       }
       datos.fotosFallida = fotosF;
@@ -1998,9 +2080,11 @@ async function submitClosure(esFallida){
 
   } catch (err){
     console.error('Error en submitClosure:', err);
+    // v3.12.8: si algo rechaza sin .message (evento, string...), mostrar algo útil
+    const msgErr = (err && err.message) ? err.message : ('Error inesperado: ' + String(err));
     document.getElementById('doneIcon').textContent = '❌';
     document.getElementById('doneTitle').textContent = 'Error al enviar';
-    document.getElementById('doneText').textContent = err.message + '\n\nPuedes reintentar pulsando el botón.';
+    document.getElementById('doneText').textContent = msgErr + '\n\nPuedes reintentar pulsando el botón.';
     document.getElementById('doneActions').style.display = 'block';
     document.getElementById('doneActions').innerHTML =
       '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
@@ -2194,19 +2278,34 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset, onProgres
     // El chunk 0 va solo primero (crea la carpeta temporal en Drive sin carreras);
     // el resto se envían en lotes concurrentes.
     const CHUNK_CONCURRENCY = 3;
+    const CHUNK_REINTENTOS = 2;   // v3.12.8: 3 intentos por chunk (1 + 2 reintentos)
     let chunksHechos = 0;
     const enviarChunk = async (ci) => {
       const start = ci * CHUNK_SIZE_RAW;
       const end   = Math.min(start + CHUNK_SIZE_RAW, file.size);
-      const b64data = await blobToBase64Raw(file.slice(start, end));
-      await postChunk({
-        action:      'videoChunk',
-        cierreId:    cierreId,
-        videoIndex:  String(videoIndex),
-        chunkIndex:  String(ci),
-        totalChunks: String(totalChunks),
-        base64:      b64data
-      });
+      // v3.12.8: lectura + POST con reintentos y espera creciente (1,5 s / 3 s):
+      // en 4G flojo un fragmento puede fallar puntualmente sin que la subida
+      // entera tenga que morir.
+      let ultimoError = null;
+      for (let intento = 0; intento <= CHUNK_REINTENTOS; intento++){
+        try {
+          const b64data = await blobToBase64Raw(file.slice(start, end));
+          await postChunk({
+            action:      'videoChunk',
+            cierreId:    cierreId,
+            videoIndex:  String(videoIndex),
+            chunkIndex:  String(ci),
+            totalChunks: String(totalChunks),
+            base64:      b64data
+          });
+          ultimoError = null;
+          break;
+        } catch(e){
+          ultimoError = e;
+          if (intento < CHUNK_REINTENTOS) await new Promise(r => setTimeout(r, 1500 * (intento + 1)));
+        }
+      }
+      if (ultimoError) throw ultimoError;
       chunksHechos++;
       const overall = ((vi + chunksHechos / totalChunks) / videos.length) * 100;
       const pct = Math.min(99, Math.round(overall));
