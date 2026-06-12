@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.12.8 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.12.9 (jun 2026)
+     v3.12.9: el envío de datos VERIFICA la respuesta real del backend (antes:
+     formulario a iframe ciego + éxito asumido a los 5 s → podía decir "Todo
+     subido" con el cierre perdido, como pasó el 10/06). Progreso de subida real
+     (70→99%) y errores con instrucciones. Backend Drive: sin cambios (v3.12.7).
      v3.12.8: robustez de envío — fotos procesadas al seleccionarlas (inmune a
      referencias de fichero caducadas en Android), lecturas con mensaje de error
      real + reintento (antes un fallo de lectura mostraba "undefined"), y subida
@@ -2399,24 +2403,64 @@ function postChunk(params){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// POST AL APPS SCRIPT (formulario + iframe oculto, sin CORS)
+// POST AL APPS SCRIPT — v3.12.9: XHR con VERIFICACIÓN REAL
+// Antes: formulario a un iframe ciego + "éxito" asumido a los 5 s. Si el
+// despliegue estaba roto o el servidor fallaba, el wizard decía "Todo subido"
+// con el cierre perdido (así se perdieron los 2 cierres del 10/06). Ahora se
+// espera la respuesta JSON del doPost ({ok, errores[]}) y solo hay éxito si
+// ok === true. Cualquier otra cosa (HTML de error de Google, login, caída de
+// red, timeout) se muestra como error con instrucciones.
+// El formulario oculto bufalaPostForm queda en el HTML pero ya no se usa.
 // ═══════════════════════════════════════════════════════════════
 function postCierre(datos){
   return new Promise((resolve, reject) => {
+    let payloadStr;
     try {
-      const payloadStr = JSON.stringify(datos);
-      // Comprobar tamaño aproximado (límite ~10MB para form post seguro)
-      if (payloadStr.length > 10 * 1024 * 1024){
-        console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
-      }
-      document.getElementById('bufalaPostPayload').value = payloadStr;
-      document.getElementById('bufalaPostForm').submit();
-
-      // Asumimos éxito a los 5 segundos (el iframe absorbe la respuesta del script)
-      setTimeout(() => resolve(), 5000);
-    } catch(err){
-      reject(err);
+      payloadStr = JSON.stringify(datos);
+    } catch(err){ reject(err); return; }
+    if (payloadStr.length > 10 * 1024 * 1024){
+      console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
     }
+    const fd = new FormData();
+    fd.append('payload', payloadStr);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 300000;  // 5 min: el backend crea carpeta, guarda fotos/acta, Registro y pre-factura
+
+    // Progreso real de la subida del payload (70 → 99 %)
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = 70 + Math.round((ev.loaded / ev.total) * 29);
+      document.getElementById('dataPct').textContent = pct + '%';
+      document.getElementById('dataBar').style.width = pct + '%';
+      if (ev.loaded >= ev.total){
+        document.getElementById('doneText').textContent = 'Datos enviados. Esperando confirmación del sistema...';
+      }
+    };
+
+    xhr.onload = () => {
+      let r = null;
+      try { r = JSON.parse(xhr.responseText); } catch(e){ /* respuesta no JSON */ }
+      if (r && r.ok === true){
+        resolve(r);
+      } else if (r && r.ok === false){
+        const det = (r.errores && r.errores.length) ? r.errores.join(' · ') : 'error desconocido';
+        reject(new Error('El sistema ha rechazado el cierre: ' + det +
+                         '\nEl cierre NO está guardado. Reintenta y, si se repite, avisa a César.'));
+      } else {
+        // 200 con HTML (despliegue equivocado, página de login, error de Google...):
+        // NO darlo por bueno — exactamente así se perdieron cierres el 10/06.
+        reject(new Error('El sistema ha respondido algo inesperado (HTTP ' + xhr.status +
+                         ', no es la confirmación del backend). El cierre NO está guardado. ' +
+                         'Reintenta y, si se repite, avisa a César: puede ser un problema del despliegue.'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
+                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.'));
+    xhr.ontimeout = () => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
+                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.'));
+    xhr.send(fd);
   });
 }
 
