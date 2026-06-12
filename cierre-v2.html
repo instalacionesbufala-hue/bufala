@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.12.9 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.12.10 (jun 2026)
+     v3.12.10: fix del POST de datos de la v3.12.9 — el listener de progreso en
+     xhr.upload obligaba al navegador a hacer preflight OPTIONS (petición "no
+     simple"), que Apps Script no contesta → CORS fallaba → "No se ha podido
+     contactar" SIEMPRE. Sin listener la petición es simple (como los chunks,
+     que nunca fallaron). Progreso ahora: ticker 70→97% hasta la confirmación.
      v3.12.9: el envío de datos VERIFICA la respuesta real del backend (antes:
      formulario a iframe ciego + éxito asumido a los 5 s → podía decir "Todo
      subido" con el cierre perdido, como pasó el 10/06). Progreso de subida real
@@ -2428,18 +2433,25 @@ function postCierre(datos){
     xhr.open('POST', WEB_APP_URL, true);
     xhr.timeout = 300000;  // 5 min: el backend crea carpeta, guarda fotos/acta, Registro y pre-factura
 
-    // Progreso real de la subida del payload (70 → 99 %)
-    xhr.upload.onprogress = (ev) => {
-      if (!ev.lengthComputable) return;
-      const pct = 70 + Math.round((ev.loaded / ev.total) * 29);
-      document.getElementById('dataPct').textContent = pct + '%';
-      document.getElementById('dataBar').style.width = pct + '%';
-      if (ev.loaded >= ev.total){
-        document.getElementById('doneText').textContent = 'Datos enviados. Esperando confirmación del sistema...';
-      }
+    // v3.12.10: SIN listeners en xhr.upload. Registrar cualquier listener de
+    // upload marca la petición como "no simple" y el navegador exige un
+    // preflight OPTIONS que Apps Script no contesta → CORS falla → onerror
+    // ("No se ha podido contactar...") aunque haya red. Los chunks (postChunk,
+    // sin listeners) nunca fallaron por esto. Petición simple = POST + FormData,
+    // sin cabeceras custom, sin upload listeners.
+    // Progreso: ticker suave 70 → 97 % mientras llega la confirmación real.
+    let pctEnvio = 70;
+    const pintarEnvio = () => {
+      document.getElementById('dataPct').textContent = pctEnvio + '%';
+      document.getElementById('dataBar').style.width = pctEnvio + '%';
     };
+    pintarEnvio();
+    const tickerEnvio = setInterval(() => {
+      if (pctEnvio < 97){ pctEnvio++; pintarEnvio(); }
+    }, 2000);
+    const alTerminar = (fn) => () => { clearInterval(tickerEnvio); fn(); };
 
-    xhr.onload = () => {
+    xhr.onload = alTerminar(() => {
       let r = null;
       try { r = JSON.parse(xhr.responseText); } catch(e){ /* respuesta no JSON */ }
       if (r && r.ok === true){
@@ -2455,11 +2467,11 @@ function postCierre(datos){
                          ', no es la confirmación del backend). El cierre NO está guardado. ' +
                          'Reintenta y, si se repite, avisa a César: puede ser un problema del despliegue.'));
       }
-    };
-    xhr.onerror = () => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
-                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.'));
-    xhr.ontimeout = () => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
-                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.'));
+    });
+    xhr.onerror = alTerminar(() => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
+                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.')));
+    xhr.ontimeout = alTerminar(() => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
+                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.')));
     xhr.send(fd);
   });
 }
