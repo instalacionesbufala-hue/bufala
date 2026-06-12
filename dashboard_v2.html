@@ -252,7 +252,7 @@
     font-size: 11.5px; font-weight: 700; color: var(--text-2);
     text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px;
   }
-  .sm-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .sm-row { display: grid; grid-template-columns: 84px 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
   .sm-row:last-child { margin-bottom: 0; }
   .sm-label { font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sm-track { position: relative; height: 14px; background: var(--sm-track); border-radius: 7px; overflow: hidden; }
@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260611-1500";
+const DASHBOARD_BUILD = "20260612-1230";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1152,18 +1152,38 @@ function esMetricaDivergente(nombre) {
   return n.indexOf('margen') !== -1 || n.indexOf('beneficio') !== -1;
 }
 
-// ─── 3.2 Registro vs Holded ───
+// ─── 3.2 Registro vs Holded — 3 paneles: instalaciones, ingresos, beneficio ───
+function etiquetaSerie(lbl, fallback) {
+  // "Rentabilidad (Registro)" → "Registro" · "Rentabilidad Holded" → "Holded"
+  const s = String(lbl || '').replace(/rentabilidad/i, '').replace(/[()]/g, '').trim();
+  return s || fallback;
+}
 function renderSM_Comparativa(data) {
   if (!data || !data.metricas) { renderSmallMultiples('smComparativa', []); return; }
+  const labReg = etiquetaSerie(data.normal && data.normal.label, 'Registro');
+  const labHol = etiquetaSerie(data.holded && data.holded.label, 'Holded');
   const panels = data.metricas.map((m, i) => ({
     titulo: m,
     formato: formatoMetrica(m),
     divergente: esMetricaDivergente(m),
     items: [
-      { label: data.normal.label || 'Registro', valor: (data.normal.datos || [])[i] || 0, color: COL_VERDE_L },
-      { label: data.holded.label || 'Holded',   valor: (data.holded.datos || [])[i] || 0, color: COL_VERDE_O }
+      { label: labReg, valor: (data.normal.datos || [])[i] || 0, color: COL_VERDE_L },
+      { label: labHol, valor: (data.holded.datos || [])[i] || 0, color: COL_VERDE_O }
     ]
   }));
+  // Panel Instalaciones (la cuenta no viene en metricas: el endpoint la expone aparte)
+  const tieneInst = data.metricas.some(m => /instalacion/i.test(String(m)));
+  if (!tieneInst && (data.instRegistro != null || data.instHolded != null)) {
+    panels.unshift({
+      titulo: 'Instalaciones',
+      formato: 'num',
+      divergente: false,
+      items: [
+        { label: labReg, valor: data.instRegistro || 0, color: COL_VERDE_L },
+        { label: labHol, valor: data.instHolded || 0, color: COL_VERDE_O }
+      ]
+    });
+  }
   renderSmallMultiples('smComparativa', panels);
 }
 
@@ -1326,11 +1346,15 @@ function renderChart_Tendencia(data) {
   const hoy = new Date();
   const idxActual = (Number(data.anio) === hoy.getFullYear()) ? hoy.getMonth() : -1;
 
-  // Histórico: array esHistorico del endpoint si existe; si no, heurística
-  // (ene–abr con obras pero sin € — la línea de facturación arranca en mayo)
+  // Histórico: array esHistorico del endpoint (v3.12.8+). Fallback heurístico
+  // para endpoints anteriores: ene–abr con obras y margen no calculable
+  // (el histórico lleva facturado real Holded pero margenPct = 0).
+  const margenes = data.margenPct || null;
   function esHist(i) {
     if (Array.isArray(data.esHistorico)) return !!data.esHistorico[i];
-    return i < 4 && (inst[i] || 0) > 0 && (fact[i] || 0) === 0;
+    if (i >= 4 || (inst[i] || 0) === 0) return false;
+    if ((fact[i] || 0) === 0) return true;
+    return Array.isArray(margenes) && (margenes[i] || 0) === 0;
   }
 
   const patCanvas = patronRayado(t.historico);
