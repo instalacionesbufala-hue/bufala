@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.12.10 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.13.0 (jun 2026)
+     v3.13.0: CIERRE RÁPIDO — las fotos y el acta se suben EN BACKGROUND según
+     se seleccionan (patrón chunks, con verificación ok:true y 3 intentos); el
+     payload final solo lleva referencias (KB) y el backend lo ENCOLA y responde
+     al instante. Fallback automático a inline si una subida bg no confirmó.
+     "Todo subido" = recibido y a salvo en el servidor (el archivado en carpetas
+     y Registro lo hace la cola en ~1 min). postChunk ahora también verifica la
+     respuesta JSON del servidor. Requiere backend v3.13.0.
      v3.12.10: fix del POST de datos de la v3.12.9 — el listener de progreso en
      xhr.upload obligaba al navegador a hacer preflight OPTIONS (petición "no
      simple"), que Apps Script no contesta → CORS fallaba → "No se ha podido
@@ -925,6 +932,7 @@ const state = {
   hitos: {h1:false, h2:false, h3:false},
   desmontajeHw: false, // ligado a la foto #12 y al hito opcional de la pantalla 10
   citaDesmontaje: false, // true si la cita (param hardware o ?desmontaje=1) indica desmontaje
+  fotosTmpId: null, // v3.13.0: id de la carpeta temporal para fotos/acta en background
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
@@ -1390,6 +1398,7 @@ function handlePhoto(e, num, nombre, card){
   // falla, se avisa al momento (con el técnico aún en la obra) y se retira la
   // foto para que la vuelva a seleccionar.
   entry.promise = procesarFotoEntry(entry, 'la foto "' + entry.name + '"')
+    .then(() => { lanzarSubidaBgFoto(entry); })
     .catch(err => {
       if (state.photos[num] === entry){
         delete state.photos[num];
@@ -1443,12 +1452,34 @@ function handlePdf(e){
   if (!e.target.files.length) return;
   const file = e.target.files[0];
   const cliente = state.cita.cliente || 'Cliente';
-  state.pdfActa = {
+  const entry = {
     file: file,
     name: 'HF ' + cliente + '.pdf'
   };
+  state.pdfActa = entry;
   document.getElementById('pdfZone').classList.add('uploaded');
   document.getElementById('pdfZone').querySelector('.upload-title').textContent = '✓ Acta seleccionada';
+  // v3.13.0: leer YA y subir en background (fallback inline en el envío)
+  entry.promise = fileToBase64(file, 'el acta PDF')
+    .then(b64 => {
+      entry.b64 = b64.base64;
+      entry.contentType = 'application/pdf';
+      if (!state.isSuper){
+        entry.tmpNombre = 'ACTA_' + Date.now() + '.pdf';
+        entry.bgEstado = 'subiendo';
+        entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, 'application/pdf')
+          .then(() => { entry.bgEstado = 'ok'; })
+          .catch(() => { entry.bgEstado = 'error'; });
+      }
+    })
+    .catch(err => {
+      if (state.pdfActa === entry){
+        state.pdfActa = null;
+        document.getElementById('pdfZone').classList.remove('uploaded');
+        document.getElementById('pdfZone').querySelector('.upload-title').textContent = 'Seleccionar acta (PDF)';
+      }
+      alert('⚠️ ' + err.message);
+    });
 }
 
 function handleFailMedia(e){
@@ -1494,7 +1525,8 @@ function updateUploadIndicator(){
   if (state.videos.length || photoCount > 0 || hayVideoBg){
     document.getElementById('uploadIndicator').classList.add('active');
     const requiredPhotos = getRequiredPhotosCount();
-    let txt = 'Fotos: ' + photoCount + '/' + requiredPhotos;
+    const subidasBg = Object.keys(state.photos).filter(k => state.photos[k] && state.photos[k].bgEstado === 'ok').length;
+    let txt = 'Fotos: ' + photoCount + '/' + requiredPhotos + (subidasBg ? ' · ☁️' + subidasBg : '');
     if (hayVideoBg){
       if (vb.error)      txt += ' · 📹 vídeo: error';
       else if (vb.done)  txt += ' · 📹 vídeo ✓';
@@ -1756,6 +1788,7 @@ function handleTrabajoFoto(e, itemId){
     state.trabajosFotos[itemId].push(entry);
     // v3.12.8: procesar al seleccionar; si falla la lectura, retirar y avisar
     entry.promise = procesarFotoEntry(entry, 'una foto de ' + TRABAJO_LABEL[itemId])
+      .then(() => { lanzarSubidaBgFoto(entry); })
       .catch(err => {
         const arr = state.trabajosFotos[itemId] || [];
         const i = arr.indexOf(entry);
@@ -1976,6 +2009,7 @@ async function submitClosure(esFallida){
     // ── 1. Comprimir y convertir fotos ──
     if (!esFallida && !state.isSuper){
       const fotosArr = [];
+      const fotosRefArr = [];   // v3.13.0: referencias a fotos ya subidas en background
       const fotoKeys = Object.keys(state.photos);
       // Total a procesar: fotos normales + fotos de trabajos especiales
       const totalTrabFotos = (state.trabajosFotos.altAndamio.length +
@@ -1997,7 +2031,15 @@ async function submitClosure(esFallida){
           const b64 = await fileToBase64(compressed, 'la foto "' + ph.name + '"');
           ph.b64 = b64.base64; ph.contentType = b64.contentType;
         }
-        fotosArr.push({ nombre: ph.name, base64: ph.b64, contentType: ph.contentType });
+        // v3.13.0: si la subida bg está en curso, darle hasta 5 s antes de caer a inline
+        if (ph.bgEstado === 'subiendo' && ph.bgPromise){
+          await Promise.race([ph.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+        }
+        if (ph.bgEstado === 'ok' && ph.tmpNombre){
+          fotosRefArr.push({ nombre: ph.name, tmpNombre: ph.tmpNombre });
+        } else {
+          fotosArr.push({ nombre: ph.name, base64: ph.b64, contentType: ph.contentType });
+        }
         i++;
         const pct = Math.round((i / Math.max(totalFotos, 1)) * 30); // hasta 30%
         document.getElementById('dataPct').textContent = pct + '%';
@@ -2016,7 +2058,14 @@ async function submitClosure(esFallida){
             const b64 = await fileToBase64(compressed, 'una foto de ' + TRABAJO_LABEL[itemId]);
             ph.b64 = b64.base64; ph.contentType = b64.contentType;
           }
-          fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: ph.b64, contentType: ph.contentType });
+          if (ph.bgEstado === 'subiendo' && ph.bgPromise){
+            await Promise.race([ph.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+          }
+          if (ph.bgEstado === 'ok' && ph.tmpNombre){
+            fotosRefArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), tmpNombre: ph.tmpNombre });
+          } else {
+            fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: ph.b64, contentType: ph.contentType });
+          }
           i++;
           const pct = Math.round((i / Math.max(totalFotos, 1)) * 30);
           document.getElementById('dataPct').textContent = pct + '%';
@@ -2024,13 +2073,28 @@ async function submitClosure(esFallida){
         }
       }
       datos.fotos = fotosArr;
+      datos.fotosRef = fotosRefArr;                          // v3.13.0
+      datos.fotosTmpId = state.fotosTmpId || null;           // v3.13.0
+      datos.protocolo = 2;                                   // v3.13.0
     }
 
     // ── 2. Acta PDF ──
     if (!esFallida && !state.isSuper && state.pdfActa){
       document.getElementById('doneText').textContent = 'Procesando acta PDF...';
-      const b64 = await fileToBase64(state.pdfActa.file, 'el acta PDF');
-      datos.acta = { nombre: state.pdfActa.name, base64: b64.base64 };
+      const pa = state.pdfActa;
+      if (!pa.b64 && pa.promise){ try { await pa.promise; } catch(e){} }
+      if (pa.bgEstado === 'subiendo' && pa.bgPromise){
+        await Promise.race([pa.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+      }
+      if (pa.bgEstado === 'ok' && pa.tmpNombre){
+        datos.actaRef = { nombre: pa.name, tmpNombre: pa.tmpNombre };   // v3.13.0
+      } else {
+        if (!pa.b64){
+          const b64 = await fileToBase64(pa.file, 'el acta PDF');
+          pa.b64 = b64.base64;
+        }
+        datos.acta = { nombre: pa.name, base64: pa.b64 };
+      }
       document.getElementById('dataPct').textContent = '40%';
       document.getElementById('dataBar').style.width = '40%';
     }
@@ -2083,8 +2147,10 @@ async function submitClosure(esFallida){
 
     // ── ÉXITO ──
     document.getElementById('doneIcon').textContent = '✅';
-    document.getElementById('doneTitle').textContent = 'Cierre enviado correctamente';
-    document.getElementById('doneText').innerHTML = 'Todo subido. Ya puedes cerrar la app.';
+    document.getElementById('doneTitle').textContent = 'Todo subido';
+    document.getElementById('doneText').innerHTML =
+      'Recibido y a salvo en el servidor. El sistema archivará la obra automáticamente en ~1 minuto.<br>' +
+      'Ya puedes cerrar la app y, si lo necesitas, liberar espacio del móvil.';
     document.getElementById('doneWarning').style.display = 'none';
 
   } catch (err){
@@ -2400,11 +2466,66 @@ function postChunk(params){
     const xhr = new XMLHttpRequest();
     xhr.open('POST', WEB_APP_URL, true);
     xhr.timeout = 120000; // 2 minutos por chunk (margen amplio)
-    xhr.onload  = () => resolve();
+    // v3.13.0: verificar la respuesta real (antes cualquier onload contaba como
+    // éxito, incluso el HTML de un despliegue roto → chunk "subido" falso).
+    xhr.onload  = () => {
+      let r = null; try { r = JSON.parse(xhr.responseText); } catch(e){}
+      if (r && r.ok === true) resolve();
+      else reject(new Error('El servidor no ha confirmado un fragmento del vídeo (respuesta inesperada)'));
+    };
     xhr.onerror = () => reject(new Error('Error de red al subir un fragmento del vídeo'));
     xhr.ontimeout = () => reject(new Error('Timeout al subir un fragmento del vídeo'));
     xhr.send(fd);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v3.13.0 — FOTOS/ACTA EN BACKGROUND (mismo patrón que los chunks)
+// ═══════════════════════════════════════════════════════════════
+// Id estable de la sesión para la carpeta temporal del servidor
+function ensureFotosTmpId(){
+  if (!state.fotosTmpId){
+    state.fotosTmpId = ((state.cita.numInst || 'INST') + '_F' + Date.now()).replace(/[^\w\-]/g, '_');
+  }
+  return state.fotosTmpId;
+}
+
+// Sube un archivo (foto/acta) a la carpeta temporal, con verificación real
+// (ok:true) y 3 intentos con espera creciente. Petición SIMPLE (sin preflight).
+function postRefBg(nombreTmp, base64, contentType){
+  const intento = () => new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('action', 'fotoBg');
+    fd.append('cierreId', ensureFotosTmpId());
+    fd.append('nombre', nombreTmp);
+    fd.append('base64', base64);
+    fd.append('contentType', contentType || 'image/jpeg');
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 120000;
+    xhr.onload = () => {
+      let r = null; try { r = JSON.parse(xhr.responseText); } catch(e){}
+      if (r && r.ok === true) resolve();
+      else reject(new Error('Sin confirmación del servidor'));
+    };
+    xhr.onerror = () => reject(new Error('Error de red'));
+    xhr.ontimeout = () => reject(new Error('Timeout'));
+    xhr.send(fd);
+  });
+  return intento()
+    .catch(() => new Promise(r => setTimeout(r, 1500)).then(intento))
+    .catch(() => new Promise(r => setTimeout(r, 3000)).then(intento));
+}
+
+// Encadena la subida en background tras el procesado local de una foto.
+// Si no confirma (bgEstado 'error'), el envío final la incluirá inline.
+function lanzarSubidaBgFoto(entry){
+  if (state.isSuper) return;
+  entry.tmpNombre = 'FOTO_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.jpg';
+  entry.bgEstado = 'subiendo';
+  entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, entry.contentType)
+    .then(() => { entry.bgEstado = 'ok'; updateUploadIndicator(); })
+    .catch(() => { entry.bgEstado = 'error'; updateUploadIndicator(); });
 }
 
 // ═══════════════════════════════════════════════════════════════
