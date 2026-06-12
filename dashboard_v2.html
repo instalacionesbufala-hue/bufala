@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260612-1230";
+const DASHBOARD_BUILD = "20260612-1330";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -824,7 +824,7 @@ function renderDashboard(data) {
     data.meta.mesLabel + ' · ' + data.kpis.instalaciones.valor + ' obras';
   var tm = data.graficos.tendenciaMensual || {};
   document.getElementById('subTendencia').textContent =
-    'Año ' + tm.anio + ' · Barras: nº obras (rayado gris = histórico ESMOVE ene–abr · * mes en curso, parcial) · Línea: € facturado';
+    'Año ' + tm.anio + ' · Barras: nº obras (* mes en curso, parcial) · Línea: € facturado';
   var cr = data.graficos.comparativaRentabilidad || {};
   document.getElementById('subComparativa').textContent =
     data.meta.mesLabel +
@@ -882,18 +882,15 @@ function sparklineSVG(serie, invertir) {
   const x = i => P + (W - 2 * P) * (n === 1 ? 0 : i / (n - 1));
   const y = v => H - P - (H - 2 * P) * ((v - min) / span);
 
-  // Tramo sólido (todos los puntos menos el último) + tramo punteado final (mes parcial)
+  // Línea sólida completa; el punto hueco final marca el mes en curso (parcial)
   let solid = '';
-  for (let i = 0; i < n - 1; i++) {
+  for (let i = 0; i < n; i++) {
     solid += (i === 0 ? 'M' : 'L') + x(i).toFixed(1) + ' ' + y(vals[i]).toFixed(1) + ' ';
   }
-  const dotted = 'M' + x(n - 2).toFixed(1) + ' ' + y(vals[n - 2]).toFixed(1) +
-                 ' L' + x(n - 1).toFixed(1) + ' ' + y(vals[n - 1]).toFixed(1);
 
   return '<div class="kpi-spark"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
     '<path class="spark-path spark-anim" d="' + solid.trim() + '" stroke="' + color + '"></path>' +
-    '<path class="spark-path" d="' + dotted + '" stroke="' + color + '" stroke-dasharray="3 4" opacity="0.8"></path>' +
-    '<circle cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="3" fill="none" stroke="' + color + '" stroke-width="2"></circle>' +
+    '<circle cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="3" fill="var(--card-bg)" stroke="' + color + '" stroke-width="2"></circle>' +
     '</svg></div>';
 }
 // Alias tolerante: acepta varias claves posibles del endpoint
@@ -1320,19 +1317,9 @@ function renderChart_Donut(data) {
   });
 }
 
-// ─── 3.5 TENDENCIA ANUAL — histórico rayado + mes parcial + degradado ───
-function patronRayado(color) {
-  const c = document.createElement('canvas');
-  c.width = 8; c.height = 8;
-  const ctx = c.getContext('2d');
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-2, 6); ctx.lineTo(6, -2);
-  ctx.moveTo(2, 10); ctx.lineTo(10, 2);
-  ctx.stroke();
-  return ctx.createPattern ? c : null;
-}
+// ─── 3.5 TENDENCIA ANUAL — mes parcial atenuado + degradado ───
+// Decisión César 12/06/2026: el histórico ene–abr vive en BUFALA_REGISTRO_2026
+// (📜 Histórico Mensual) → es dato propio y se pinta como cualquier mes (sin rayado).
 function renderChart_Tendencia(data) {
   destroyChart('c3');
   if (!data) return;
@@ -1346,26 +1333,10 @@ function renderChart_Tendencia(data) {
   const hoy = new Date();
   const idxActual = (Number(data.anio) === hoy.getFullYear()) ? hoy.getMonth() : -1;
 
-  // Histórico: array esHistorico del endpoint (v3.12.8+). Fallback heurístico
-  // para endpoints anteriores: ene–abr con obras y margen no calculable
-  // (el histórico lleva facturado real Holded pero margenPct = 0).
-  const margenes = data.margenPct || null;
-  function esHist(i) {
-    if (Array.isArray(data.esHistorico)) return !!data.esHistorico[i];
-    if (i >= 4 || (inst[i] || 0) === 0) return false;
-    if ((fact[i] || 0) === 0) return true;
-    return Array.isArray(margenes) && (margenes[i] || 0) === 0;
-  }
-
-  const patCanvas = patronRayado(t.historico);
   const labelsFinal = labels.map((l, i) => i === idxActual ? l + ' *' : l);
 
   function bgInst(c) {
     const i = c.dataIndex;
-    if (esHist(i)) {
-      const ctx = c.chart.ctx;
-      return patCanvas ? ctx.createPattern(patCanvas, 'repeat') : t.historico;
-    }
     const area = c.chart.chartArea;
     if (!area) return COL_AZUL;
     const g = c.chart.ctx.createLinearGradient(0, area.bottom, 0, area.top);
@@ -1379,12 +1350,7 @@ function renderChart_Tendencia(data) {
     return g;
   }
   function bgFall(c) {
-    const i = c.dataIndex;
-    if (esHist(i)) {
-      const ctx = c.chart.ctx;
-      return patCanvas ? ctx.createPattern(patCanvas, 'repeat') : t.historico;
-    }
-    return i === idxActual ? 'rgba(239,68,68,0.45)' : COL_ROJO;
+    return c.dataIndex === idxActual ? 'rgba(239,68,68,0.45)' : COL_ROJO;
   }
 
   chartInstances.c3 = new Chart(document.getElementById('chart3'), {
@@ -1408,8 +1374,7 @@ function renderChart_Tendencia(data) {
           backgroundColor: t.tooltipBg, titleColor: t.tooltipTx, bodyColor: t.tooltipTx,
           callbacks: {
             label: (c) => {
-              const suf = esHist(c.dataIndex) ? ' (histórico ESMOVE)' :
-                          (c.dataIndex === idxActual ? ' (mes en curso, parcial)' : '');
+              const suf = (c.dataIndex === idxActual) ? ' (mes en curso, parcial)' : '';
               return c.dataset.label.indexOf('Facturado') !== -1
                 ? c.dataset.label + ': ' + fmtEur.format(c.parsed.y) + suf
                 : c.dataset.label + ': ' + c.parsed.y + suf;
