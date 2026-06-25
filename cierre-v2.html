@@ -1,5 +1,14 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.13.0 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.13.1 (jun 2026)
+     v3.13.1: ROBUSTEZ DEL ENVÍO FINAL. (1) postCierre ahora REINTENTA solo
+     (4 intentos con esperas 0/2/4/8 s) — antes era 1 intento y un corte de red
+     puntual dejaba el cierre sin encolar (fotos en _TMP_VIDEOS pero sin COLA_,
+     caso del 24/06). Seguro frente a duplicados: el backend deduplica por
+     cierreId (done_ marca el procesado; los repetidos quedan DUP_). (2) Guardia
+     anti-cierre: mientras el envío está en curso (incl. reintentos), el
+     navegador avisa si se intenta cerrar/recargar (beforeunload). El texto del
+     diálogo nativo lo fija el navegador (no es personalizable), pero el aviso
+     aparece y bloquea la salida. Backend: sin cambios.
      v3.13.0: CIERRE RÁPIDO — las fotos y el acta se suben EN BACKGROUND según
      se seleccionan (patrón chunks, con verificación ok:true y 3 intentos); el
      payload final solo lleva referencias (KB) y el backend lo ENCOLA y responde
@@ -1980,6 +1989,22 @@ function validarTamanoVideos(){
 // ═══════════════════════════════════════════════════════════════
 // ENVÍO PRINCIPAL DEL CIERRE
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// GUARDIA ANTI-CIERRE (v3.13.x)
+// Mientras un cierre se está enviando (fotos/acta/vídeo + POST final, incluidos
+// los reintentos), enviandoCierre=true y el navegador avisa si se intenta cerrar
+// o recargar. Nota: los navegadores modernos muestran un texto genérico propio
+// (no se puede personalizar el mensaje del diálogo nativo), pero el aviso SÍ
+// aparece y bloquea la salida hasta que el técnico confirme.
+let enviandoCierre = false;
+window.addEventListener('beforeunload', function(e){
+  if (enviandoCierre){
+    e.preventDefault();
+    e.returnValue = 'El cierre todavía se está enviando. Si sales ahora podría perderse.';
+    return e.returnValue;
+  }
+});
+
 async function submitClosure(esFallida){
   // Validar vídeos antes
   const errVideo = validarTamanoVideos();
@@ -1997,6 +2022,7 @@ async function submitClosure(esFallida){
 
   // Pasar a pantalla de éxito
   showScreen('done');
+  enviandoCierre = true;   // v3.13.x: activa la guardia anti-cierre durante todo el envío
   document.getElementById('doneIcon').textContent = '⏳';
   document.getElementById('doneTitle').textContent = 'Procesando archivos...';
   document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
@@ -2163,6 +2189,11 @@ async function submitClosure(esFallida){
     document.getElementById('doneActions').style.display = 'block';
     document.getElementById('doneActions').innerHTML =
       '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
+  } finally {
+    // v3.13.x: el envío ha concluido (éxito o error) → se libera la guardia.
+    // Durante los reintentos de postCierre seguimos dentro del try, así que el
+    // flag permanece activo hasta que de verdad termina todo el proceso.
+    enviandoCierre = false;
   }
 }
 
@@ -2539,40 +2570,46 @@ function lanzarSubidaBgFoto(entry){
 // El formulario oculto bufalaPostForm queda en el HTML pero ya no se usa.
 // ═══════════════════════════════════════════════════════════════
 function postCierre(datos){
-  return new Promise((resolve, reject) => {
-    let payloadStr;
-    try {
-      payloadStr = JSON.stringify(datos);
-    } catch(err){ reject(err); return; }
-    if (payloadStr.length > 10 * 1024 * 1024){
-      console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
-    }
+  let payloadStr;
+  try {
+    payloadStr = JSON.stringify(datos);
+  } catch(err){ return Promise.reject(err); }
+  if (payloadStr.length > 10 * 1024 * 1024){
+    console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
+  }
+
+  // Progreso: ticker suave 70 → 97 % mientras llega la confirmación real (uno solo
+  // para toda la secuencia de reintentos).
+  let pctEnvio = 70;
+  const pintarEnvio = () => {
+    document.getElementById('dataPct').textContent = pctEnvio + '%';
+    document.getElementById('dataBar').style.width = pctEnvio + '%';
+  };
+  pintarEnvio();
+  const tickerEnvio = setInterval(() => {
+    if (pctEnvio < 97){ pctEnvio++; pintarEnvio(); }
+  }, 2000);
+
+  // v3.13.x: REINTENTOS AUTOMÁTICOS del POST final. Antes era 1 solo intento:
+  // un corte de red/timeout puntual obligaba al técnico a reenviar a mano, y si
+  // no lo hacía el cierre se quedaba sin encolar (fotos en _TMP_VIDEOS pero sin
+  // COLA_). Ahora se reintenta con esperas crecientes. Es SEGURO frente a
+  // duplicados: el backend deduplica por cierreId (procesa el primero, marca
+  // done_, los COLA_ repetidos quedan como DUP_ y se ignoran).
+  const MAX_INTENTOS = 4;
+  const ESPERAS_MS   = [0, 2000, 4000, 8000];  // antes de cada intento
+
+  const unaPeticion = () => new Promise((resolve, reject) => {
     const fd = new FormData();
     fd.append('payload', payloadStr);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', WEB_APP_URL, true);
-    xhr.timeout = 300000;  // 5 min: el backend crea carpeta, guarda fotos/acta, Registro y pre-factura
+    xhr.timeout = 300000;
 
-    // v3.12.10: SIN listeners en xhr.upload. Registrar cualquier listener de
-    // upload marca la petición como "no simple" y el navegador exige un
-    // preflight OPTIONS que Apps Script no contesta → CORS falla → onerror
-    // ("No se ha podido contactar...") aunque haya red. Los chunks (postChunk,
-    // sin listeners) nunca fallaron por esto. Petición simple = POST + FormData,
-    // sin cabeceras custom, sin upload listeners.
-    // Progreso: ticker suave 70 → 97 % mientras llega la confirmación real.
-    let pctEnvio = 70;
-    const pintarEnvio = () => {
-      document.getElementById('dataPct').textContent = pctEnvio + '%';
-      document.getElementById('dataBar').style.width = pctEnvio + '%';
-    };
-    pintarEnvio();
-    const tickerEnvio = setInterval(() => {
-      if (pctEnvio < 97){ pctEnvio++; pintarEnvio(); }
-    }, 2000);
-    const alTerminar = (fn) => () => { clearInterval(tickerEnvio); fn(); };
-
-    xhr.onload = alTerminar(() => {
+    // v3.12.10: SIN listeners en xhr.upload (evita preflight OPTIONS que Apps
+    // Script no contesta → CORS). Petición simple = POST + FormData.
+    xhr.onload = () => {
       let r = null;
       try { r = JSON.parse(xhr.responseText); } catch(e){ /* respuesta no JSON */ }
       if (r && r.ok === true){
@@ -2582,18 +2619,43 @@ function postCierre(datos){
         reject(new Error('El sistema ha rechazado el cierre: ' + det +
                          '\nEl cierre NO está guardado. Reintenta y, si se repite, avisa a César.'));
       } else {
-        // 200 con HTML (despliegue equivocado, página de login, error de Google...):
-        // NO darlo por bueno — exactamente así se perdieron cierres el 10/06.
         reject(new Error('El sistema ha respondido algo inesperado (HTTP ' + xhr.status +
                          ', no es la confirmación del backend). El cierre NO está guardado. ' +
                          'Reintenta y, si se repite, avisa a César: puede ser un problema del despliegue.'));
       }
-    });
-    xhr.onerror = alTerminar(() => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
-                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.')));
-    xhr.ontimeout = alTerminar(() => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
-                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.')));
+    };
+    xhr.onerror = () => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
+                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.'));
+    xhr.ontimeout = () => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
+                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.'));
     xhr.send(fd);
+  });
+
+  return new Promise((resolve, reject) => {
+    let intento = 0;
+    const probar = () => {
+      intento++;
+      if (intento > 1){
+        const dt = document.getElementById('doneText');
+        if (dt) dt.textContent = 'Reintentando envío (' + intento + '/' + MAX_INTENTOS + ')… No cierres la app.';
+      }
+      const espera = ESPERAS_MS[intento - 1] || 8000;
+      setTimeout(() => {
+        unaPeticion().then(
+          (r)   => { clearInterval(tickerEnvio); resolve(r); },
+          (err) => {
+            if (intento < MAX_INTENTOS){
+              console.warn('postCierre intento ' + intento + ' fallido, reintentando:', err && err.message);
+              probar();
+            } else {
+              clearInterval(tickerEnvio);
+              reject(err);
+            }
+          }
+        );
+      }, espera);
+    };
+    probar();
   });
 }
 
