@@ -529,8 +529,8 @@
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">No conformidades por semana</div>
-          <div class="chart-subtitle">Instalaciones con CONFORME = NO · semana a 0 = ✔</div>
+          <div class="chart-title">Calidad por semana</div>
+          <div class="chart-subtitle">Conformes · fallidas · no conformes, por semana</div>
           <div class="chart-wrapper"><canvas id="chart5"></canvas></div>
         </div>
 
@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260612-1330";
+const DASHBOARD_BUILD = "20260625-1300";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -802,58 +802,84 @@ function renderDashboard(data) {
   dash.style.display = 'block';
   dash.classList.toggle('anim-in', primeraCarga);
 
-  document.getElementById('subtitle').textContent =
-    data.meta.mesLabel + ' · ' +
-    (data.meta.brigadaFiltro === 'todas' ? 'Todas las brigadas' : data.meta.brigadaFiltro) +
-    ' · Actualizado ' + new Date(data.meta.generado).toLocaleString('es-ES');
-  document.getElementById('footerVersion').textContent = data.meta.version;
+  // Defensivo: el render NUNCA debe cascar entero por un campo ausente.
+  // Cada sección va aislada; si una falla, se registra y se sigue con el resto.
+  const meta = data.meta || {};
+  const kpis = data.kpis || {};
+  const graficos = data.graficos || {};
+  const fallos = [];
+  function seguro(nombre, fn) {
+    try { fn(); }
+    catch (e) {
+      fallos.push(nombre);
+      console.warn('[dashboard] sección "' + nombre + '" no renderizada:', e);
+    }
+  }
 
-  populateFiltros(data);
-  renderKPIs(data.kpis, data.meta, data.series || null);
-  renderBonusSemanal(data.kpis.bonus, data.meta);
-  renderSM_Comparativa(data.graficos.comparativaRentabilidad);
-  renderSM_Brigadas(data.graficos.barrasBrigadas, data.graficos.comparativaOperativa);
-  renderChart_Donut(data.graficos.donutTipoInst);
-  renderChart_Tendencia(data.graficos.tendenciaMensual);
-  renderChart_TopMateriales(data.graficos.topMateriales, data.kpis);
-  renderChart_NoConformidades(data.graficos.noConformidadesSemanal || null, data.graficos.calidadSemanal || null);
+  seguro('cabecera', () => {
+    document.getElementById('subtitle').textContent =
+      (meta.mesLabel || '') + ' · ' +
+      (meta.brigadaFiltro === 'todas' || !meta.brigadaFiltro ? 'Todas las brigadas' : meta.brigadaFiltro) +
+      ' · Actualizado ' + new Date(meta.generado || Date.now()).toLocaleString('es-ES');
+    document.getElementById('footerVersion').textContent = meta.version || '';
+  });
 
-  document.getElementById('subBarrasBrig').textContent =
-    data.meta.mesLabel + ' · escala propia por métrica · margen en barra divergente';
-  document.getElementById('subDonut').textContent =
-    data.meta.mesLabel + ' · ' + data.kpis.instalaciones.valor + ' obras';
-  var tm = data.graficos.tendenciaMensual || {};
-  document.getElementById('subTendencia').textContent =
-    'Año ' + tm.anio + ' · Barras: nº obras (* mes en curso, parcial) · Línea: € facturado';
-  var cr = data.graficos.comparativaRentabilidad || {};
-  document.getElementById('subComparativa').textContent =
-    data.meta.mesLabel +
-    ' · Instalaciones: Registro ' + (cr.instRegistro || 0) + ' · Holded ' + (cr.instHolded || 0) +
-    ' · Beneficio neto = Ingresos − materiales − estructura (nóminas, renting, combustible)';
+  seguro('filtros', () => populateFiltros(data));
+  seguro('kpis', () => renderKPIs(kpis, meta, data.series || null));
+  seguro('bonus', () => renderBonusSemanal(kpis.bonus, meta));
+  seguro('comparativa', () => renderSM_Comparativa(graficos.comparativaRentabilidad));
+  seguro('brigadas', () => renderSM_Brigadas(graficos.barrasBrigadas, graficos.comparativaOperativa));
+  seguro('donut', () => renderChart_Donut(graficos.donutTipoInst));
+  seguro('tendencia', () => renderChart_Tendencia(graficos.tendenciaMensual));
+  seguro('materiales', () => renderChart_TopMateriales(graficos.topMateriales, kpis));
+  seguro('noConformidades', () => renderChart_NoConformidades(graficos.noConformidadesSemanal || null, graficos.calidadSemanal || null));
 
-  renderTablaOperativa(data.tablaBrigadas);
-  renderTablaEconomica(data.tablaBrigadas);
+  seguro('subtitulos', () => {
+    document.getElementById('subBarrasBrig').textContent =
+      (meta.mesLabel || '') + ' · escala propia por métrica · margen en barra divergente';
+    document.getElementById('subDonut').textContent =
+      (meta.mesLabel || '') + ' · ' + ((kpis.instalaciones && kpis.instalaciones.valor) || 0) + ' obras';
+    var tm = graficos.tendenciaMensual || {};
+    document.getElementById('subTendencia').textContent =
+      'Año ' + (tm.anio || '') + ' · Barras: nº obras (* mes en curso, parcial) · Línea: € facturado';
+    var cr = graficos.comparativaRentabilidad || {};
+    document.getElementById('subComparativa').textContent =
+      (meta.mesLabel || '') +
+      ' · Instalaciones: Registro ' + (cr.instRegistro || 0) + ' · Holded ' + (cr.instHolded || 0) +
+      ' · Beneficio neto = Ingresos − materiales − estructura (nóminas, renting, combustible)';
+  });
+
+  seguro('tablaOperativa', () => renderTablaOperativa(data.tablaBrigadas || []));
+  seguro('tablaEconomica', () => renderTablaEconomica(data.tablaBrigadas || []));
+
+  if (fallos.length > 0) {
+    seguro('avisoFallos', () => {
+      document.getElementById('footerVersion').textContent =
+        (meta.version || '') + ' · ⚠️ secciones sin datos: ' + fallos.join(', ');
+    });
+  }
 }
 
 function populateFiltros(data) {
   const selMes = document.getElementById('filtroMes');
   const selBrig = document.getElementById('filtroBrigada');
+  const filtros = data.filtros || { mesesDisponibles: [], brigadas: [] };
   if (selMes.options.length === 0) {
-    data.filtros.mesesDisponibles.slice().reverse().forEach(mes => {
+    (filtros.mesesDisponibles || []).slice().reverse().forEach(mes => {
       const opt = document.createElement('option');
       opt.value = mes;
       opt.textContent = '📅 ' + nombreMes(mes);
       selMes.appendChild(opt);
     });
-    data.filtros.brigadas.forEach(brig => {
+    (filtros.brigadas || []).forEach(brig => {
       const opt = document.createElement('option');
       opt.value = brig;
       opt.textContent = (brig === 'todas' ? '👥 Todas las brigadas' : brig);
       selBrig.appendChild(opt);
     });
   }
-  selMes.value = data.meta.mes;
-  selBrig.value = data.meta.brigadaFiltro;
+  if (data.meta && data.meta.mes) selMes.value = data.meta.mes;
+  if (data.meta && data.meta.brigadaFiltro) selBrig.value = data.meta.brigadaFiltro;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -908,6 +934,16 @@ function pickSerie(series, claves) {
 function renderKPIs(k, meta, series) {
   const grid = document.getElementById('kpiGrid');
   grid.innerHTML = '';
+  k = k || {};
+
+  // Defensivo: una tarjeta con datos ausentes se omite (con aviso en consola)
+  // en vez de tumbar el grid entero y todo lo que se renderiza después.
+  function nz(v) { return Number(v) || 0; }
+  function tarjeta(nombre, kpi, fn) {
+    if (!kpi) { console.warn('[dashboard] KPI ausente en el payload:', nombre); return; }
+    try { fn(kpi); }
+    catch (e) { console.warn('[dashboard] KPI "' + nombre + '" no renderizado:', e); }
+  }
 
   function bar(valor, u1, u2, maxOverride) {
     if (valor === null || valor === undefined || u1 === null) return '';
@@ -934,105 +970,121 @@ function renderKPIs(k, meta, series) {
   }
 
   // ─── KPI 1: Instalaciones ───
-  card({
-    label: 'Instalaciones',
-    valor: k.instalaciones.valor,
-    unidad: 'obras',
-    semaforo: k.instalaciones.semaforo,
-    sub: 'Objetivo: ' + k.instalaciones.objetivo,
-    trend: k.instalaciones.anterior > 0
-      ? { cls: k.instalaciones.deltaPct > 0 ? 'up' : (k.instalaciones.deltaPct < 0 ? 'down' : 'neutro'),
-          html: (k.instalaciones.deltaPct > 0 ? '▲' : (k.instalaciones.deltaPct < 0 ? '▼' : '·')) + ' ' +
-                Math.abs(k.instalaciones.deltaPct).toFixed(1) + '%' }
-      : null,
-    spark: sparklineSVG(pickSerie(series, ['instalaciones']), false),
-    bar: bar(k.instalaciones.valor, k.instalaciones.ambar, k.instalaciones.objetivo)
+  tarjeta('instalaciones', k.instalaciones, function(x) {
+    card({
+      label: 'Instalaciones',
+      valor: x.valor,
+      unidad: 'obras',
+      semaforo: x.semaforo,
+      sub: 'Objetivo: ' + x.objetivo,
+      trend: x.anterior > 0
+        ? { cls: x.deltaPct > 0 ? 'up' : (x.deltaPct < 0 ? 'down' : 'neutro'),
+            html: (x.deltaPct > 0 ? '▲' : (x.deltaPct < 0 ? '▼' : '·')) + ' ' +
+                  Math.abs(nz(x.deltaPct)).toFixed(1) + '%' }
+        : null,
+      spark: sparklineSVG(pickSerie(series, ['instalaciones']), false),
+      bar: bar(x.valor, x.ambar, x.objetivo)
+    });
   });
 
   // ─── KPI 2: Facturado Holded ───
-  card({
-    label: 'Facturado Holded',
-    valor: fmtEur.format(k.facturadoHolded.valor),
-    semaforo: k.facturadoHolded.semaforo,
-    sub: k.facturadoHolded.nInst + ' inst. facturadas · objetivo: ' + fmtEur.format(k.facturadoHolded.objetivo),
-    trend: k.facturadoHolded.anterior > 0
-      ? { cls: k.facturadoHolded.deltaPct > 0 ? 'up' : (k.facturadoHolded.deltaPct < 0 ? 'down' : 'neutro'),
-          html: (k.facturadoHolded.deltaPct > 0 ? '▲' : (k.facturadoHolded.deltaPct < 0 ? '▼' : '·')) + ' ' +
-                Math.abs(k.facturadoHolded.deltaPct).toFixed(1) + '%' }
-      : null,
-    spark: sparklineSVG(pickSerie(series, ['facturado', 'facturadoHolded']), false),
-    bar: bar(k.facturadoHolded.valor, k.facturadoHolded.umbral1, k.facturadoHolded.umbral2)
+  tarjeta('facturadoHolded', k.facturadoHolded, function(x) {
+    card({
+      label: 'Facturado Holded',
+      valor: fmtEur.format(x.valor),
+      semaforo: x.semaforo,
+      sub: x.nInst + ' inst. facturadas · objetivo: ' + fmtEur.format(x.objetivo),
+      trend: x.anterior > 0
+        ? { cls: x.deltaPct > 0 ? 'up' : (x.deltaPct < 0 ? 'down' : 'neutro'),
+            html: (x.deltaPct > 0 ? '▲' : (x.deltaPct < 0 ? '▼' : '·')) + ' ' +
+                  Math.abs(nz(x.deltaPct)).toFixed(1) + '%' }
+        : null,
+      spark: sparklineSVG(pickSerie(series, ['facturado', 'facturadoHolded']), false),
+      bar: bar(x.valor, x.umbral1, x.umbral2)
+    });
   });
 
   // ─── KPI 3: Margen bruto % (Registro) ───
-  card({
-    label: 'Margen bruto',
-    valor: k.margenPct.valor.toFixed(1) + '%',
-    semaforo: k.margenPct.semaforo,
-    sub: fmtEurD.format(k.margenPct.valorEur) + ' (Ingresos − Coste material)',
-    trend: k.margenPct.anterior > 0
-      ? { cls: k.margenPct.deltaPp >= 0 ? 'up' : 'down',
-          html: (k.margenPct.deltaPp >= 0 ? '▲' : '▼') + ' ' +
-                Math.abs(k.margenPct.deltaPp).toFixed(1) + ' pp' }
-      : null,
-    spark: sparklineSVG(pickSerie(series, ['margen', 'margenPct']), false),
-    bar: bar(k.margenPct.valor, k.margenPct.umbral1, k.margenPct.umbral2)
+  tarjeta('margenPct', k.margenPct, function(x) {
+    card({
+      label: 'Margen bruto',
+      valor: nz(x.valor).toFixed(1) + '%',
+      semaforo: x.semaforo,
+      sub: fmtEurD.format(x.valorEur) + ' (Ingresos − Coste material)',
+      trend: x.anterior > 0
+        ? { cls: x.deltaPp >= 0 ? 'up' : 'down',
+            html: (x.deltaPp >= 0 ? '▲' : '▼') + ' ' +
+                  Math.abs(nz(x.deltaPp)).toFixed(1) + ' pp' }
+        : null,
+      spark: sparklineSVG(pickSerie(series, ['margen', 'margenPct']), false),
+      bar: bar(x.valor, x.umbral1, x.umbral2)
+    });
   });
 
   // ─── KPI 4: Margen NETO Holded (€) ───
-  const margenNetoEur = k.margenHolded.valorEur;
-  card({
-    label: 'Margen neto Holded',
-    valor: fmtEur.format(margenNetoEur),
-    danger: margenNetoEur < 0,
-    semaforo: k.margenHolded.semaforo,
-    sub: 'Después de materiales (' + fmtEur.format(k.margenHolded.costeMaterial) +
-         ') y estructura (' + fmtEur.format(k.margenHolded.costeEstructura) + ')',
-    spark: sparklineSVG(pickSerie(series, ['margenNeto', 'margenHolded']), false)
+  tarjeta('margenHolded', k.margenHolded, function(x) {
+    const margenNetoEur = nz(x.valorEur);
+    card({
+      label: 'Margen neto Holded',
+      valor: fmtEur.format(margenNetoEur),
+      danger: margenNetoEur < 0,
+      semaforo: x.semaforo,
+      sub: 'Después de materiales (' + fmtEur.format(nz(x.costeMaterial)) +
+           ') y estructura (' + fmtEur.format(nz(x.costeEstructura)) + ')',
+      spark: sparklineSVG(pickSerie(series, ['margenNeto', 'margenHolded']), false)
+    });
   });
 
   // ─── KPI 5: Productividad m/día ───
-  card({
-    label: 'Productividad',
-    valor: fmtNum1.format(k.productividad.metrosDia),
-    unidad: 'm/día',
-    semaforo: k.productividad.semaforo,
-    sub: fmtNum.format(k.productividad.metrosTotal) + ' m en ' +
-         fmtNum1.format(k.productividad.diasTrabajados) + ' días · objetivo: ' + k.productividad.objetivo,
-    spark: sparklineSVG(pickSerie(series, ['productividad', 'metrosDia']), false),
-    bar: bar(k.productividad.metrosDia, k.productividad.umbral1, k.productividad.umbral2)
+  tarjeta('productividad', k.productividad, function(x) {
+    card({
+      label: 'Productividad',
+      valor: fmtNum1.format(x.metrosDia),
+      unidad: 'm/día',
+      semaforo: x.semaforo,
+      sub: fmtNum.format(x.metrosTotal) + ' m en ' +
+           fmtNum1.format(x.diasTrabajados) + ' días · objetivo: ' + x.objetivo,
+      spark: sparklineSVG(pickSerie(series, ['productividad', 'metrosDia']), false),
+      bar: bar(x.metrosDia, x.umbral1, x.umbral2)
+    });
   });
 
   // ─── KPI 6: Finalizadas % ───
-  card({
-    label: 'Instalaciones finalizadas',
-    valor: k.finalizadas.pct.toFixed(1) + '%',
-    semaforo: k.finalizadas.semaforo,
-    sub: k.finalizadas.finalizadas + ' de ' + k.finalizadas.total +
-         (k.finalizadas.fallidas > 0 ? ' · ' + k.finalizadas.fallidas + ' fallida' + (k.finalizadas.fallidas > 1 ? 's' : '') : ''),
-    spark: sparklineSVG(pickSerie(series, ['finalizadas', 'finalizadasPct']), false)
+  tarjeta('finalizadas', k.finalizadas, function(x) {
+    card({
+      label: 'Instalaciones finalizadas',
+      valor: nz(x.pct).toFixed(1) + '%',
+      semaforo: x.semaforo,
+      sub: x.finalizadas + ' de ' + x.total +
+           (x.fallidas > 0 ? ' · ' + x.fallidas + ' fallida' + (x.fallidas > 1 ? 's' : '') : ''),
+      spark: sparklineSVG(pickSerie(series, ['finalizadas', 'finalizadasPct']), false)
+    });
   });
 
   // ─── KPI 7: Disponibilidad ───
-  card({
-    label: 'Disponibilidad equipos',
-    valor: k.disponibilidad.pct.toFixed(1) + '%',
-    semaforo: k.disponibilidad.semaforo,
-    sub: k.disponibilidad.diasTecEfectivos + '/' + k.disponibilidad.diasTecNominales +
-         ' días-técnico' +
-         (k.disponibilidad.diasAusencias > 0
-           ? ' · ' + k.disponibilidad.diasAusencias + ' días baja'
-           : ' · sin ausencias')
+  tarjeta('disponibilidad', k.disponibilidad, function(x) {
+    card({
+      label: 'Disponibilidad equipos',
+      valor: nz(x.pct).toFixed(1) + '%',
+      semaforo: x.semaforo,
+      sub: x.diasTecEfectivos + '/' + x.diasTecNominales +
+           ' días-técnico' +
+           (x.diasAusencias > 0
+             ? ' · ' + x.diasAusencias + ' días baja'
+             : ' · sin ausencias')
+    });
   });
 
   // ─── KPI 8: Km adicionales ───
-  card({
-    label: 'Km adicionales',
-    valor: fmtNum.format(k.kmExceso.valor),
-    unidad: 'km',
-    semaforo: 'neutro',
-    sub: 'Exceso sobre los 50 km de ida + vuelta · ' + fmtEur.format(k.kmExceso.valor * 0.30) + ' facturado',
-    spark: sparklineSVG(pickSerie(series, ['km', 'kmExceso']), true)
+  tarjeta('kmExceso', k.kmExceso, function(x) {
+    card({
+      label: 'Km adicionales',
+      valor: fmtNum.format(x.valor),
+      unidad: 'km',
+      semaforo: 'neutro',
+      sub: 'Exceso sobre los 50 km de ida + vuelta · ' + fmtEur.format(x.valor * 0.30) + ' facturado',
+      spark: sparklineSVG(pickSerie(series, ['km', 'kmExceso']), true)
+    });
   });
 }
 
@@ -1156,7 +1208,7 @@ function etiquetaSerie(lbl, fallback) {
   return s || fallback;
 }
 function renderSM_Comparativa(data) {
-  if (!data || !data.metricas) { renderSmallMultiples('smComparativa', []); return; }
+  if (!data || !data.metricas || !data.normal || !data.holded) { renderSmallMultiples('smComparativa', []); return; }
   const labReg = etiquetaSerie(data.normal && data.normal.label, 'Registro');
   const labHol = etiquetaSerie(data.holded && data.holded.label, 'Holded');
   const panels = data.metricas.map((m, i) => ({
@@ -1248,7 +1300,7 @@ function pluginsTema(extra) {
 // ─── 3.3 DONUT — total al centro + leyenda con nº y % ───
 function renderChart_Donut(data) {
   destroyChart('c2');
-  if (!data) return;
+  if (!data || !data.labels || !data.datos) return;
   const t = chartTheme();
   const total = data.datos.reduce((a, b) => a + b, 0);
 
@@ -1462,83 +1514,61 @@ function renderChart_TopMateriales(data, kpis) {
 }
 
 // ─── 3.4 NO CONFORMIDADES POR SEMANA (sustituye "Calidad documental") ───
-// Preferencia: data.graficos.noConformidadesSemanal {labels, valores}
-// Fallback:    data.graficos.calidadSemanal {labels, noConformes}
-function renderChart_NoConformidades(nuevo, viejo) {
+// Opción A — Calidad por semana (barra apilada): conformes / fallidas / no conformes.
+// Usa data.graficos.calidadSemanal {labels, conformes, fallidas, noConformes}
+// (ya lo devuelve el endpoint). Cae a noConformidadesSemanal solo si faltara.
+function renderChart_NoConformidades(nuevo, cal) {
   destroyChart('c5');
-  let labels = [], valores = [];
-  if (nuevo && nuevo.labels) {
+  let labels = [], conf = [], fall = [], nc = [];
+  if (cal && cal.labels) {
+    labels = cal.labels;
+    conf = cal.conformes || [];
+    fall = cal.fallidas || [];
+    nc   = cal.noConformes || [];
+  } else if (nuevo && nuevo.labels) {
     labels = nuevo.labels;
-    valores = nuevo.valores || nuevo.noConformes || [];
-  } else if (viejo && viejo.labels) {
-    labels = viejo.labels;
-    valores = viejo.noConformes || [];
+    conf = nuevo.conformes || [];
+    fall = nuevo.fallidas || [];
+    nc   = nuevo.valores || nuevo.noConformes || [];
   } else {
     return;
   }
   const t = chartTheme();
-  const maxV = Math.max.apply(null, valores.concat([0]));
-
-  const checkPlugin = {
-    id: 'ncChecks',
-    afterDatasetsDraw(chart) {
-      const { ctx } = chart;
-      const meta = chart.getDatasetMeta(0);
-      const yScale = chart.scales.y;
-      ctx.save();
-      ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.textAlign = 'center';
-      meta.data.forEach((bar, i) => {
-        const v = valores[i] || 0;
-        if (v === 0) {
-          ctx.fillStyle = COL_ESMERALDA;
-          ctx.fillText('✔', bar.x, yScale.getPixelForValue(0) - 8);
-        } else {
-          ctx.fillStyle = t.tick;
-          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText(String(v), bar.x, bar.y - 6);
-          ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        }
-      });
-      ctx.restore();
-    }
-  };
 
   chartInstances.c5 = new Chart(document.getElementById('chart5'), {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'No conformidades',
-        data: valores,
-        backgroundColor: valores.map(v => v > 0 ? COL_ROJO : 'rgba(0,0,0,0)'),
-        borderRadius: 5, borderSkipped: false,
-        maxBarThickness: 46
-      }]
+      datasets: [
+        { label: 'Conformes',    data: conf, backgroundColor: COL_ESMERALDA, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 },
+        { label: 'Fallidas',     data: fall, backgroundColor: COL_AMBAR, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 },
+        { label: 'No conformes', data: nc,   backgroundColor: COL_ROJO, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 }
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: pluginsTema({
-        legend: { display: false },
         tooltip: {
-          backgroundColor: chartTheme().tooltipBg, titleColor: chartTheme().tooltipTx, bodyColor: chartTheme().tooltipTx,
+          backgroundColor: t.tooltipBg, titleColor: t.tooltipTx, bodyColor: t.tooltipTx,
           callbacks: {
-            label: (c) => (c.parsed.y === 0
-              ? 'Sin no conformidades ✔'
-              : c.parsed.y + ' no conformidad' + (c.parsed.y > 1 ? 'es' : ''))
+            footer: (items) => {
+              let tot = 0; items.forEach(it => { tot += (it.parsed.y || 0); });
+              return 'Total semana: ' + tot + ' obras';
+            }
           }
         }
       }),
       scales: {
-        x: ejesTema({ grid: { display: false } }),
-        y: Object.assign(ejesTema(), {
+        x: ejesTema({ stacked: true, grid: { display: false } }),
+        y: Object.assign(ejesTema({ stacked: true }), {
           beginAtZero: true,
-          suggestedMax: Math.max(3, maxV + 1),
           ticks: { color: t.tick, precision: 0, stepSize: 1 }
         })
       }
-    },
-    plugins: [checkPlugin]
+    }
   });
 }
 
@@ -1553,16 +1583,17 @@ function renderTablaOperativa(filas) {
   const tbody = document.getElementById('tablaOperativaBody');
   tbody.innerHTML = '';
   filas.forEach(f => {
+    const sem = f.semaforos || {};
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="col-brigada"><strong>' + f.brigada + '</strong></td>' +
-      '<td>' + badge(f.instalaciones + '/' + Math.round(f.objetivoInst), f.semaforos.instalaciones) + '</td>' +
+      '<td>' + badge(f.instalaciones + '/' + Math.round(f.objetivoInst), sem.instalaciones) + '</td>' +
       '<td>' + fmtNum1.format(f.instDia || 0) + '</td>' +
       '<td>' + fmtNum.format(f.metrosTotal) + ' m</td>' +
-      '<td>' + badge(fmtNum1.format(f.metrosDia), f.semaforos.productividad) + '</td>' +
-      '<td>' + badge((f.disponibilidadPct != null ? f.disponibilidadPct.toFixed(1) : '—') + '%', f.semaforos.disponibilidad || 'neutro') + '</td>' +
+      '<td>' + badge(fmtNum1.format(f.metrosDia), sem.productividad) + '</td>' +
+      '<td>' + badge((f.disponibilidadPct != null ? f.disponibilidadPct.toFixed(1) : '—') + '%', sem.disponibilidad || 'neutro') + '</td>' +
       '<td>' + (f.diasAusencias || 0) + '</td>' +
-      '<td>' + badge(f.finalizadas || 0, f.semaforos.finalizadas || 'verde') + '</td>' +
+      '<td>' + badge(f.finalizadas || 0, sem.finalizadas || 'verde') + '</td>' +
       '<td>' + badge((f.fallidas || 0), f.fallidas > 0 ? 'rojo' : 'verde') + '</td>' +
       '<td>' + (f.kmExceso || 0) + ' km</td>';
     tbody.appendChild(tr);
