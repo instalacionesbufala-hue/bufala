@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.13.3 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.13.4 (jun 2026)
+     v3.13.4: COMPATIBILIDAD iOS. La estabilización a memoria de v3.13.3
+     (arrayBuffer→Blob al seleccionar) arregla el "Error leyendo chunk" de
+     Android, pero en iOS/Safari leer cientos de MB a memoria puede TUMBAR la
+     pestaña (y eso no se captura). En iOS las referencias de fichero del input
+     son estables (no caducan como en Android), así que ahora, en iOS con vídeo
+     > UMBRAL_ESTABILIZAR_IOS (120 MB), NO se lee a memoria: se sube por chunks
+     leyendo perezosamente (seguro en iOS). Android (y iOS con vídeo pequeño)
+     sigue estabilizando en memoria. Detección con esIOS() (iPhone/iPad/iPod +
+     iPadOS MacIntel). Sin cambios en compresión (ya prueba mp4/h264 antes que
+     webm, con muted+playsInline y fallback al original).
      v3.13.3: ARREGLO DE FONDO del "Error leyendo chunk". El vídeo se LEE A
      MEMORIA nada más seleccionarlo (estabilizarVideoEntry: arrayBuffer→Blob,
      con el fichero aún fresco) y entry.file pasa a ser un Blob en memoria, así
@@ -1464,13 +1474,36 @@ function handlePhoto(e, num, nombre, card){
 // tarde → "Error leyendo chunk", causa del fallo del técnico). Si la lectura
 // falla (p.ej. memoria en un vídeo enorme), conserva el original y marca
 // estable=false: la subida degradará con seguridad y el cierre nunca se pierde.
+//
+// v3.13.4 (compatibilidad iOS): en iOS las referencias de fichero del <input>
+// son ESTABLES (no "caducan" como en Android), así que para vídeos GRANDES NO
+// los leemos a memoria — un arrayBuffer() de cientos de MB puede TUMBAR la
+// pestaña de Safari (y eso no se puede capturar en un try/catch). En iOS con
+// vídeo grande nos fiamos de la lectura perezosa por chunks, que ahí funciona.
+// Android (y iOS con vídeo pequeño) sigue estabilizando en memoria, que es lo
+// que arregla el "Error leyendo chunk".
+function esIOS(){
+  return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
+}
+const UMBRAL_ESTABILIZAR_IOS = 120 * 1024 * 1024; // en iOS no leemos a memoria vídeos mayores
+
 function estabilizarVideoEntry(entry){
   entry.estable = false;
+  // v3.13.4: guard iOS — no leer a memoria vídeos grandes en Safari.
+  var _sz = (entry.file && entry.file.size) || 0;
+  if (esIOS() && _sz > UMBRAL_ESTABILIZAR_IOS){
+    entry.estable = true;             // estable "por plataforma": iOS no caduca la referencia
+    entry.estabilizadoMemoria = false;
+    entry.stablePromise = Promise.resolve();
+    try { updateUploadIndicator(); } catch(e){}
+    return entry.stablePromise;       // se sube por chunks leyendo perezosamente (seguro en iOS)
+  }
   entry.stablePromise = (async () => {
     try {
       const buf = await entry.file.arrayBuffer();   // lee el fichero fresco a memoria
       entry.file = new Blob([buf], { type: entry.file.type || 'video/mp4' });
-      entry.estable = true;
+      entry.estable = true; entry.estabilizadoMemoria = true;
     } catch(e){
       entry.estable = false; entry.estableError = e;
       console.warn('No se pudo estabilizar el vídeo en memoria:', e && e.message);
