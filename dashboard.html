@@ -529,8 +529,8 @@
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">No conformidades por semana</div>
-          <div class="chart-subtitle">Instalaciones con CONFORME = NO · semana a 0 = ✔</div>
+          <div class="chart-title">Calidad por semana</div>
+          <div class="chart-subtitle">Conformes · fallidas · no conformes, por semana</div>
           <div class="chart-wrapper"><canvas id="chart5"></canvas></div>
         </div>
 
@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260612-1930";
+const DASHBOARD_BUILD = "20260625-1300";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1514,83 +1514,61 @@ function renderChart_TopMateriales(data, kpis) {
 }
 
 // ─── 3.4 NO CONFORMIDADES POR SEMANA (sustituye "Calidad documental") ───
-// Preferencia: data.graficos.noConformidadesSemanal {labels, valores}
-// Fallback:    data.graficos.calidadSemanal {labels, noConformes}
-function renderChart_NoConformidades(nuevo, viejo) {
+// Opción A — Calidad por semana (barra apilada): conformes / fallidas / no conformes.
+// Usa data.graficos.calidadSemanal {labels, conformes, fallidas, noConformes}
+// (ya lo devuelve el endpoint). Cae a noConformidadesSemanal solo si faltara.
+function renderChart_NoConformidades(nuevo, cal) {
   destroyChart('c5');
-  let labels = [], valores = [];
-  if (nuevo && nuevo.labels) {
+  let labels = [], conf = [], fall = [], nc = [];
+  if (cal && cal.labels) {
+    labels = cal.labels;
+    conf = cal.conformes || [];
+    fall = cal.fallidas || [];
+    nc   = cal.noConformes || [];
+  } else if (nuevo && nuevo.labels) {
     labels = nuevo.labels;
-    valores = nuevo.valores || nuevo.noConformes || [];
-  } else if (viejo && viejo.labels) {
-    labels = viejo.labels;
-    valores = viejo.noConformes || [];
+    conf = nuevo.conformes || [];
+    fall = nuevo.fallidas || [];
+    nc   = nuevo.valores || nuevo.noConformes || [];
   } else {
     return;
   }
   const t = chartTheme();
-  const maxV = Math.max.apply(null, valores.concat([0]));
-
-  const checkPlugin = {
-    id: 'ncChecks',
-    afterDatasetsDraw(chart) {
-      const { ctx } = chart;
-      const meta = chart.getDatasetMeta(0);
-      const yScale = chart.scales.y;
-      ctx.save();
-      ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.textAlign = 'center';
-      meta.data.forEach((bar, i) => {
-        const v = valores[i] || 0;
-        if (v === 0) {
-          ctx.fillStyle = COL_ESMERALDA;
-          ctx.fillText('✔', bar.x, yScale.getPixelForValue(0) - 8);
-        } else {
-          ctx.fillStyle = t.tick;
-          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText(String(v), bar.x, bar.y - 6);
-          ctx.font = '700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        }
-      });
-      ctx.restore();
-    }
-  };
 
   chartInstances.c5 = new Chart(document.getElementById('chart5'), {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'No conformidades',
-        data: valores,
-        backgroundColor: valores.map(v => v > 0 ? COL_ROJO : 'rgba(0,0,0,0)'),
-        borderRadius: 5, borderSkipped: false,
-        maxBarThickness: 46
-      }]
+      datasets: [
+        { label: 'Conformes',    data: conf, backgroundColor: COL_ESMERALDA, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 },
+        { label: 'Fallidas',     data: fall, backgroundColor: COL_AMBAR, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 },
+        { label: 'No conformes', data: nc,   backgroundColor: COL_ROJO, stack: 'cal',
+          borderRadius: 4, borderSkipped: false, maxBarThickness: 46 }
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: pluginsTema({
-        legend: { display: false },
         tooltip: {
-          backgroundColor: chartTheme().tooltipBg, titleColor: chartTheme().tooltipTx, bodyColor: chartTheme().tooltipTx,
+          backgroundColor: t.tooltipBg, titleColor: t.tooltipTx, bodyColor: t.tooltipTx,
           callbacks: {
-            label: (c) => (c.parsed.y === 0
-              ? 'Sin no conformidades ✔'
-              : c.parsed.y + ' no conformidad' + (c.parsed.y > 1 ? 'es' : ''))
+            footer: (items) => {
+              let tot = 0; items.forEach(it => { tot += (it.parsed.y || 0); });
+              return 'Total semana: ' + tot + ' obras';
+            }
           }
         }
       }),
       scales: {
-        x: ejesTema({ grid: { display: false } }),
-        y: Object.assign(ejesTema(), {
+        x: ejesTema({ stacked: true, grid: { display: false } }),
+        y: Object.assign(ejesTema({ stacked: true }), {
           beginAtZero: true,
-          suggestedMax: Math.max(3, maxV + 1),
           ticks: { color: t.tick, precision: 0, stepSize: 1 }
         })
       }
-    },
-    plugins: [checkPlugin]
+    }
   });
 }
 
