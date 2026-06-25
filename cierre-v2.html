@@ -1,5 +1,16 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.13.2 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.13.3 (jun 2026)
+     v3.13.3: ARREGLO DE FONDO del "Error leyendo chunk". El vídeo se LEE A
+     MEMORIA nada más seleccionarlo (estabilizarVideoEntry: arrayBuffer→Blob,
+     con el fichero aún fresco) y entry.file pasa a ser un Blob en memoria, así
+     que ni la compresión ni la subida por chunks dependen ya del fichero del
+     sistema (que en Android caduca si se lee tarde → era la causa del fallo del
+     técnico, con 4G+ a tope). Aplicado a vídeo normal y de incidencia.
+     uploadVideosChunked espera a la estabilización antes de chunkear; _sigVideos
+     es estable ante el cambio File→Blob. Si la lectura a memoria falla (vídeo
+     enorme), conserva el original y degrada con seguridad (no se pierde el
+     cierre). Combinado con v3.13.2 (degradación + reintentos) y backend v3.13.4
+     (watchdog), el cierre es robusto: nunca se pierde por el vídeo.
      v3.13.2: ROBUSTEZ DEL VÍDEO SIN RALENTIZAR EL CIERRE. (1) Reintentos de
      chunk reforzados: 5 por fragmento (antes 3) con esperas 1,5/3/5/8 s. Viven
      en la subida EN BACKGROUND (solapada con el wizard), así que NO alargan el
@@ -1446,6 +1457,29 @@ function handlePhoto(e, num, nombre, card){
 // ═══════════════════════════════════════════════════════════════
 // VIDEO Y PDF
 // ═══════════════════════════════════════════════════════════════
+// v3.13.3: estabiliza el vídeo en memoria NADA MÁS seleccionarlo, cuando la
+// referencia del fichero está FRESCA. Lee los bytes a un Blob en memoria y
+// reemplaza entry.file, de modo que la compresión y la subida por chunks ya no
+// dependen del fichero del sistema (que en Android puede "caducar" si se lee
+// tarde → "Error leyendo chunk", causa del fallo del técnico). Si la lectura
+// falla (p.ej. memoria en un vídeo enorme), conserva el original y marca
+// estable=false: la subida degradará con seguridad y el cierre nunca se pierde.
+function estabilizarVideoEntry(entry){
+  entry.estable = false;
+  entry.stablePromise = (async () => {
+    try {
+      const buf = await entry.file.arrayBuffer();   // lee el fichero fresco a memoria
+      entry.file = new Blob([buf], { type: entry.file.type || 'video/mp4' });
+      entry.estable = true;
+    } catch(e){
+      entry.estable = false; entry.estableError = e;
+      console.warn('No se pudo estabilizar el vídeo en memoria:', e && e.message);
+    }
+    try { updateUploadIndicator(); } catch(e){}
+  })();
+  return entry.stablePromise;
+}
+
 function handleVideo(e){
   const files = Array.from(e.target.files);
   state.videos = files.map((f, i) => ({
@@ -1454,6 +1488,9 @@ function handleVideo(e){
     uploaded: false,
     progress: 0
   }));
+  // v3.13.3: estabilizar YA en memoria (fichero fresco) para inmunizar la subida
+  // contra referencias de fichero caducadas (Android).
+  state.videos.forEach(v => estabilizarVideoEntry(v));
   document.getElementById('videoZone').classList.add('uploaded');
   document.getElementById('videoZone').querySelector('.upload-title').textContent = '✓ ' + files.length + ' vídeo(s) seleccionado(s)';
   renderVideoList();
@@ -1511,10 +1548,12 @@ function handleFailMedia(e){
   files.forEach(f => {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
     if (f.type.startsWith('video/')){
-      state.videosFallida.push({
+      const ve = {
         file: f,
         name: 'FALLIDA_VIDEO_' + (countV++) + '.' + (ext || 'mp4')
-      });
+      };
+      state.videosFallida.push(ve);
+      estabilizarVideoEntry(ve);   // v3.13.3: estabilizar en memoria al seleccionar
     } else {
       const entry = {
         file: f,
@@ -2393,6 +2432,7 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset, onProgres
   const meta = [];
   for (let vi = 0; vi < videos.length; vi++){
     const v = videos[vi];
+    if (v.stablePromise){ try { await v.stablePromise; } catch(e){} }   // v3.13.3: bytes estables en memoria antes de leer/chunkear
     let file = v.file;
     let nombre = v.name;
 
@@ -2503,7 +2543,9 @@ function blobToBase64Raw(blob){
 
 // POST de un chunk al Apps Script (fetch no-cors, esperamos a que termine)
 function _sigVideos(videos){
-  return (videos || []).map(v => (v.file && (v.file.name + ':' + v.file.size)) || v.name).join('|');
+  // v3.13.3: firma estable aunque entry.file pase de File a Blob al estabilizar
+  // (un Blob no tiene .name). Se usa nombre lógico + tamaño, que no cambian.
+  return (videos || []).map(v => (v.name || '') + ':' + ((v.file && v.file.size) || 0)).join('|');
 }
 
 // v3.10.5: arranca (o re-arranca si cambió la selección) el procesado + subida del
