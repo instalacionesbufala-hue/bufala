@@ -1,5 +1,25 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.14.1 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.15.0 (jun 2026)
+     v3.15.0: ARREGLO DEFINITIVO DE LA SUBIDA DEL VÍDEO. Causa real del vídeo que
+     no subía (caso e2628846, 2 intentos, la carpeta de vídeo ni se creaba en Drive):
+     en v3.14.0 dejé ANULADA la estabilización del vídeo en memoria. En Android la
+     referencia al fichero del sistema CADUCA si se lee tarde, y como la compresión
+     es en TIEMPO REAL (minutos en un vídeo largo), al leer el PRIMER chunk el
+     FileReader fallaba → 'Error leyendo chunk' y el vídeo ni arrancaba. NO era el
+     tamaño del chunk ni el paralelismo: el primer chunk se envía SOLO y EN SERIE
+     (crea la carpeta), así que ninguno de los dos lo causaba. FIX: se RESTAURA la
+     estabilización — leer los bytes FRESCOS a un File en memoria al seleccionar el
+     vídeo (acotado a 150 MB para no agotar memoria en móvil). Se conserva todo lo
+     que daba velocidad: chunks de 4 MB + 3 EN PARALELO + timeout 180 s + arranque al
+     seleccionar el vídeo + bloqueo del envío hasta el 100 % (un cierre nunca se
+     registra sin su vídeo; si falla, botón Reintentar). Backend SIN cambios.
+     v3.14.2: VELOCIDAD. Se restaura la subida de chunks EN PARALELO (3 a la vez,
+     como desde v3.10.5 hasta v3.14.0), que es lo que la hacía rápida. v3.14.1 la
+     había puesto en serie por cautela, pero la lentitud no compensaba: el fallo
+     que arreglamos era el TAMAÑO del chunk (12 MB no pasaba por Apps Script), no
+     el paralelismo. Ahora: chunks de 4 MB (fiables) + 3 en paralelo (rápido) +
+     timeout 180 s (margen en 4G flojo) + arranque al seleccionar el vídeo. Rápido
+     y fiable a la vez. Backend sin cambios.
      v3.14.1: ARREGLO DE LA SUBIDA DEL VÍDEO (el vídeo se quedaba a 0%). Evidencia:
      en los cierres fallidos NO se creaba la carpeta de vídeo en el servidor → el
      primer chunk nunca llegaba. Causa: el chunk de 12 MB (~16 MB en base64) NO
@@ -898,6 +918,7 @@ const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytit
 const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
 const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
 const CHUNK_SIZE_RAW  = 4 * 1024 * 1024;   // v3.14.1: 4 MB raw → ~5,3 MB en base64. Un chunk de 12 MB (~16 MB b64) NO pasaba por Apps Script (el primer chunk no llegaba y el vídeo se quedaba a 0%); 4 MB es el tamaño que SÍ subió en producción.
+const STABILIZE_MAX   = 150 * 1024 * 1024; // v3.15.0: leer a memoria (estabilizar) solo vídeos ≤150 MB. Evita OOM en móvil con vídeos enormes; por encima se deja el File original.
 const ESPERA_VIDEO_BG_MS = 15000;        // v3.13.2: en el envío, espera máx. al vídeo de background antes de degradar (no bloquea el cierre)
 const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
 const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
@@ -1486,15 +1507,36 @@ function handlePhoto(e, num, nombre, card){
 // ═══════════════════════════════════════════════════════════════
 // VIDEO Y PDF
 // ═══════════════════════════════════════════════════════════════
-// v3.14.0: ya NO se lee el vídeo entero a memoria. Un arrayBuffer de cientos de
-// MB tumbaba Safari (iOS) y agotaba memoria en Android, y era causa de pérdida
-// de vídeos grandes. Ahora la compresión arranca al SELECCIONAR el vídeo
-// (referencia fresca, leída por streaming con createObjectURL) y se suben los
-// chunks del Blob YA COMPRIMIDO, que vive en memoria, es pequeño y no caduca.
+// v3.15.0: se RESTAURA la estabilización en memoria (estaba anulada en v3.14.0,
+// y esa anulación reintrodujo el fallo). En Android, la referencia al fichero del
+// sistema CADUCA si se lee tarde: la compresión es en tiempo real (minutos en un
+// vídeo largo) y, cuando luego toca leer los chunks, el FileReader del original
+// falla → 'Error leyendo chunk' y el vídeo NO sube (la carpeta de vídeo ni se crea
+// en Drive; caso e2628846). Solución: al SELECCIONAR el vídeo, leer sus bytes a un
+// File EN MEMORIA con la referencia aún fresca; a partir de ahí compresión y chunks
+// usan esos bytes estables y nunca caducan. Se crea un File (no un Blob) para
+// conservar .name, que comprimirVideo necesita. Acotado a STABILIZE_MAX para no
+// agotar memoria en móvil con vídeos enormes (por encima se usa el File original;
+// caso raro, y el bloqueo+reintento del envío evita perder el cierre).
 function estabilizarVideoEntry(entry){
-  entry.estable = true;
-  entry.stablePromise = Promise.resolve();
-  try { updateUploadIndicator(); } catch(e){}
+  entry.estable = false;
+  entry.stablePromise = (async () => {
+    try {
+      const f = entry.file;
+      if (f && typeof f.arrayBuffer === 'function' && f.size > 0 && f.size <= STABILIZE_MAX){
+        const buf = await f.arrayBuffer();
+        entry.file = new File([buf], f.name || entry.name || 'VIDEO RESUMEN.mp4', {
+          type: f.type || 'video/mp4',
+          lastModified: Date.now()
+        });
+      }
+    } catch(e){
+      console.warn('[estabilizarVideoEntry] no se pudo estabilizar, se usa el fichero original:', e);
+    } finally {
+      entry.estable = true;
+      try { updateUploadIndicator(); } catch(e){}
+    }
+  })();
   return entry.stablePromise;
 }
 
@@ -2510,12 +2552,12 @@ async function uploadVideosChunked(videos, cierreId, videoIndexOffset, onProgres
     // v3.10.5: subida de chunks EN PARALELO (3 a la vez) para acelerar.
     // El chunk 0 va solo primero (crea la carpeta temporal en Drive sin carreras);
     // el resto se envían en lotes concurrentes.
-    // v3.14.1: chunks de uno en uno (serie). Antes iban 3 en paralelo, lo que en
-    // 4G flojo partía el ancho de banda y hacía que cada chunk grande caducara por
-    // timeout. Con chunks de 4 MB en serie, cada POST es pequeño y fiable (igual
-    // que el único chunk que subió bien por la mañana). La subida arranca al
-    // SELECCIONAR el vídeo, así que se solapa con el formulario y no se nota.
-    const CHUNK_CONCURRENCY = 1;
+    // v3.14.2: 3 chunks EN PARALELO (como antes de v3.14.1) para que la subida sea
+    // RÁPIDA. Lo que hacía fallar el vídeo NO era el paralelismo, sino el TAMAÑO:
+    // un chunk de 12 MB no pasaba por Apps Script. Ahora cada chunk es de 4 MB
+    // (tamaño probado), así que 3 en paralelo son 3 POST pequeños y fiables a la
+    // vez → rápido y sin fallos. Con timeout de 180 s hay margen de sobra en 4G flojo.
+    const CHUNK_CONCURRENCY = 3;
     const CHUNK_REINTENTOS = 4;   // 5 intentos por chunk (1 + 4) para cobertura mala
     const CHUNK_BACKOFF_MS = [1500, 3000, 5000, 8000];  // espera antes de cada reintento
     let chunksHechos = 0;
