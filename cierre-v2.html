@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.15.0 (jun 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.16.0 (jul 2026)
+     v3.16.0: FLUJO INTERVENCIÓN SAT. El link del calendario llega con
+     &tipo=intervencion (script calendario v3.6, eventos "INTERVENCIÓN ...") y
+     el wizard abre UNA sola pantalla: datos precargados + "trabajo realizado"
+     + Enviar. Sin fotos, acta ni vídeo; sin subidas en background; sin
+     carpetas en Drive (backend v3.14.0). Se factura como ítem propio
+     'INTERVENCIÓN SAT' (misma tarifa que la fallida) + kilometraje. Reintento
+     con el mismo botón de siempre. El resto de flujos, sin cambios.
      v3.15.0: ARREGLO DEFINITIVO DE LA SUBIDA DEL VÍDEO. Causa real del vídeo que
      no subía (caso e2628846, 2 intentos, la carpeta de vídeo ni se creaba en Drive):
      en v3.14.0 dejé ANULADA la estabilización del vídeo en memoria. En Android la
@@ -856,6 +863,31 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   </div>
 </section>
 
+<!-- ═══ PANTALLA INTERVENCIÓN SAT (v3.16.0) ═══ -->
+<section class="screen" data-screen="sat">
+  <h1 class="title">Intervención SAT</h1>
+  <p class="subtitle">Sin fotos ni documentación — solo describe el trabajo</p>
+
+  <div class="warning-box">
+    <span>🔧</span>
+    <div>Se registrará como <b>INTERVENCIÓN SAT</b> con su kilometraje. No se piden fotos, acta ni vídeo, y no se crean carpetas en Drive.</div>
+  </div>
+
+  <div class="field">
+    <div class="row"><span class="row-label">Cliente</span><span class="row-value" id="satCliente">—</span></div>
+    <div class="row"><span class="row-label">Dirección</span><span class="row-value" id="satDireccion">—</span></div>
+    <div class="row"><span class="row-label">Nº referencia</span><span class="row-value" id="satNumInst">—</span></div>
+    <div class="row"><span class="row-label">Equipo</span><span class="row-value" id="satEquipo">—</span></div>
+  </div>
+
+  <div class="field">
+    <label class="label">Trabajo realizado</label>
+    <textarea class="textarea" id="trabajoRealizado" placeholder="Describe qué se ha hecho en la intervención..."></textarea>
+  </div>
+
+  <button type="button" class="nav-btn nav-btn-send" style="width:100%; margin-top:8px" onclick="submitIntervencion()">✓ Enviar intervención</button>
+</section>
+
 <!-- ═══ PANTALLA ÉXITO ═══ -->
 <section class="screen" data-screen="done">
   <div class="success-screen">
@@ -1089,8 +1121,13 @@ function parseUrlParams(){
     numInst:    p.get('numInst')    || p.get('inst') || '',
     equipo:     p.get('equipo')     || '',
     hardware:   p.get('hardware')   || '',
-    fecha:      p.get('fecha')      || p.get('fechaIso') || ''
+    fecha:      p.get('fecha')      || p.get('fechaIso') || '',
+    tipo:       p.get('tipo')       || ''
   };
+
+  // v3.16.0: flujo INTERVENCIÓN SAT — el link del calendario llega con
+  // &tipo=intervencion. Una sola pantalla, sin fotos/acta/vídeo, sin Drive.
+  state.esIntervencion = (state.cita.tipo === 'intervencion');
 
   // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
   // (p.ej. "DESMONTAJE + HARDWARE MONTAJE Y CONEXIONADO") o si el calendario
@@ -2123,6 +2160,62 @@ window.addEventListener('beforeunload', function(e){
   }
 });
 
+// v3.16.0: envío de una INTERVENCIÓN SAT — sin fotos, acta, vídeo ni subidas
+// en background. Un único POST (con los reintentos automáticos de postCierre);
+// el backend (drive script v3.14.0) escribe Registro + pre-factura + índice
+// Holded y NO crea carpetas en Drive.
+async function submitIntervencion(){
+  const trabajo = (document.getElementById('trabajoRealizado').value || '').trim();
+  if (!trabajo){ alert('⚠️ Describe el trabajo realizado antes de enviar.'); return; }
+
+  const datos = {
+    fechaIso:  state.cita.fecha || new Date().toISOString(),
+    cliente:   state.cita.cliente || '',
+    direccion: state.cita.direccion || '',
+    numInst:   state.cita.numInst || ('INT-' + Date.now()),
+    equipo:    state.cita.equipo || 'Búfala',
+    hardware:  state.cita.hardware || '',
+    esIntervencion: true,
+    despFallido: false,
+    trabajoRealizado: trabajo,
+    observaciones: '🔧 INTERVENCIÓN SAT: ' + trabajo,
+    cierreId: (state.cita.numInst || 'INT') + '_' + Date.now()
+  };
+
+  showScreen('done');
+  document.getElementById('navBar').style.display = 'none';
+  // v3.16.0: el aviso fijo habla de "Todo subido" (subida de archivos); en una
+  // intervención no hay archivos, así que se oculta para no confundir.
+  document.getElementById('doneWarning').style.display = 'none';
+  enviandoCierre = true;
+  document.getElementById('doneIcon').textContent = '⏳';
+  document.getElementById('doneTitle').textContent = 'Enviando intervención...';
+  document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
+  document.getElementById('dataPct').textContent = '0%';
+  document.getElementById('dataBar').style.width = '0%';
+  document.getElementById('vidPct').textContent = '—';
+  document.getElementById('vidBar').style.width = '0%';
+
+  try {
+    await postCierre(datos);
+    enviandoCierre = false;
+    document.getElementById('doneIcon').textContent = '✅';
+    document.getElementById('doneTitle').textContent = 'Intervención registrada';
+    document.getElementById('doneText').textContent = 'Registro y pre-factura creados. Ya puedes cerrar esta pantalla.';
+    document.getElementById('dataPct').textContent = '100%';
+    document.getElementById('dataBar').style.width = '100%';
+  } catch(err){
+    enviandoCierre = false;
+    document.getElementById('doneIcon').textContent = '❌';
+    document.getElementById('doneTitle').textContent = 'Error al enviar';
+    document.getElementById('doneText').textContent = ((err && err.message) ? err.message : 'Revisa la cobertura.') +
+      '\n\nNo se ha perdido nada: pulsa Reintentar.';
+    const acts = document.getElementById('doneActions');
+    acts.style.display = 'flex';
+    acts.innerHTML = '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
+  }
+}
+
 async function submitClosure(esFallida){
   // Validar vídeos antes
   const errVideo = validarTamanoVideos();
@@ -2837,6 +2930,12 @@ function postCierre(datos){
 function reintentar(){
   document.getElementById('navBar').style.display = 'flex';
   document.getElementById('doneActions').style.display = 'none';
+  if (state.esIntervencion){
+    // v3.16.0: la pantalla SAT tiene su propio botón; la barra de navegación sobra
+    showScreen('sat');
+    document.getElementById('navBar').style.display = 'none';
+    return;
+  }
   showScreen(state.type === 'fallida' ? 'failed' : 12);
 }
 
@@ -2854,7 +2953,19 @@ parseUrlParams();
 checkSuperOnLoad();
 renderSteps();
 renderChecklist();
-showScreen(1);
+if (state.esIntervencion){
+  // v3.16.0: flujo INTERVENCIÓN SAT — directo a la pantalla única, sin pasos
+  document.getElementById('satCliente').textContent   = state.cita.cliente   || '—';
+  document.getElementById('satDireccion').textContent = state.cita.direccion || '—';
+  document.getElementById('satNumInst').textContent   = state.cita.numInst   || '—';
+  document.getElementById('satEquipo').textContent    = state.cita.equipo    || '—';
+  var pcInterv = document.querySelector('.progress-container');
+  if (pcInterv) pcInterv.style.display = 'none';
+  showScreen('sat');
+  document.getElementById('navBar').style.display = 'none';
+} else {
+  showScreen(1);
+}
 </script>
 
 </body>
