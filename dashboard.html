@@ -529,8 +529,8 @@
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">Calidad por semana</div>
-          <div class="chart-subtitle">Conformes · fallidas · no conformes, por semana</div>
+          <div class="chart-title">Intervenciones SAT por semana</div>
+          <div class="chart-subtitle">🔧 Intervenciones registradas, apiladas por brigada</div>
           <div class="chart-wrapper"><canvas id="chart5"></canvas></div>
         </div>
 
@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260625-1300";
+const DASHBOARD_BUILD = "20260716-1900";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -832,7 +832,7 @@ function renderDashboard(data) {
   seguro('donut', () => renderChart_Donut(graficos.donutTipoInst));
   seguro('tendencia', () => renderChart_Tendencia(graficos.tendenciaMensual));
   seguro('materiales', () => renderChart_TopMateriales(graficos.topMateriales, kpis));
-  seguro('noConformidades', () => renderChart_NoConformidades(graficos.noConformidadesSemanal || null, graficos.calidadSemanal || null));
+  seguro('intervenciones', () => renderChart_Intervenciones(graficos.intervencionesSemanal || null));
 
   seguro('subtitulos', () => {
     document.getElementById('subBarrasBrig').textContent =
@@ -1514,6 +1514,49 @@ function renderChart_TopMateriales(data, kpis) {
 }
 
 // ─── 3.4 NO CONFORMIDADES POR SEMANA (sustituye "Calidad documental") ───
+// build 20260716-1900: intervenciones SAT por semana, apiladas por brigada.
+// Sustituye en el hueco (chart5/c5) al gráfico de calidad semanal por decisión
+// de César (16/07). Colores por brigada = colorBrigada (los del resto del
+// dashboard). Si el mes no tiene intervenciones, el card queda vacío.
+function renderChart_Intervenciones(data) {
+  destroyChart('c5');
+  if (!data || !data.labels || !data.labels.length || !data.series || !data.series.length) return;
+  const t = chartTheme();
+
+  chartInstances.c5 = new Chart(document.getElementById('chart5'), {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: data.series.map((s, i) => ({
+        label: s.nombre,
+        data: s.datos,
+        backgroundColor: colorBrigada(s.nombre, i),
+        stack: 'int',
+        borderRadius: 4, borderSkipped: false, maxBarThickness: 46
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: pluginsTema({
+        tooltip: {
+          backgroundColor: t.tooltipBg, titleColor: t.tooltipTx, bodyColor: t.tooltipTx,
+          callbacks: {
+            footer: (items) => {
+              let tot = 0; items.forEach(it => { tot += (it.parsed.y || 0); });
+              return 'Total: ' + tot + ' intervención' + (tot === 1 ? '' : 'es');
+            }
+          }
+        },
+        legend: { position: 'bottom', labels: { color: t.legend, usePointStyle: true, pointStyleWidth: 8 } }
+      }),
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: t.tick } },
+        y: { stacked: true, beginAtZero: true, grid: { color: t.grid }, ticks: { color: t.tick, precision: 0 } }
+      }
+    }
+  });
+}
+
 // Opción A — Calidad por semana (barra apilada): conformes / fallidas / no conformes.
 // Usa data.graficos.calidadSemanal {labels, conformes, fallidas, noConformes}
 // (ya lo devuelve el endpoint). Cae a noConformidadesSemanal solo si faltara.
