@@ -613,7 +613,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260717-1000";
+const DASHBOARD_BUILD = "20260717-1200";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -629,7 +629,17 @@ const COL_AMBAR     = '#F59E0B';
 const COL_ESMERALDA = '#10B981';
 const COL_GRIS      = '#9CA3AF';
 
+// build 20260717-1200: criterio ÚNICO de color por brigada en TODO el
+// dashboard = el color de su calendario de Google (B1 Grafito, B2 Pavo real,
+// B3 Plátano). colorBrigada consulta primero este mapa; el esquema antiguo
+// por índice queda solo como fallback para brigadas futuras sin color.
+const COLORES_CAL_BRIGADA = {
+  'Búfala 1': '#616161',   // Grafito (gris)
+  'Búfala 2': '#039BE5',   // Pavo real (azul)
+  'Búfala 3': '#F6BF26'    // Plátano (amarillo)
+};
 function colorBrigada(nombre, i) {
+  if (COLORES_CAL_BRIGADA[nombre]) return COLORES_CAL_BRIGADA[nombre];
   const n = String(nombre || '').toUpperCase();
   if (n.indexOf('1') !== -1) return COL_VERDE;
   if (n.indexOf('2') !== -1) return COL_AZUL;
@@ -1515,14 +1525,8 @@ function renderChart_TopMateriales(data, kpis) {
 
 // ─── 3.4 NO CONFORMIDADES POR SEMANA (sustituye "Calidad documental") ───
 // build 20260717-1000: intervenciones SAT por MES del año (Ene..Dic), apiladas
-// por brigada. Colores = los de los calendarios de Google de cada brigada
-// (paleta oficial de Google Calendar): B1 Grafito, B2 Pavo real, B3 Plátano.
-// Brigadas futuras sin color asignado caen al colorBrigada estándar.
-const COLORES_CAL_BRIGADA = {
-  'Búfala 1': '#616161',   // Grafito (gris)
-  'Búfala 2': '#039BE5',   // Pavo real (azul)
-  'Búfala 3': '#F6BF26'    // Plátano (amarillo)
-};
+// por brigada. Colores: COLORES_CAL_BRIGADA (definido arriba, junto a
+// colorBrigada, desde build 20260717-1200) — los de los calendarios de Google.
 function renderChart_Intervenciones(data) {
   destroyChart('c5');
   if (!data || !data.labels || !data.labels.length || !data.series || !data.series.length) return;
