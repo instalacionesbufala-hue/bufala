@@ -1,5 +1,18 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.16.0 (jul 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.17.0 (ago 2026)
+     v3.17.0: BLINDAJE DE SUBIDAS (tras los ERROR_ del 22 y 27/07, ambos de
+     Búfala 2 con el móvil bloqueado a mitad de subida):
+     1) WAKE LOCK: la pantalla NO se apaga sola desde que empieza cualquier
+        subida (foto, acta o vídeo) hasta "Todo subido" / "Intervención
+        registrada". Se re-adquiere al volver a la app. El bloqueo MANUAL con
+        el botón sigue siendo posible (el navegador no puede impedirlo):
+        recordar a los técnicos que no lo hagan.
+     2) GATE DE ENVÍO: submitClosure espera a que TODAS las subidas en
+        background de fotos y acta terminen (ok o error) antes de recolectar,
+        con aviso en pantalla. Las fallidas van inline (fallback de siempre);
+        ya no se envía con subidas en vuelo.
+     Requiere backend v3.14.4 (temporales a prueba de carreras).
+
      v3.16.0: FLUJO INTERVENCIÓN SAT. El link del calendario llega con
      &tipo=intervencion (script calendario v3.6, eventos "INTERVENCIÓN ...") y
      el wizard abre UNA sola pantalla: datos precargados + "trabajo realizado"
@@ -1627,6 +1640,7 @@ function handlePdf(e){
       entry.b64 = b64.base64;
       entry.contentType = 'application/pdf';
       if (!state.isSuper){
+        wakeLockOn();   // v3.17.0
         entry.tmpNombre = 'ACTA_' + Date.now() + '.pdf';
         entry.bgEstado = 'subiendo';
         entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, 'application/pdf')
@@ -2183,6 +2197,7 @@ async function submitIntervencion(){
   };
 
   showScreen('done');
+  wakeLockOn();   // v3.17.0
   document.getElementById('navBar').style.display = 'none';
   // v3.16.0: el aviso fijo habla de "Todo subido" (subida de archivos); en una
   // intervención no hay archivos, así que se oculta para no confundir.
@@ -2201,6 +2216,7 @@ async function submitIntervencion(){
     enviandoCierre = false;
     document.getElementById('doneIcon').textContent = '✅';
     document.getElementById('doneTitle').textContent = 'Intervención registrada';
+    wakeLockOff();   // v3.17.0
     document.getElementById('doneText').textContent = 'Registro y pre-factura creados. Ya puedes cerrar esta pantalla.';
     document.getElementById('dataPct').textContent = '100%';
     document.getElementById('dataBar').style.width = '100%';
@@ -2227,6 +2243,8 @@ async function submitClosure(esFallida){
   // cierreId: si la subida en background ya lo generó, reutilizarlo (los chunks están bajo ese id)
   if (!state.cierreId) state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
 
+  wakeLockOn();   // v3.17.0: pantalla despierta durante TODO el envío
+
   // Recolectar datos
   const datos = recolectarDatos(esFallida);
   datos.cierreId = state.cierreId;
@@ -2243,6 +2261,10 @@ async function submitClosure(esFallida){
   document.getElementById('vidBar').style.width = '0%';
 
   try {
+    // v3.17.0: GATE — nada se recolecta hasta que las subidas bg de fotos y
+    // acta hayan terminado (ok o error). Elimina los envíos "a medias".
+    await esperarSubidasBg();
+
     // ── 1. Comprimir y convertir fotos ──
     if (!esFallida && !state.isSuper){
       const fotosArr = [];
@@ -2426,6 +2448,7 @@ async function submitClosure(esFallida){
       document.getElementById('doneWarning').style.display = 'none';
     } else {
       document.getElementById('doneTitle').textContent = 'Todo subido';
+      wakeLockOff();   // v3.17.0: trabajo terminado, la pantalla ya puede apagarse
       document.getElementById('doneText').innerHTML =
         'Recibido y a salvo en el servidor. El sistema archivará la obra automáticamente en ~1 minuto.<br>' +
         'Ya puedes cerrar la app y, si lo necesitas, liberar espacio del móvil.';
@@ -2736,6 +2759,7 @@ function iniciarSubidaVideosBackground(){
   Object.assign(state.videoBg, { sig:sig, active:true, done:false, error:null, pct:0, phase:'comprimiendo', meta:null, metaParcial:null });
   updateUploadIndicator();
   const cid = state.cierreId;
+  wakeLockOn();   // v3.17.0: pantalla despierta durante la subida del vídeo
   state.videoBg.promise = uploadVideosChunked(state.videos, cid, 0, (pct, phase) => {
     if (myToken !== state.videoBg.token) return;          // progreso obsoleto
     state.videoBg.pct = pct; state.videoBg.phase = phase || '';
@@ -2789,6 +2813,53 @@ function ensureFotosTmpId(){
   return state.fotosTmpId;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// v3.17.0 — WAKE LOCK: la pantalla NO se apaga sola mientras haya trabajo
+// (subidas en curso o envío). No puede impedir el bloqueo MANUAL con el botón,
+// pero elimina el apagado automático por inactividad — la causa de todos los
+// cierres a medias (24/06, 15/07, 22/07, 27/07). Si el navegador no lo
+// soporta, se sigue sin él en silencio.
+// ═══════════════════════════════════════════════════════════════
+let _wakeLock = null;
+let _wakeLockQuerido = false;   // intención: re-adquirir al volver a la app
+async function wakeLockOn(){
+  _wakeLockQuerido = true;
+  try {
+    if (!_wakeLock && 'wakeLock' in navigator) {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    }
+  } catch(e) { _wakeLock = null; }
+}
+function wakeLockOff(){
+  _wakeLockQuerido = false;
+  try { if (_wakeLock) _wakeLock.release(); } catch(e) {}
+  _wakeLock = null;
+}
+// El sistema suelta el lock al cambiar de app: re-adquirir al volver
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && _wakeLockQuerido) wakeLockOn();
+});
+
+// v3.17.0 — GATE DE SUBIDAS: espera a que TODAS las subidas en background de
+// fotos y acta terminen (ok o error) antes de recolectar el envío. Las que
+// acaben en error irán inline en el payload (fallback de siempre); lo que ya
+// no se permite es enviar con subidas EN VUELO (así se repartían fotos entre
+// el temporal y la nada). Con el Wake Lock activo la espera no muere por
+// pantalla apagada. Cada subida tiene 3 intentos con timeout: esta espera
+// siempre termina.
+async function esperarSubidasBg(){
+  const pendientes = [];
+  const recoger = (ph) => { if (ph && ph.bgEstado === 'subiendo' && ph.bgPromise) pendientes.push(ph.bgPromise); };
+  Object.keys(state.photos).forEach(k => recoger(state.photos[k]));
+  ['altAndamio','altElevadora','soterrM'].forEach(id => (state.trabajosFotos[id] || []).forEach(recoger));
+  if (state.pdfActa) recoger(state.pdfActa);
+  if (!pendientes.length) return;
+  document.getElementById('doneText').textContent =
+    'Terminando de subir fotos y acta (' + pendientes.length + ' pendiente' + (pendientes.length === 1 ? '' : 's') + ')... No bloquees el móvil.';
+  await Promise.allSettled(pendientes);
+}
+
 // Sube un archivo (foto/acta) a la carpeta temporal, con verificación real
 // (ok:true) y 3 intentos con espera creciente. Petición SIMPLE (sin preflight).
 function postRefBg(nombreTmp, base64, contentType){
@@ -2820,6 +2891,7 @@ function postRefBg(nombreTmp, base64, contentType){
 // Si no confirma (bgEstado 'error'), el envío final la incluirá inline.
 function lanzarSubidaBgFoto(entry){
   if (state.isSuper) return;
+  wakeLockOn();   // v3.17.0: pantalla despierta mientras suben fotos
   entry.tmpNombre = 'FOTO_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.jpg';
   entry.bgEstado = 'subiendo';
   entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, entry.contentType)
