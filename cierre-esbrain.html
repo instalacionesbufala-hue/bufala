@@ -1,0 +1,3125 @@
+<!DOCTYPE html>
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.0.0 (04/08/2026)
+     ═══════════════════════════════════════════════════════════════════════
+     WIZARD PARALELO para el nuevo flujo ESBRAIN (esbrain.esmove.es), SOLO
+     DATOS: fotos, vídeo y acta se suben en ESBRAIN, NO aquí. Este wizard
+     alimenta el sistema propio de Búfala (Registro, pre-factura, índice
+     Holded, stock y bonus) a través del MISMO backend (v3.15.0+).
+     Base: clon de cierre-v2.html v3.17.0. Diferencias:
+      • ES_ESBRAIN=true → pantallas 2 (vídeo), 3 (fotos) y 9 (acta PDF)
+        fuera del flujo para TODOS (no solo modo súper); sin subidas en
+        background, sin Wake Lock, sin gates de espera (no hay archivos).
+      • El envío añade origenEsbrain:true (+ esbrainUuid): el backend lo
+        procesa por el camino "solo datos" (procesarEnvioSuper) SIN crear
+        carpetas en Drive. Observaciones del Registro: '🔗 ESBRAIN'.
+      • Parámetros nuevos del link (los pone el Sync del backend): telefono
+        (botón de llamada), garaje (pre-selecciona Comunitaria/Unifamiliar),
+        preinst=1 (pre-selecciona Nuevo suministro), metrosPres (referencia
+        en la pantalla de metros), desc (línea de presupuesto), uuid.
+      • Trabajos especiales: se mantienen toggles y metros de zanja; las
+        fotos de evidencia desaparecen (van a ESBRAIN).
+      • Checklist adaptado (fotos/vídeo/acta → "subido en ESBRAIN").
+      • Si llega ?tipo=intervencion se REDIRIGE a cierre-v2.html (las
+        intervenciones SAT siguen en el flujo antiguo).
+     El flujo antiguo (cierre-v2.html + calendario ESMOVE) NO se toca.
+     ═══════════════════════════════════════════════════════════════════════
+     Histórico heredado de cierre-v2.html (referencia):
+     v3.17.0: BLINDAJE DE SUBIDAS (tras los ERROR_ del 22 y 27/07, ambos de
+     Búfala 2 con el móvil bloqueado a mitad de subida):
+     1) WAKE LOCK: la pantalla NO se apaga sola desde que empieza cualquier
+        subida (foto, acta o vídeo) hasta "Todo subido" / "Intervención
+        registrada". Se re-adquiere al volver a la app. El bloqueo MANUAL con
+        el botón sigue siendo posible (el navegador no puede impedirlo):
+        recordar a los técnicos que no lo hagan.
+     2) GATE DE ENVÍO: submitClosure espera a que TODAS las subidas en
+        background de fotos y acta terminen (ok o error) antes de recolectar,
+        con aviso en pantalla. Las fallidas van inline (fallback de siempre);
+        ya no se envía con subidas en vuelo.
+     Requiere backend v3.14.4 (temporales a prueba de carreras).
+
+     v3.16.0: FLUJO INTERVENCIÓN SAT. El link del calendario llega con
+     &tipo=intervencion (script calendario v3.6, eventos "INTERVENCIÓN ...") y
+     el wizard abre UNA sola pantalla: datos precargados + "trabajo realizado"
+     + Enviar. Sin fotos, acta ni vídeo; sin subidas en background; sin
+     carpetas en Drive (backend v3.14.0). Se factura como ítem propio
+     'INTERVENCIÓN SAT' (misma tarifa que la fallida) + kilometraje. Reintento
+     con el mismo botón de siempre. El resto de flujos, sin cambios.
+     v3.15.0: ARREGLO DEFINITIVO DE LA SUBIDA DEL VÍDEO. Causa real del vídeo que
+     no subía (caso e2628846, 2 intentos, la carpeta de vídeo ni se creaba en Drive):
+     en v3.14.0 dejé ANULADA la estabilización del vídeo en memoria. En Android la
+     referencia al fichero del sistema CADUCA si se lee tarde, y como la compresión
+     es en TIEMPO REAL (minutos en un vídeo largo), al leer el PRIMER chunk el
+     FileReader fallaba → 'Error leyendo chunk' y el vídeo ni arrancaba. NO era el
+     tamaño del chunk ni el paralelismo: el primer chunk se envía SOLO y EN SERIE
+     (crea la carpeta), así que ninguno de los dos lo causaba. FIX: se RESTAURA la
+     estabilización — leer los bytes FRESCOS a un File en memoria al seleccionar el
+     vídeo (acotado a 150 MB para no agotar memoria en móvil). Se conserva todo lo
+     que daba velocidad: chunks de 4 MB + 3 EN PARALELO + timeout 180 s + arranque al
+     seleccionar el vídeo + bloqueo del envío hasta el 100 % (un cierre nunca se
+     registra sin su vídeo; si falla, botón Reintentar). Backend SIN cambios.
+     v3.14.2: VELOCIDAD. Se restaura la subida de chunks EN PARALELO (3 a la vez,
+     como desde v3.10.5 hasta v3.14.0), que es lo que la hacía rápida. v3.14.1 la
+     había puesto en serie por cautela, pero la lentitud no compensaba: el fallo
+     que arreglamos era el TAMAÑO del chunk (12 MB no pasaba por Apps Script), no
+     el paralelismo. Ahora: chunks de 4 MB (fiables) + 3 en paralelo (rápido) +
+     timeout 180 s (margen en 4G flojo) + arranque al seleccionar el vídeo. Rápido
+     y fiable a la vez. Backend sin cambios.
+     v3.14.1: ARREGLO DE LA SUBIDA DEL VÍDEO (el vídeo se quedaba a 0%). Evidencia:
+     en los cierres fallidos NO se creaba la carpeta de vídeo en el servidor → el
+     primer chunk nunca llegaba. Causa: el chunk de 12 MB (~16 MB en base64) NO
+     pasa por Apps Script; los envíos pequeños (fotos ~200 KB, y el chunk de 4 MB
+     de un vídeo corto) sí pasan. Fix: chunk de 4 MB (tamaño probado), subida de
+     uno en uno (sin partir el ancho de banda en 4G flojo) y timeout por chunk a
+     3 min. No cambia el backend (recibe y reensambla igual).
+     v3.14.0: VÍDEO FIABLE Y RÁPIDO (rediseño). Un cierre ya NO puede completarse
+     sin su vídeo (caso del 25/06: cierres de la tarde registrados sin vídeo).
+     Cambios:
+      1) La compresión+subida del vídeo arranca al SELECCIONARLO (antes, al salir
+         de la pantalla de vídeo), con la referencia fresca y el máximo solape con
+         el rellenado del formulario → al cerrar, normalmente ya está subido y el
+         técnico no espera.
+      2) El ENVÍO BLOQUEA hasta que el vídeo esté subido al 100%, con progreso
+         visible. Se elimina la "degradación a los 15 s" (ESPERA_VIDEO_BG_MS) que
+         mandaba el cierre sin vídeo. Si la subida no termina, se LANZA error y el
+         cierre NO se da por bueno: botón Reintentar. No se pierde nada (los chunks
+         subidos quedan 48 h en el servidor y el vídeo sigue en el móvil ~1 semana).
+      3) Se SUBE EL BLOB YA COMPRIMIDO (en memoria, pequeño, estable) y se deja de
+         leer el vídeo original entero a memoria (un arrayBuffer de cientos de MB
+         tumbaba Safari y reventaba memoria en Android con vídeos grandes). La
+         compresión lee el original por streaming (createObjectURL) con la
+         referencia fresca, así que no hace falta la copia en memoria.
+     Compresión sin cambios (720p/1,5 Mbps; mp4/h264 primero en iPhone, webm en
+     Android; muted+playsInline; fallback al original). Fotos y acta ya eran
+     fiables (si su subida en background falla, se incrustan en el envío).
+     Nota: el vídeo resumen debe ser CORTO (la compresión es en tiempo real;
+     cuanto más largo el vídeo, más tarda). El backend reensambla por chunks.
+     v3.13.3: ARREGLO DE FONDO del "Error leyendo chunk". El vídeo se LEE A
+     MEMORIA nada más seleccionarlo (estabilizarVideoEntry: arrayBuffer→Blob,
+     con el fichero aún fresco) y entry.file pasa a ser un Blob en memoria, así
+     que ni la compresión ni la subida por chunks dependen ya del fichero del
+     sistema (que en Android caduca si se lee tarde → era la causa del fallo del
+     técnico, con 4G+ a tope). Aplicado a vídeo normal y de incidencia.
+     uploadVideosChunked espera a la estabilización antes de chunkear; _sigVideos
+     es estable ante el cambio File→Blob. Si la lectura a memoria falla (vídeo
+     enorme), conserva el original y degrada con seguridad (no se pierde el
+     cierre). Combinado con v3.13.2 (degradación + reintentos) y backend v3.13.4
+     (watchdog), el cierre es robusto: nunca se pierde por el vídeo.
+     v3.13.2: ROBUSTEZ DEL VÍDEO SIN RALENTIZAR EL CIERRE. (1) Reintentos de
+     chunk reforzados: 5 por fragmento (antes 3) con esperas 1,5/3/5/8 s. Viven
+     en la subida EN BACKGROUND (solapada con el wizard), así que NO alargan el
+     cierre en el caso normal. (2) Degradación elegante: en el envío ya NO se
+     re-sube el vídeo de forma síncrona (eso ralentizaba y, si un chunk fallaba,
+     abortaba TODO el cierre — caso 24/06). Ahora se espera al vídeo de background
+     un tiempo acotado (ESPERA_VIDEO_BG_MS); si no confirma, el cierre se envía
+     IGUAL referenciando los chunks ya subidos, y el backend los ensambla (si
+     falta alguno, registra el cierre y avisa por email). Pantalla de éxito
+     distingue 'Todo subido' de 'Cierre enviado (vídeo puede estar incompleto)'.
+     Requiere backend v3.13.4 (watchdog de carpetas temporales huérfanas).
+     v3.13.1: ROBUSTEZ DEL ENVÍO FINAL. (1) postCierre ahora REINTENTA solo
+     (4 intentos con esperas 0/2/4/8 s) — antes era 1 intento y un corte de red
+     puntual dejaba el cierre sin encolar (fotos en _TMP_VIDEOS pero sin COLA_,
+     caso del 24/06). Seguro frente a duplicados: el backend deduplica por
+     cierreId (done_ marca el procesado; los repetidos quedan DUP_). (2) Guardia
+     anti-cierre: mientras el envío está en curso (incl. reintentos), el
+     navegador avisa si se intenta cerrar/recargar (beforeunload). El texto del
+     diálogo nativo lo fija el navegador (no es personalizable), pero el aviso
+     aparece y bloquea la salida. Backend: sin cambios.
+     v3.13.0: CIERRE RÁPIDO — las fotos y el acta se suben EN BACKGROUND según
+     se seleccionan (patrón chunks, con verificación ok:true y 3 intentos); el
+     payload final solo lleva referencias (KB) y el backend lo ENCOLA y responde
+     al instante. Fallback automático a inline si una subida bg no confirmó.
+     "Todo subido" = recibido y a salvo en el servidor (el archivado en carpetas
+     y Registro lo hace la cola en ~1 min). postChunk ahora también verifica la
+     respuesta JSON del servidor. Requiere backend v3.13.0.
+     v3.12.10: fix del POST de datos de la v3.12.9 — el listener de progreso en
+     xhr.upload obligaba al navegador a hacer preflight OPTIONS (petición "no
+     simple"), que Apps Script no contesta → CORS fallaba → "No se ha podido
+     contactar" SIEMPRE. Sin listener la petición es simple (como los chunks,
+     que nunca fallaron). Progreso ahora: ticker 70→97% hasta la confirmación.
+     v3.12.9: el envío de datos VERIFICA la respuesta real del backend (antes:
+     formulario a iframe ciego + éxito asumido a los 5 s → podía decir "Todo
+     subido" con el cierre perdido, como pasó el 10/06). Progreso de subida real
+     (70→99%) y errores con instrucciones. Backend Drive: sin cambios (v3.12.7).
+     v3.12.8: robustez de envío — fotos procesadas al seleccionarlas (inmune a
+     referencias de fichero caducadas en Android), lecturas con mensaje de error
+     real + reintento (antes un fallo de lectura mostraba "undefined"), y subida
+     de vídeo con 3 intentos por fragmento. Backend Drive: sin cambios (v3.12.7).
+     v3.12.6: desmontaje HW (hito + foto #12, pre-marcado desde la cita), borna
+     doble a 0 en nuevo suministro/unifamiliar, sin precios visibles al técnico. -->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Búfala Tech — Cierre ESBRAIN</title>
+<style>
+:root{
+  --bg:#fafaf9; --bg-card:#fff; --bg-elevated:#fff; --border:#e7e5e4;
+  --text:#0c0a09; --text-muted:#78716c; --accent:#2d6a4f; --accent-hover:#1b4332;
+  --accent-light:#e8f3ed; --danger:#dc2626; --warning:#d97706; --success:#16a34a;
+  --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh;
+  -webkit-font-smoothing:antialiased; touch-action:manipulation;
+}
+button{font-family:inherit; -webkit-tap-highlight-color:transparent}
+input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
+
+.header{
+  position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border);
+  padding:10px 16px; display:flex; justify-content:space-between; align-items:center;
+  z-index:100;
+}
+.logo{display:flex; align-items:center; gap:10px}
+.logo-svg{width:32px; height:32px; color:#0c0a09}
+.logo-text{font-weight:700; letter-spacing:-.3px; font-size:15px}
+.logo-text span{font-weight:300; opacity:.7}
+.super-tag{
+  background:#fef3c7; color:#92400e; padding:4px 10px;
+  border-radius:6px; font-size:11px; font-weight:700; display:none;
+}
+.super-tag.active{display:inline-block}
+
+.steps{
+  display:flex; gap:3px; padding:8px 16px; background:var(--bg);
+  border-bottom:1px solid var(--border); overflow-x:auto;
+}
+.steps::-webkit-scrollbar{display:none}
+.step-dot{
+  width:24px; height:24px; border-radius:50%; background:var(--border);
+  color:var(--text-muted); font-size:11px; font-weight:600; display:flex;
+  align-items:center; justify-content:center; flex-shrink:0; cursor:pointer;
+}
+.step-dot.active{background:var(--accent); color:white}
+.step-dot.completed{background:var(--success); color:white}
+
+.progress-container{padding:8px 16px; background:var(--bg); border-bottom:1px solid var(--border)}
+.progress-info{display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:6px}
+.progress-bar{width:100%; height:3px; background:var(--border); border-radius:2px; overflow:hidden}
+.progress-fill{height:100%; background:var(--accent); transition:width .3s; border-radius:2px}
+
+.upload-indicator{
+  position:fixed; top:64px; right:12px; background:var(--bg-elevated);
+  border:1px solid var(--border); border-radius:8px; padding:6px 10px;
+  font-size:11px; box-shadow:var(--shadow); display:none; align-items:center; gap:6px;
+  z-index:90; max-width:220px;
+}
+.upload-indicator.active{display:flex}
+.spinner{
+  width:10px; height:10px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite;
+  flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.main{padding:20px 16px 110px; max-width:560px; margin:0 auto}
+
+.screen{display:none; animation:fadeIn .25s ease}
+.screen.active{display:block}
+@keyframes fadeIn{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+
+.title{font-size:22px; font-weight:700; margin-bottom:4px; letter-spacing:-.5px}
+.subtitle{font-size:14px; color:var(--text-muted); margin-bottom:24px}
+
+.card{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:16px; margin-bottom:16px;
+}
+.row{display:flex; justify-content:space-between; padding:8px 0; font-size:14px; gap:8px}
+.row + .row{border-top:1px solid var(--border)}
+.row-label{color:var(--text-muted)}
+.row-value{font-weight:600; text-align:right}
+
+.info-btn{
+  width:26px; height:26px; border-radius:50%; background:var(--accent);
+  border:none; color:#fff;
+  font-size:14px; font-weight:700; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  flex-shrink:0; line-height:1; padding:0; margin-left:8px;
+  font-family:Georgia,"Times New Roman",serif; font-style:italic;
+  transition:transform .15s; box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.info-btn:active{transform:scale(.92)}
+.tooltip{
+  display:none; background:#0c0a09; color:#fafaf9; padding:12px 14px;
+  border-radius:8px; font-size:13px; line-height:1.55; margin:8px 0;
+  font-weight:400; box-shadow:0 4px 12px rgba(0,0,0,.15);
+  border-left:3px solid var(--accent); animation:tipIn .2s ease;
+}
+.tooltip.active{display:block}
+@keyframes tipIn{from{opacity:0; transform:translateY(-4px)} to{opacity:1; transform:translateY(0)}}
+
+.type-grid{display:flex; flex-direction:column; gap:10px}
+.type-btn{
+  background:var(--bg-card); border:2px solid var(--border); color:var(--text);
+  padding:18px 16px; border-radius:12px; cursor:pointer; font-size:16px; font-weight:600;
+  text-align:left; transition:all .15s; display:flex; align-items:center; gap:14px;
+  width:100%;
+}
+.type-btn:active{border-color:var(--accent)}
+.type-btn.selected{border-color:var(--accent); background:var(--accent-light)}
+.type-btn-fail{color:var(--danger)}
+.type-btn-fail.selected{border-color:var(--danger); background:rgba(220,38,38,.08)}
+.type-icon{font-size:24px; line-height:1}
+.type-desc{font-size:12px; font-weight:400; color:var(--text-muted); margin-top:2px}
+
+.field{margin-bottom:16px}
+.label{display:flex; align-items:center; font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text)}
+.hint{font-size:12px; color:var(--text-muted); margin-top:6px}
+.input,.textarea{
+  width:100%; padding:13px 14px; background:var(--bg-card); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:16px; transition:border-color .15s;
+}
+.input:focus,.textarea:focus{outline:none; border-color:var(--accent)}
+.textarea{resize:vertical; min-height:90px}
+
+.pills{display:flex; gap:8px; flex-wrap:wrap}
+.pill{
+  flex:1; min-width:70px; padding:13px 8px; background:var(--bg-card);
+  border:2px solid var(--border); border-radius:10px; cursor:pointer; text-align:center;
+  font-weight:600; font-size:15px; transition:all .15s;
+}
+.pill:active{border-color:var(--accent)}
+.pill.selected{border-color:var(--accent); background:var(--accent-light); color:var(--accent)}
+
+.material-block{padding:10px 0; border-bottom:1px solid var(--border)}
+.material-block:last-child{border-bottom:none}
+.material-row{display:flex; align-items:center; gap:10px}
+.material-name-wrap{flex:1; min-width:0}
+.material-name{display:flex; align-items:center; font-size:14px; line-height:1.3; flex-wrap:wrap}
+.material-sub{font-size:12px; color:var(--text-muted); margin-top:3px}
+.material-input{
+  width:80px; padding:10px 10px; background:var(--bg); border:1px solid var(--border);
+  border-radius:6px; color:var(--text); text-align:right; font-size:16px;
+}
+.material-unit{font-size:12px; color:var(--text-muted); width:30px; flex-shrink:0; text-align:left}
+
+/* ── Bloque de fotos para trabajos especiales (altura, soterramiento) ── */
+.trabajo-block { padding:14px 0; border-bottom:1px solid var(--border); }
+.trabajo-block:last-child { border-bottom:none; }
+.trabajo-row { display:flex; align-items:center; gap:12px; }
+.trabajo-toggle {
+  display:flex; align-items:center; gap:8px;
+  background:white; color:#6B7280;
+  border:2px solid #D1D5DB; border-radius:8px; padding:8px 14px;
+  font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0;
+  transition:all .15s; min-width:105px; justify-content:flex-start;
+}
+.trabajo-toggle-indicator {
+  width:18px; height:18px; border-radius:4px;
+  border:2px solid #D1D5DB; background:white;
+  flex-shrink:0; position:relative;
+}
+.trabajo-toggle.activo {
+  background:#ECFDF5; color:#065F46; border-color:#10B981;
+}
+.trabajo-toggle.activo .trabajo-toggle-indicator {
+  background:#10B981; border-color:#10B981;
+}
+.trabajo-toggle.activo .trabajo-toggle-indicator::after {
+  content:'✓'; position:absolute; color:white; font-size:14px; font-weight:700;
+  top:50%; left:50%; transform:translate(-50%,-50%); line-height:1;
+}
+.trabajo-info { flex:1; min-width:0; }
+.trabajo-name {
+  font-size:14px; font-weight:500; color:var(--text);
+  display:flex; align-items:center; gap:6px;
+}
+.trabajo-price { font-size:12px; color:var(--text-muted); margin-top:2px; }
+.trabajo-detail {
+  margin-top:12px; padding:12px 14px;
+  background:#ECFDF5; border-left:3px solid #10B981; border-radius:0 8px 8px 0;
+}
+.trabajo-presup-warn {
+  background:#FFFBEB; border:1px solid #F59E0B; color:#92400E;
+  padding:10px 12px; border-radius:6px; font-size:12.5px; line-height:1.4;
+  margin-bottom:12px;
+}
+.trabajo-metros-row {
+  display:flex; align-items:center; gap:10px; margin-bottom:12px;
+}
+.trabajo-metros-label { font-size:13px; font-weight:600; color:var(--text); }
+
+.trabajo-fotos-wrap{
+  margin-top:0; padding:12px; background:white;
+  border:1px solid var(--border); border-radius:8px;
+}
+.trabajo-fotos-label{
+  font-size:13px; font-weight:600; color:var(--accent); margin-bottom:8px;
+}
+.trabajo-fotos-req{
+  font-weight:400; color:var(--danger); font-size:12px;
+}
+.trabajo-fotos-btn{
+  display:inline-flex; align-items:center; gap:6px; padding:9px 14px;
+  background:var(--accent); color:white; border-radius:6px;
+  font-size:14px; font-weight:600; cursor:pointer;
+}
+.trabajo-fotos-btn:active{background:var(--accent-hover)}
+.trabajo-fotos-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;
+}
+.trabajo-foto-cell{
+  position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden;
+  border:1px solid var(--border); background:var(--bg);
+}
+.trabajo-foto-cell img{width:100%; height:100%; object-fit:cover; display:block}
+.trabajo-foto-del{
+  position:absolute; top:4px; right:4px; width:24px; height:24px;
+  background:rgba(220,38,38,.9); color:white; border:none; border-radius:50%;
+  font-size:16px; font-weight:700; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.trabajo-foto-num{
+  position:absolute; bottom:4px; left:4px; background:rgba(0,0,0,.6);
+  color:white; font-size:11px; font-weight:600; padding:2px 6px;
+  border-radius:4px;
+}
+
+.section-h{
+  font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--text-muted); margin:14px 0 6px; padding-bottom:4px;
+  border-bottom:1px solid var(--border);
+}
+.section-h:first-child{margin-top:0}
+
+.photo-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.photo-card{
+  background:var(--bg-card); border:2px dashed var(--border); border-radius:10px;
+  padding:14px 8px; text-align:center; cursor:pointer; transition:all .15s;
+  min-height:90px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:4px; position:relative;
+}
+.photo-card:active{border-color:var(--accent)}
+.photo-card.uploaded{border-style:solid; border-color:var(--success); background:var(--accent-light)}
+.photo-card.optional{opacity:.65}
+.photo-num{font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.05em}
+.photo-label{font-size:11px; color:var(--text); line-height:1.2; font-weight:600}
+.photo-tag{font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em}
+.photo-status{font-size:18px; margin-top:2px}
+.photo-del{
+  position:absolute; top:4px; right:4px; width:24px; height:24px;
+  background:rgba(220,38,38,.92); color:#fff; border:none; border-radius:50%;
+  font-size:16px; font-weight:700; line-height:1; cursor:pointer; z-index:2;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.upload-zone{
+  background:var(--bg-card); border:2px dashed var(--border); border-radius:12px;
+  padding:30px 16px; text-align:center; cursor:pointer; transition:all .15s; display:block;
+}
+.upload-zone:active{border-color:var(--accent)}
+.upload-zone.uploaded{border-color:var(--success); border-style:solid; background:var(--accent-light)}
+.upload-icon{font-size:32px; margin-bottom:8px}
+.upload-title{font-weight:600; margin-bottom:4px; font-size:15px}
+.upload-hint{font-size:12px; color:var(--text-muted)}
+.upload-list{margin-top:12px; text-align:left; font-size:13px}
+.upload-item{display:flex; justify-content:space-between; padding:4px 0; color:var(--text-muted)}
+
+.checklist-item{
+  display:flex; align-items:center; gap:10px; padding:13px 12px; background:var(--bg-card);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer;
+}
+.checklist-item.checked{border-color:var(--accent); background:var(--accent-light)}
+.checkbox{
+  width:22px; height:22px; border:2px solid var(--border); border-radius:5px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  font-size:14px; color:white; background:transparent; transition:all .15s;
+}
+.checklist-item.checked .checkbox{background:var(--accent); border-color:var(--accent)}
+.checklist-text{font-size:13px; flex:1; line-height:1.35}
+.btn-accept-all{
+  width:100%; padding:13px; background:var(--bg-card); border:2px dashed var(--accent);
+  color:var(--accent); border-radius:8px; font-weight:600; cursor:pointer;
+  margin-bottom:14px; font-size:14px;
+}
+
+.hito-card{
+  display:flex; align-items:center; gap:14px; padding:14px; background:var(--bg-card);
+  border:2px solid var(--border); border-radius:10px; margin-bottom:8px; cursor:pointer;
+}
+.hito-card.checked{border-color:var(--accent); background:var(--accent-light)}
+.hito-num{
+  width:32px; height:32px; border-radius:50%; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; font-weight:700;
+  border:2px solid var(--border); flex-shrink:0;
+}
+.hito-card.checked .hito-num{background:var(--accent); border-color:var(--accent); color:white}
+.hito-name{font-size:15px; font-weight:600}
+.hito-desc{font-size:12px; color:var(--text-muted); margin-top:2px}
+
+/* ── Desmontaje de hardware (hito opcional destacado en naranja) ── */
+.hito-card-opt{border-color:#F59E0B; background:#FFFBEB}
+.hito-card-opt.checked{border-color:#F59E0B; background:#FEF3C7}
+.hito-card-opt .hito-num{background:#FEF3C7; border-color:#F59E0B; color:#92400E}
+.hito-card-opt.checked .hito-num{background:#F59E0B; border-color:#F59E0B; color:#fff}
+.hito-badge-opt{
+  display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+  background:#F59E0B; color:#fff; font-size:10px; font-weight:700;
+  letter-spacing:.04em; vertical-align:middle;
+}
+.hito-desm-warn{
+  background:#FFFBEB; border:1px solid #F59E0B; color:#92400E;
+  padding:10px 12px; border-radius:8px; font-size:13px; margin:0 0 8px;
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+}
+.hito-desm-gobtn{
+  background:#F59E0B; color:#fff; border:none; border-radius:6px;
+  padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer;
+}
+.hito-desm-gobtn:active{background:#D97706}
+
+.warning-box{
+  background:rgba(217,119,6,.08); border:1px solid var(--warning); color:var(--warning);
+  padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px;
+  display:flex; gap:8px; align-items:flex-start;
+}
+.warning-box.success{background:var(--accent-light); border-color:var(--success); color:var(--success)}
+
+.summary-row{
+  display:flex; justify-content:space-between; padding:10px 0; font-size:14px;
+  border-bottom:1px solid var(--border); gap:8px;
+}
+.summary-row:last-child{border-bottom:none; font-weight:700; font-size:16px; margin-top:4px}
+.whatsapp-msg{
+  background:var(--accent-light); border:1px solid var(--accent); border-radius:10px;
+  padding:14px; padding-right:80px; font-family:"SF Mono",Monaco,Consolas,monospace;
+  font-size:13px; margin-bottom:14px; position:relative; line-height:1.5;
+  color:var(--text); word-break:break-word;
+}
+.btn-copy{
+  position:absolute; top:10px; right:10px; background:var(--accent); color:white;
+  border:none; padding:7px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600;
+}
+
+.nav-bar{
+  position:fixed; bottom:0; left:0; right:0; background:var(--bg);
+  border-top:1px solid var(--border); padding:12px 16px; display:flex; gap:8px; z-index:50;
+}
+.nav-btn{padding:14px 18px; border-radius:10px; border:none; font-size:15px; font-weight:600; cursor:pointer}
+.nav-btn-prev{background:var(--bg-card); border:1px solid var(--border); color:var(--text); flex:0 0 auto}
+.nav-btn-next{background:var(--accent); color:white; flex:1}
+.nav-btn-next:active{background:var(--accent-hover)}
+.nav-btn-next:disabled{opacity:.5; cursor:not-allowed}
+.nav-btn-send{background:var(--success); color:white; flex:1}
+
+.validation{
+  background:rgba(220,38,38,.08); border:1px solid var(--danger); color:var(--danger);
+  padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px; display:none;
+}
+.validation.active{display:block}
+
+.success-screen{text-align:center; padding:30px 0}
+.success-icon{font-size:60px; margin-bottom:16px}
+.success-title{font-size:22px; font-weight:700; margin-bottom:8px}
+.success-text{color:var(--text-muted); margin-bottom:24px; font-size:14px}
+.success-progress{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:16px; margin:20px 0; text-align:left;
+}
+.success-progress-row{display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:14px}
+.bar{width:100%; height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:8px}
+.bar-fill{height:100%; background:var(--accent); transition:width .3s}
+
+.bornas-section{
+  background:var(--bg-card); border:2px solid var(--accent); border-radius:10px;
+  padding:14px; margin-bottom:14px;
+}
+.bornas-title{font-weight:700; margin-bottom:6px; font-size:14px; color:var(--accent)}
+.bornas-auto-msg{font-size:12px; color:var(--text-muted); margin-bottom:10px; font-style:italic}
+.borna-auto-tag{
+  display:inline-block; background:var(--accent); color:white; font-size:10px;
+  padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:600; font-style:normal;
+}
+
+/* MODO ADMIN BOTÓN DISCRETO */
+.admin-trigger{
+  position:fixed; bottom:80px; right:16px; width:32px; height:32px;
+  background:transparent; border:1px dashed var(--border); border-radius:50%;
+  color:var(--text-muted); font-size:11px; cursor:pointer; opacity:.4;
+  display:flex; align-items:center; justify-content:center; z-index:40;
+}
+.admin-trigger:active{opacity:1}
+
+/* MODAL DE CONTRASEÑA */
+.modal-overlay{
+  position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5);
+  z-index:200; display:none; align-items:center; justify-content:center; padding:16px;
+}
+.modal-overlay.active{display:flex}
+.modal{
+  background:var(--bg-card); border-radius:12px; padding:20px; max-width:380px; width:100%;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+.modal-title{font-size:17px; font-weight:700; margin-bottom:8px}
+.modal-text{font-size:13px; color:var(--text-muted); margin-bottom:14px; line-height:1.5}
+.modal-actions{display:flex; gap:8px; margin-top:14px}
+.modal-actions button{
+  flex:1; padding:11px; border-radius:8px; border:none; font-size:14px;
+  font-weight:600; cursor:pointer;
+}
+.modal-cancel{background:var(--bg); border:1px solid var(--border); color:var(--text)}
+.modal-confirm{background:var(--accent); color:white}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <svg class="logo-svg" viewBox="0 0 100 100" fill="none">
+      <path d="M50 78 L18 30 L28 24 L36 36 L42 30 L46 38 L50 28 L54 38 L58 30 L64 36 L72 24 L82 30 L50 78 Z M50 78 L46 70 L54 70 Z M22 28 L14 22 M78 28 L86 22"
+            stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+    </svg>
+    <span class="logo-text">BÚFALA<span>tech</span></span>
+  </div>
+  <span class="super-tag" id="superTag">⭐ MODO ADMIN</span>
+</header>
+
+<div class="steps" id="stepsBar"></div>
+
+<div class="progress-container">
+  <div class="progress-info">
+    <span id="progressStep">Paso 1 de 12</span>
+    <span id="progressPct">8%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:8%"></div></div>
+</div>
+
+<div class="upload-indicator" id="uploadIndicator">
+  <div class="spinner"></div>
+  <span id="uploadText">Subiendo en background...</span>
+</div>
+
+<main class="main">
+<div class="validation" id="validationMsg"></div>
+
+<!-- ═══ PANTALLA 1: BIENVENIDA + TIPO ═══ -->
+<section class="screen active" data-screen="1">
+  <h1 class="title">Cierre de obra · ESBRAIN</h1>
+  <p class="subtitle">Solo datos — fotos, vídeo y acta van en ESBRAIN. Confirma y elige el tipo</p>
+
+  <div class="card" id="datosCita">
+    <div class="row"><span class="row-label">Cliente</span><span class="row-value" id="dataCliente">—</span></div>
+    <div class="row"><span class="row-label">Dirección</span><span class="row-value" id="dataDireccion">—</span></div>
+    <div class="row"><span class="row-label">Hora</span><span class="row-value" id="dataHora">—</span></div>
+    <div class="row"><span class="row-label">Equipo</span><span class="row-value" id="dataEquipo">—</span></div>
+    <div class="row"><span class="row-label">Hardware</span><span class="row-value" id="dataHardware">—</span></div>
+    <div class="row"><span class="row-label">Nº Inst.</span><span class="row-value" id="dataNumInst">—</span></div>
+    <div class="row"><span class="row-label">Teléfono</span><span class="row-value" id="dataTelefono">—</span></div>
+    <div class="row"><span class="row-label">Presup.</span><span class="row-value" id="dataPresup">—</span></div>
+  </div>
+
+  <div class="type-grid">
+    <button type="button" class="type-btn" onclick="selectType('comunitaria')" id="btnComunitaria">
+      <span class="type-icon">🏢</span>
+      <div>Comunitaria<div class="type-desc">Garaje comunitario o contadores comunitarios</div></div>
+    </button>
+    <button type="button" class="type-btn" onclick="selectType('unifamiliar')" id="btnUnifamiliar">
+      <span class="type-icon">🏠</span>
+      <div>Unifamiliar<div class="type-desc">Vivienda particular con cuadro propio</div></div>
+    </button>
+    <button type="button" class="type-btn" onclick="selectType('nuevoSuministro')" id="btnNuevoSuministro">
+      <span class="type-icon">⚡</span>
+      <div>Nuevo suministro<div class="type-desc">Instalación con kit de preinstalación de contador nuevo</div></div>
+    </button>
+    <button type="button" class="type-btn type-btn-fail" onclick="selectType('fallida')" id="btnFallida">
+      <span class="type-icon">❌</span>
+      <div>Instalación fallida<div class="type-desc">No se ha podido realizar la instalación</div></div>
+    </button>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 2: VIDEO ═══ -->
+<section class="screen" data-screen="2">
+  <h1 class="title">Subir vídeo</h1>
+  <p class="subtitle">Lo más pesado primero. Subirá en background mientras avanzas</p>
+
+  <label class="upload-zone" for="videoInput" id="videoZone">
+    <div class="upload-icon">🎥</div>
+    <div class="upload-title">Seleccionar vídeo(s)</div>
+    <div class="upload-hint">Puedes seleccionar varios. Empezarán a subir mientras rellenas el resto</div>
+    <input type="file" id="videoInput" accept="video/*" multiple style="display:none" onchange="handleVideo(event)">
+  </label>
+  <div id="videoList" class="upload-list" style="display:none"></div>
+</section>
+
+<!-- ═══ PANTALLA 3: FOTOS ═══ -->
+<section class="screen" data-screen="3">
+  <h1 class="title">Fotos de instalación</h1>
+  <p class="subtitle">Sigue el orden y nomenclatura del contrato</p>
+
+  <div class="warning-box success" id="bornasMsg" style="display:none">
+    <span>ℹ️</span>
+    <div id="bornasMsgText">En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).</div>
+  </div>
+
+  <div class="photo-grid" id="photoGrid"></div>
+</section>
+
+<!-- ═══ PANTALLA 4: TIPO LÍNEA + FASE ═══ -->
+<section class="screen" data-screen="4">
+  <h1 class="title">Línea eléctrica</h1>
+  <p class="subtitle">Tipo de canalización y fase</p>
+
+  <div class="field">
+    <label class="label">Tipo de línea
+      <button type="button" class="info-btn" onclick="toggleTip(event,'tipoLinea')">i</button>
+    </label>
+    <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')">🔌 Bajo tubo PVC</div>
+      <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')">🧵 Manguera</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label">Fase
+      <button type="button" class="info-btn" onclick="toggleTip(event,'fase')">i</button>
+    </label>
+    <div class="tooltip" id="tip-fase">Monofásica: 230V para cargadores hasta 7,4 kW. Trifásica: 400V para cargadores de 11 kW o superior.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectFase('mono', this)">⚡ Monofásica</div>
+      <div class="pill" onclick="selectFase('trif', this)">⚡⚡⚡ Trifásica</div>
+    </div>
+    <div class="warning-box success" id="bornasFaseMsg" style="display:none; margin-top:12px">
+      <span>✓</span>
+      <div id="bornasFaseMsgText"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 5: SECCIÓN + METROS ═══ -->
+<section class="screen" data-screen="5">
+  <h1 class="title">Medidas</h1>
+  <p class="subtitle">Sección del cable y metros instalados</p>
+
+  <div class="field">
+    <label class="label">Sección del cable
+      <button type="button" class="info-btn" onclick="toggleTip(event,'seccion')">i</button>
+    </label>
+    <div class="tooltip" id="tip-seccion">Sección del cable principal según potencia y distancia. Por defecto 6mm² para cargadores de 7,4 kW y distancias menores de 30m.</div>
+    <div class="pills">
+      <div class="pill" onclick="selectPill(this,'seccion','6')">6 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','10')">10 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','16')">16 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','25')">25 mm²</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label">Metros de línea instalados
+      <button type="button" class="info-btn" onclick="toggleTip(event,'metros')">i</button>
+    </label>
+    <div class="tooltip" id="tip-metros">Metros lineales de cable instalado desde el cuadro hasta el punto de recarga.</div>
+    <input type="number" class="input" id="metrosLinea" placeholder="0" oninput="autoUtp()">
+    <div class="hint" id="hintMetrosPres" style="display:none"></div>
+  </div>
+
+  <div class="field">
+    <label class="label">Metros de cable UTP
+      <button type="button" class="info-btn" onclick="toggleTip(event,'utp')">i</button>
+    </label>
+    <div class="tooltip" id="tip-utp">Cable de datos UTP cat.5e o superior para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
+    <input type="number" class="input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()">
+    <div class="hint">Se autorrellena con los metros de línea (editable)</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Conectores RJ45
+      <button type="button" class="info-btn" onclick="toggleTip(event,'rj45')">i</button>
+    </label>
+    <div class="tooltip" id="tip-rj45">Conectores para terminar el cable UTP. Por defecto 2 unidades.</div>
+    <input type="number" class="input" id="rj45" placeholder="2" value="2">
+    <div class="hint">Se autorrellena a 2 (editable)</div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 6: CANALIZACIONES ═══ -->
+<section class="screen" data-screen="6">
+  <h1 class="title">Canalizaciones especiales</h1>
+  <p class="subtitle">Rellena solo lo que has utilizado</p>
+  <div class="card" id="canalizacionesCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 7: PROTECCIONES ═══ -->
+<section class="screen" data-screen="7">
+  <h1 class="title">Protecciones y extras</h1>
+  <p class="subtitle">Cajas, perforaciones, otros y magnetotérmicos</p>
+
+  <div class="bornas-section" id="bornasSection" style="display:none">
+    <div class="bornas-title">⭐ Bornas de centralización (Comunitaria)</div>
+    <div class="bornas-auto-msg">Se autorrellena según la fase elegida — editable</div>
+
+    <div class="material-block">
+      <div class="material-row">
+        <div class="material-name-wrap">
+          <div class="material-name">Bornas MONO (kit)<span id="autoTagMono" class="borna-auto-tag" style="display:none">AUTO</span>
+            <button type="button" class="info-btn" onclick="toggleTip(event,'bornasM')">i</button>
+          </div>
+          <div class="material-sub">Kit: 1 neutro + 1 fase + tapa</div>
+        </div>
+        <input type="number" class="material-input" id="bornasMono" placeholder="0">
+        <span class="material-unit">kit</span>
+      </div>
+      <div class="tooltip" id="tip-bornasM">Kit para centralización monofásica en módulo de contadores.</div>
+    </div>
+
+    <div class="material-block">
+      <div class="material-row">
+        <div class="material-name-wrap">
+          <div class="material-name">Bornas TRIF (kit)<span id="autoTagTrif" class="borna-auto-tag" style="display:none">AUTO</span>
+            <button type="button" class="info-btn" onclick="toggleTip(event,'bornasT')">i</button>
+          </div>
+          <div class="material-sub">Kit: 1 neutro + 3 fases + tapa</div>
+        </div>
+        <input type="number" class="material-input" id="bornasTrif" placeholder="0">
+        <span class="material-unit">kit</span>
+      </div>
+      <div class="tooltip" id="tip-bornasT">Kit para centralización trifásica en módulo de contadores.</div>
+    </div>
+  </div>
+
+  <div class="card" id="proteccionesCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 8: TRABAJOS ESPECIALES ═══ -->
+<section class="screen" data-screen="8">
+  <h1 class="title">Trabajos especiales</h1>
+  <p class="subtitle">Solo con autorización previa de ESMOVE</p>
+
+  <div class="warning-box">
+    <span>⚠️</span>
+    <div>Estos trabajos requieren <strong>autorización previa de ESMOVE</strong>.</div>
+  </div>
+
+  <div class="card" id="trabajosCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 9: PDF ACTA ═══ -->
+<section class="screen" data-screen="9">
+  <h1 class="title">Acta firmada</h1>
+  <p class="subtitle">Sube el PDF del acta firmada por el cliente</p>
+
+  <label class="upload-zone" for="pdfInput" id="pdfZone">
+    <div class="upload-icon">📄</div>
+    <div class="upload-title">Seleccionar acta (PDF)</div>
+    <div class="upload-hint">Se guardará como HF [Cliente].pdf</div>
+    <input type="file" id="pdfInput" accept="application/pdf" style="display:none" onchange="handlePdf(event)">
+  </label>
+</section>
+
+<!-- ═══ PANTALLA 10: HITOS ═══ -->
+<section class="screen" data-screen="10">
+  <h1 class="title">Hitos de hardware</h1>
+  <p class="subtitle">Confirma los 3 hitos completados</p>
+
+  <div class="hito-card" onclick="toggleHito(this,'h1')">
+    <div class="hito-num">1</div>
+    <div><div class="hito-name">Montaje y conexionado</div><div class="hito-desc">Configuración y vinculación con la app</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-card" onclick="toggleHito(this,'h2')">
+    <div class="hito-num">2</div>
+    <div><div class="hito-name">Explicación al cliente</div><div class="hito-desc">Funcionamiento y uso del cargador</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-card" onclick="toggleHito(this,'h3')">
+    <div class="hito-num">3</div>
+    <div><div class="hito-name">Gestión documental</div><div class="hito-desc">Fotos + Acta finalizadas</div></div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+
+  <div class="hito-card hito-card-opt" id="hitoDesmCard" onclick="toggleHito(this,'desm')">
+    <div class="hito-num">+</div>
+    <div>
+      <div class="hito-name">Desmontaje de hardware<span class="hito-badge-opt" id="hitoDesmBadge">OPCIONAL</span></div>
+      <div class="hito-desc" id="hitoDesmDesc">Márcalo solo si has desmontado un cargador anterior</div>
+    </div>
+    <div class="checkbox" style="margin-left:auto">✓</div>
+  </div>
+  <div class="hito-desm-warn" id="hitoDesmWarn" style="display:none">
+    <span>⚠️ Falta la foto de <strong>Desmonte de Hardware</strong>.</span>
+    <button type="button" class="hito-desm-gobtn" onclick="irAFotosDesmonte()">Ir a Fotos →</button>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA 11: CHECKLIST ═══ -->
+<section class="screen" data-screen="11">
+  <h1 class="title">Checklist final</h1>
+  <p class="subtitle">Confirma cada punto antes de cerrar</p>
+  <button type="button" class="btn-accept-all" onclick="acceptAll()">✓ Aceptar todo</button>
+  <div id="checklistContainer"></div>
+</section>
+
+<!-- ═══ PANTALLA 12: RESUMEN ═══ -->
+<section class="screen" data-screen="12">
+  <h1 class="title">Resumen final</h1>
+  <p class="subtitle">Revisa antes de enviar</p>
+
+  <div class="card">
+    <div class="summary-row"><span>Cliente</span><span><strong id="resumenCliente">—</strong></span></div>
+    <div class="summary-row"><span>Equipo</span><span id="resumenEquipo">—</span></div>
+    <div class="summary-row"><span>Tipo</span><span id="resumenTipo">—</span></div>
+    <div class="summary-row"><span>Metros línea</span><span id="resumenMetros">— m</span></div>
+  </div>
+
+  <label class="label">Mensaje para WhatsApp</label>
+  <div class="whatsapp-msg">
+    <button type="button" class="btn-copy" onclick="copyWa()">Copiar</button>
+    <span id="waText">INSTALACIÓN FINALIZADA – TODO OK – — – 0 METROS FINALES INSTALADOS</span>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA FALLIDA ═══ -->
+<section class="screen" data-screen="failed">
+  <h1 class="title">Instalación fallida</h1>
+  <p class="subtitle">Indica el motivo y adjunta evidencias</p>
+
+  <div class="warning-box">
+    <span>ℹ️</span>
+    <div>Se registrará la visita como fallida con el motivo y las evidencias indicadas.</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Motivo del fallo</label>
+    <textarea class="textarea" id="motivoFallido" placeholder="Describe qué ha pasado..."></textarea>
+  </div>
+
+  <div class="field">
+    <label class="label">Fotos y vídeos (opcional)</label>
+    <label class="upload-zone" for="failMedia" id="failMediaZone">
+      <div class="upload-icon">📷</div>
+      <div class="upload-title">Seleccionar fotos / vídeos</div>
+      <div class="upload-hint">Selección múltiple permitida</div>
+      <input type="file" id="failMedia" accept="image/*,video/*" multiple style="display:none" onchange="handleFailMedia(event)">
+    </label>
+    <div id="failMediaList" class="upload-list" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA INTERVENCIÓN SAT (v3.16.0) ═══ -->
+<section class="screen" data-screen="sat">
+  <h1 class="title">Intervención SAT</h1>
+  <p class="subtitle">Sin fotos ni documentación — solo describe el trabajo</p>
+
+  <div class="warning-box">
+    <span>🔧</span>
+    <div>Se registrará como <b>INTERVENCIÓN SAT</b> con su kilometraje. No se piden fotos, acta ni vídeo, y no se crean carpetas en Drive.</div>
+  </div>
+
+  <div class="field">
+    <div class="row"><span class="row-label">Cliente</span><span class="row-value" id="satCliente">—</span></div>
+    <div class="row"><span class="row-label">Dirección</span><span class="row-value" id="satDireccion">—</span></div>
+    <div class="row"><span class="row-label">Nº referencia</span><span class="row-value" id="satNumInst">—</span></div>
+    <div class="row"><span class="row-label">Equipo</span><span class="row-value" id="satEquipo">—</span></div>
+  </div>
+
+  <div class="field">
+    <label class="label">Trabajo realizado</label>
+    <textarea class="textarea" id="trabajoRealizado" placeholder="Describe qué se ha hecho en la intervención..."></textarea>
+  </div>
+
+  <button type="button" class="nav-btn nav-btn-send" style="width:100%; margin-top:8px" onclick="submitIntervencion()">✓ Enviar intervención</button>
+</section>
+
+<!-- ═══ PANTALLA ÉXITO ═══ -->
+<section class="screen" data-screen="done">
+  <div class="success-screen">
+    <div class="success-icon" id="doneIcon">⏳</div>
+    <div class="success-title" id="doneTitle">Enviando cierre...</div>
+    <div class="success-text" id="doneText">No cierres la app hasta que termine la subida.</div>
+
+    <div class="success-progress">
+      <div class="success-progress-row"><span>📊 Datos del cierre</span><span id="dataPct">0%</span></div>
+      <div class="bar"><div class="bar-fill" id="dataBar" style="width:0%"></div></div>
+
+      <div class="success-progress-row" style="margin-top:14px"><span>📹 Vídeos</span><span id="vidPct">—</span></div>
+      <div class="bar"><div class="bar-fill" id="vidBar" style="width:0%"></div></div>
+    </div>
+
+    <div class="warning-box" id="doneWarning">
+      <span>⚠️</span>
+      <div>No cierres esta pantalla hasta que aparezca <strong>"Todo subido"</strong>.</div>
+    </div>
+
+    <div id="doneActions" style="display:none; margin-top:20px"></div>
+  </div>
+</section>
+
+</main>
+
+<button type="button" class="admin-trigger" id="adminTrigger" onclick="showSuperModal()" title="Modo admin">···</button>
+
+<nav class="nav-bar" id="navBar">
+  <button type="button" class="nav-btn nav-btn-prev" id="btnPrev" onclick="prevScreen()">← Anterior</button>
+  <button type="button" class="nav-btn nav-btn-next" id="btnNext" onclick="nextScreen()">Siguiente →</button>
+</nav>
+
+<!-- MODAL DE CONTRASEÑA SUPER -->
+<div class="modal-overlay" id="superModal">
+  <div class="modal">
+    <div class="modal-title">⭐ Modo administrador</div>
+    <div class="modal-text">Introduce la contraseña para activar el modo administrador en este dispositivo. Se guardará para futuros usos.</div>
+    <input type="password" class="input" id="superPassInput" placeholder="Contraseña" autocomplete="off">
+    <div class="modal-actions">
+      <button type="button" class="modal-cancel" onclick="closeSuperModal()">Cancelar</button>
+      <button type="button" class="modal-confirm" onclick="checkSuperPassword()">Activar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Iframe + formulario para POST robusto sin CORS -->
+<iframe name="bufalaPostFrame" id="bufalaPostFrame" style="display:none"></iframe>
+<form id="bufalaPostForm" target="bufalaPostFrame" method="POST"
+      action="https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec"
+      style="display:none">
+  <input type="hidden" name="payload" id="bufalaPostPayload">
+</form>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
+const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
+const ES_ESBRAIN = true;   // v1.0.0: wizard SOLO DATOS del flujo ESBRAIN (sin vídeo/fotos/acta)
+const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
+const CHUNK_SIZE_RAW  = 4 * 1024 * 1024;   // v3.14.1: 4 MB raw → ~5,3 MB en base64. Un chunk de 12 MB (~16 MB b64) NO pasaba por Apps Script (el primer chunk no llegaba y el vídeo se quedaba a 0%); 4 MB es el tamaño que SÍ subió en producción.
+const STABILIZE_MAX   = 150 * 1024 * 1024; // v3.15.0: leer a memoria (estabilizar) solo vídeos ≤150 MB. Evita OOM en móvil con vídeos enormes; por encima se deja el File original.
+const ESPERA_VIDEO_BG_MS = 15000;        // v3.13.2: en el envío, espera máx. al vídeo de background antes de degradar (no bloquea el cierre)
+const PHOTO_MAX_DIMENSION = 1280;        // Foto se reduce a 1280px máx (lado más largo)
+const PHOTO_QUALITY = 0.82;              // JPEG quality 82%
+const PHOTO_DESM_N = 12;                 // foto "Desmonte de Hardware" (ligada al hito desmontaje)
+
+// ═══════════════════════════════════════════════════════════════
+// DATOS Y ESTADO
+// ═══════════════════════════════════════════════════════════════
+const CANALIZACIONES = [
+  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Material utilizado en la instalación', unit:'m', tip:'Tubo PVC rígido de 32 mm usado para canalizar la línea. Anota los metros utilizados.'},
+  {id:'corr32', name:'Tubo corrugado 32mm', unit:'m', tip:'Tubo corrugado flexible de 32mm para canalizaciones empotradas o vistas en interior.'},
+  {id:'acero32', name:'Tubo acero 32mm', unit:'m', tip:'Tubo de acero galvanizado de 32mm para tramos vistos en garajes o exterior.'},
+  {id:'acero40', name:'Tubo acero 40mm', unit:'m', tip:'Tubo de acero galvanizado de 40mm para mayores secciones o múltiples conductores.'},
+  {id:'canaleta', name:'Canaleta eléctrica 35x20mm', unit:'m', tip:'Canaleta de PVC 35x20mm para instalación vista en pared, con tapa registrable.'},
+  {id:'sot50', name:'Tubo soterrado 50mm', unit:'m', tip:'Canalización subterránea de 50mm para tramos enterrados. Solo con autorización previa ESMOVE.'},
+  {id:'sot90', name:'Tubo soterrado 90mm', unit:'m', tip:'Canalización subterránea de 90mm. Solo con autorización previa ESMOVE.'}
+];
+
+const PROTECCIONES = [
+  {section:'📦 Cajas'},
+  {id:'cajaReg', name:'Caja registro 100x100', sub:'1 cada 15m de línea', unit:'ud', tip:'Caja para derivaciones, empalmes o cambios de dirección. Criterio: 1 cada 15 metros de línea.'},
+  {id:'caja6', name:'Caja distribución 6 módulos', unit:'ud', tip:'Cuadro de protección de 6 módulos DIN cuando no hay cuadro accesible.'},
+  {id:'caja12', name:'Caja distribución 12 módulos', unit:'ud', tip:'Cuadro de 12 módulos DIN para mayor número de protecciones.'},
+  {id:'caja18', name:'Caja distribución 18 módulos', unit:'ud', tip:'Cuadro de 18 módulos DIN para instalaciones complejas o comunitarias.'},
+  {id:'cerradura', name:'Cerradura + llave', unit:'ud', tip:'Cerradura para cuadro o caja. Las llaves se entregan SIEMPRE al cliente.'},
+
+  {section:'🕳️ Perforaciones'},
+  {id:'perfTab', name:'Perforación tabique <40mm', unit:'ud', tip:'Perforación en tabique o pared (<40mm). Anota TODAS las que realices.'},
+  {id:'perfForj', name:'Perforación forjado <32mm', unit:'ud', tip:'Perforación en forjado de hormigón (<32mm) entre plantas. Anota TODAS las que realices.'},
+
+  {section:'🔧 Otros'},
+  {id:'pica', name:'Pica de tierra (kit completo)', sub:'Pica + grapa + cable + arqueta + tapa', unit:'kit', tip:'Según ESMOVE: incluye pica 1500mm, grapa, cable 6mm², arqueta y tapa. NO se acepta pica sin arqueta.'},
+  {id:'preinst', name:'Pre-instalación nuevo suministro', unit:'kit', tip:'Kit para nuevo punto de suministro: portafusible, fusible, 1m de cable y etiqueta.'},
+
+  {section:'⚡ Magnetotérmicos'},
+  {id:'mag1025', name:'DPN 10A-25A', unit:'ud', tip:'Magnetotérmico DPN de pequeño calibre (10-25A) según potencia.'},
+  {id:'mag32', name:'DPN 32A', unit:'ud', tip:'Magnetotérmico DPN 32A. Habitual en cargadores monofásicos hasta 7,4 kW.'},
+  {id:'mag40', name:'DPN 40A', unit:'ud', tip:'Magnetotérmico DPN 40A. Para cargadores de alta potencia o trifásicos de 11 kW o superior.'}
+];
+
+const TRABAJOS = [
+  {id:'altAndamio',   name:'Trabajo en altura — andamio',   type:'toggle',         unit:'ud', tip:'Medio manual. Andamio homologado (es propiedad de Búfala). PRL obligatoria. Requiere autorización previa ESMOVE.'},
+  {id:'altElevadora', name:'Trabajo en altura — elevadora', type:'toggle-presup',  unit:'ud', tip:'Medio mecánico. Plataforma elevadora motorizada. Requiere autorización previa de ESMOVE.'},
+  {id:'soterrM',      name:'Trabajo de soterramiento',      type:'toggle-metros',  unit:'m',  tip:'Zanja en tierra para tubo soterrado. Incluye excavación, tendido y tapado posterior.'}
+];
+
+const CHECKLIST = [
+  "He subido en ESBRAIN todas las fotos y el vídeo del recorrido",
+  "El cuadro tiene magnetotérmico y diferencial dedicados",
+  "He explicado el funcionamiento al cliente",
+  "He vinculado el cargador con la app del cliente",
+  "He probado una carga real con el coche del cliente",
+  "He entregado las llaves de los cuadros al cliente",
+  "He recogido todo el material sobrante",
+  "El acta está firmada por el cliente en ESBRAIN",
+  "He revisado que no he olvidado material en la furgoneta"
+];
+
+const FOTOS = [
+  {n:1, nombre:"FRONTAL CARGADOR", obligatoria:true},
+  {n:2, nombre:"NUM. SERIE Y MODELO", obligatoria:true},
+  {n:3, nombre:"INTERIOR CARGADOR", obligatoria:true},
+  {n:4, nombre:"UTP TESTER", obligatoria:true},
+  {n:5, nombre:"CUADRO UNIFAMILIAR", obligatoria:false, soloUnifamiliar:true},
+  {n:6, nombre:"APP POTENCIA", obligatoria:true},
+  {n:7, nombre:"APP CONTROL", obligatoria:true},
+  {n:8, nombre:"APP MENU", obligatoria:true},
+  {n:9, nombre:"PICA DE TIERRA", obligatoria:false, opcional:true},
+  {n:11, nombre:"BORNA DOBLE EN CONTADORES", obligatoria:false, soloComunitaria:true},
+  {n:12, nombre:"DESMONTE DE HARDWARE", label:"Desmonte de Hardware", obligatoria:false, opcional:true, desmonte:true},
+  // ── BLOQUE B — fotos adicionales obligatorias en NUEVO SUMINISTRO ──
+  {n:21, nombre:"NS - CGP PUERTA CERRADA",            obligatoria:true, soloNuevoSuministro:true},
+  {n:22, nombre:"NS - CGP PUERTA ABIERTA",            obligatoria:true, soloNuevoSuministro:true},
+  {n:23, nombre:"NS - VISTA GENERAL CUARTO",          obligatoria:true, soloNuevoSuministro:true},
+  {n:24, nombre:"NS - CELDA ROTULADA",                obligatoria:true, soloNuevoSuministro:true},
+  {n:25, nombre:"NS - Nº SERIE CONTADOR CERCANO",     obligatoria:true, soloNuevoSuministro:true},
+  {n:26, nombre:"NS - BORNAS CABLEADAS Y ROTULADAS",  obligatoria:true, soloNuevoSuministro:true},
+  {n:27, nombre:"NS - MANETA DE CORTE",               obligatoria:true, soloNuevoSuministro:true},
+  {n:28, nombre:"NS - MEDIDA DE TENSIÓN",             obligatoria:true, soloNuevoSuministro:true},
+  {n:29, nombre:"NS - FUSIBLES EN EMBARRADO",         obligatoria:true, soloNuevoSuministro:true}
+];
+
+const state = {
+  currentScreen: 1,
+  totalScreens: 12,
+  type: null,
+  videos: [],          // [{file: File, blob: Blob, name: string, uploaded: false, progress:0}]
+  videosFallida: [],
+  fotosFallida: [],
+  photos: {},          // {1: {file, name}, 2: {...}}
+  trabajosFotos: {altAndamio: [], altElevadora: [], soterrM: []},  // fotos por trabajo especial
+  pdfActa: null,
+  hitos: {h1:false, h2:false, h3:false},
+  desmontajeHw: false, // ligado a la foto #12 y al hito opcional de la pantalla 10
+  citaDesmontaje: false, // true si la cita (param hardware o ?desmontaje=1) indica desmontaje
+  fotosTmpId: null, // v3.13.0: id de la carpeta temporal para fotos/acta en background
+  checklist: Array(9).fill(false),
+  data: {tipoLinea:null, fase:null, seccion:null},
+  cita: {},            // datos del calendario (URL params)
+  isSuper: false,
+  cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
+  videoBg: { token:0, promise:null, meta:null, sig:null, active:false, pct:0, phase:'', done:false, error:null }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MODO SUPER (localStorage por dispositivo)
+// ═══════════════════════════════════════════════════════════════
+function checkSuperOnLoad(){
+  // 1. Si hay localStorage marcado, activar
+  if (localStorage.getItem('bufala_super_v3') === SUPER_PASSWORD){
+    activateSuperMode();
+    return;
+  }
+  // 2. Si URL tiene ?super=1, mostrar modal automáticamente
+  const params = new URL(location).searchParams;
+  if (params.get('super') === '1'){
+    setTimeout(showSuperModal, 300);
+  }
+}
+
+function showSuperModal(){
+  document.getElementById('superModal').classList.add('active');
+  setTimeout(() => document.getElementById('superPassInput').focus(), 100);
+}
+
+function closeSuperModal(){
+  document.getElementById('superModal').classList.remove('active');
+  document.getElementById('superPassInput').value = '';
+}
+
+function checkSuperPassword(){
+  const input = document.getElementById('superPassInput').value;
+  if (input === SUPER_PASSWORD){
+    localStorage.setItem('bufala_super_v3', SUPER_PASSWORD);
+    activateSuperMode();
+    closeSuperModal();
+  } else {
+    alert('Contraseña incorrecta');
+    document.getElementById('superPassInput').value = '';
+  }
+}
+
+function activateSuperMode(){
+  state.isSuper = true;
+  document.getElementById('superTag').classList.add('active');
+  // En modo super: ocultamos botón fallida (no aplica) y reducimos pantallas
+  // Las pantallas 2 (vídeo), 3 (fotos), 9 (PDF) se saltan
+  console.log('⭐ Modo super activado');
+}
+
+// Tecla Enter en el modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('superModal').classList.contains('active')){
+    e.preventDefault();
+    checkSuperPassword();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// LECTURA DE URL PARAMS (datos del calendario)
+// ═══════════════════════════════════════════════════════════════
+function parseUrlParams(){
+  const url = new URL(location);
+  const p = url.searchParams;
+  state.cita = {
+    cliente:    p.get('cliente')    || '',
+    direccion:  p.get('direccion')  || '',
+    numInst:    p.get('numInst')    || p.get('inst') || '',
+    equipo:     p.get('equipo')     || '',
+    hardware:   p.get('hardware')   || '',
+    fecha:      p.get('fecha')      || p.get('fechaIso') || '',
+    tipo:       p.get('tipo')       || '',
+    // v1.0.0 ESBRAIN: datos extra que regala la ficha
+    telefono:   p.get('telefono')   || '',
+    garaje:     p.get('garaje')     || '',
+    metrosPres: p.get('metrosPres') || '',
+    desc:       p.get('desc')       || '',
+    preinst:    p.get('preinst') === '1',
+    uuid:       p.get('uuid')       || ''
+  };
+
+  // v3.16.0: flujo INTERVENCIÓN SAT — el link del calendario llega con
+  // &tipo=intervencion. Una sola pantalla, sin fotos/acta/vídeo, sin Drive.
+  state.esIntervencion = (state.cita.tipo === 'intervencion');
+  // v1.0.0 ESBRAIN: las INTERVENCIONES SAT siguen en el flujo antiguo.
+  // Si un link llega aquí por error, se redirige a cierre-v2.html tal cual.
+  if (state.esIntervencion) { location.replace('cierre-v2.html' + location.search); return; }
+
+  // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
+  // (p.ej. "DESMONTAJE + HARDWARE MONTAJE Y CONEXIONADO") o si el calendario
+  // pasa ?desmontaje=1 explícito. Se pre-activará al elegir tipo (no en fallida).
+  state.citaDesmontaje = (p.get('desmontaje') === '1') ||
+                         /desmont/i.test(state.cita.hardware || '');
+
+  document.getElementById('dataCliente').textContent   = state.cita.cliente   || '—';
+  document.getElementById('dataDireccion').textContent = state.cita.direccion || '—';
+  document.getElementById('dataEquipo').textContent    = state.cita.equipo    || '—';
+  document.getElementById('dataHardware').textContent  = state.cita.hardware  || '—';
+  document.getElementById('dataNumInst').textContent   = state.cita.numInst   || '—';
+
+  if (state.cita.fecha){
+    try {
+      const d = new Date(state.cita.fecha);
+      document.getElementById('dataHora').textContent =
+        d.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'}) + ' ' +
+        d.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+    } catch(e){ document.getElementById('dataHora').textContent = state.cita.fecha; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOOLTIPS
+// ═══════════════════════════════════════════════════════════════
+function toggleTip(ev, id){
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  const tip = document.getElementById('tip-' + id);
+  if (!tip) return;
+  const wasActive = tip.classList.contains('active');
+  document.querySelectorAll('.tooltip.active').forEach(t => t.classList.remove('active'));
+  if (!wasActive) tip.classList.add('active');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('info-btn') && !e.target.closest('.tooltip')){
+    document.querySelectorAll('.tooltip.active').forEach(t => t.classList.remove('active'));
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGACIÓN ENTRE PANTALLAS
+// ═══════════════════════════════════════════════════════════════
+function showScreen(num){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  let target;
+  if (num === 'failed') target = document.querySelector('[data-screen="failed"]');
+  else if (num === 'done') target = document.querySelector('[data-screen="done"]');
+  else target = document.querySelector('[data-screen="' + num + '"]');
+  if (!target) return;
+
+  target.classList.add('active');
+  state.currentScreen = num;
+
+  if (typeof num === 'number'){
+    const pct = Math.round((num / state.totalScreens) * 100);
+    document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+  }
+
+  renderSteps();
+
+  // Botones nav
+  document.getElementById('btnPrev').style.visibility = (num === 1 || num === 'done') ? 'hidden' : 'visible';
+  if (num === 12 || num === 'failed'){
+    document.getElementById('btnNext').textContent = num === 'failed' ? '✓ Enviar fallida' : '✓ Enviar cierre';
+    document.getElementById('btnNext').classList.add('nav-btn-send');
+  } else if (num === 'done'){
+    document.getElementById('navBar').style.display = 'none';
+  } else {
+    document.getElementById('btnNext').textContent = 'Siguiente →';
+    document.getElementById('btnNext').classList.remove('nav-btn-send');
+  }
+
+  document.getElementById('validationMsg').classList.remove('active');
+
+  if (num === 7) applyBornasAuto();
+  if (num === 12) updateSummary();
+
+  // Ocultar indicador de subida en pantalla final o fallida
+  if (num === 'done' || num === 'failed'){
+    document.getElementById('uploadIndicator').classList.remove('active');
+  }
+
+  // Botón admin: ocultar en pantallas done/failed
+  document.getElementById('adminTrigger').style.display =
+    (num === 1 && !state.isSuper) ? 'flex' : 'none';
+
+  window.scrollTo(0, 0);
+}
+
+function renderSteps(){
+  const bar = document.getElementById('stepsBar');
+  if (state.currentScreen === 'failed' || state.currentScreen === 'done'){
+    bar.style.display = 'none'; return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = '';
+  // En modo super se muestra menos
+  const max = (ES_ESBRAIN || state.isSuper) ? 12 : state.totalScreens;
+  for (let i=1; i<=max; i++){
+    // Saltar pantallas en modo super: 2, 3, 9
+    if ((ES_ESBRAIN || state.isSuper) && (i===2 || i===3 || i===9)) continue;
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    if (i === state.currentScreen) dot.classList.add('active');
+    else if (i < state.currentScreen) dot.classList.add('completed');
+    dot.textContent = i;
+    dot.onclick = () => { if (i < state.currentScreen) showScreen(i); };
+    bar.appendChild(dot);
+  }
+}
+
+function nextScreen(){
+  if (!validateScreen(state.currentScreen)) return;
+  if (state.currentScreen === 12){ submitClosure(false); return; }
+  if (state.currentScreen === 'failed'){ submitClosure(true); return; }
+
+  // v3.10.5: al salir de la pantalla de vídeo, valida tamaño y arranca la subida en background
+  if (state.currentScreen === 2 && !ES_ESBRAIN && !state.isSuper && state.videos.length){
+    const errV = validarTamanoVideos();
+    if (errV){ alert('⚠️ ' + errV); return; }
+    iniciarSubidaVideosBackground();
+  }
+
+  let next = state.currentScreen + 1;
+  // Saltar pantallas de archivos (ESBRAIN: siempre; también en modo super)
+  if (ES_ESBRAIN || state.isSuper){
+    while (next === 2 || next === 3 || next === 9){ next++; }
+  }
+  showScreen(next);
+}
+
+function prevScreen(){
+  if (state.currentScreen === 'failed'){ showScreen(1); return; }
+  if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
+    let prev = state.currentScreen - 1;
+    if (ES_ESBRAIN || state.isSuper){
+      while (prev === 2 || prev === 3 || prev === 9){ prev--; }
+    }
+    showScreen(prev);
+  }
+}
+
+function validateScreen(num){
+  if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
+  if (num === 4){
+    if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
+    if (!state.data.fase){ showError('Selecciona la fase'); return false; }
+  }
+  if (num === 5){
+    if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
+    const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
+    if (m <= 0){ showError('Indica los metros de línea'); return false; }
+  }
+  if (num === 2 && !ES_ESBRAIN && !state.isSuper && state.videos.length === 0){
+    showError('Sube el VÍDEO RESUMEN (obligatorio)'); return false;
+  }
+  if (num === 3 && !ES_ESBRAIN && !state.isSuper){
+    // Validación de fotos obligatorias (incluye APP POTENCIA/CONTROL/MENU y, en
+    // nuevo suministro, el bloque NS). Bloquea el cierre si falta alguna.
+    const faltan = FOTOS.filter(f => {
+      if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return false;
+      if (f.soloComunitaria     && state.type !== 'comunitaria')     return false;
+      if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return false;
+      const obligatoria = (f.obligatoria === true) || (f.desmonte && state.desmontajeHw);
+      return obligatoria && !state.photos[f.n];
+    });
+    if (faltan.length){
+      showError('Faltan fotos obligatorias: ' + faltan.map(f => f.label || f.nombre).join(', '));
+      return false;
+    }
+  }
+  if (num === 8 && !state.isSuper){
+    // Validación trabajos especiales: si está activado el toggle, exigir foto
+    // y (para zanja) metros > 0
+    const trabajos = [
+      {id:'altAndamio',   label:'Trabajo en altura — andamio',   needMetros:false},
+      {id:'altElevadora', label:'Trabajo en altura — elevadora', needMetros:false},
+      {id:'soterrM',      label:'Trabajo de soterramiento',      needMetros:true}
+    ];
+    for (const t of trabajos){
+      if (!isTrabajoEspecialActivo(t.id)) continue;  // toggle apagado → ignora
+      if (t.needMetros){
+        const inp = document.getElementById('mat_' + t.id);
+        const m = inp ? (parseFloat(inp.value) || 0) : 0;
+        if (m <= 0){
+          showError('Indica los metros de zanja en "' + t.label + '"');
+          return false;
+        }
+      }
+      if (!ES_ESBRAIN){   // v1.0.0: las evidencias de trabajos van en ESBRAIN
+        const fotos = state.trabajosFotos[t.id] || [];
+        if (fotos.length === 0){
+          showError('Sube al menos 1 foto de "' + t.label + '"');
+          return false;
+        }
+      }
+    }
+  }
+  if (num === 9 && !ES_ESBRAIN && !state.isSuper && !state.pdfActa){ showError('Sube el PDF del acta firmada'); return false; }
+  if (num === 10 && (!state.hitos.h1 || !state.hitos.h2 || !state.hitos.h3)){
+    showError('Marca los 3 hitos para continuar'); return false;
+  }
+  if (num === 11 && state.checklist.some(c => !c)){
+    showError('Marca todos los puntos del checklist'); return false;
+  }
+  if (num === 'failed'){
+    const motivo = document.getElementById('motivoFallido').value.trim();
+    if (!motivo){ showError('Indica el motivo del fallo'); return false; }
+  }
+  return true;
+}
+
+function showError(text){
+  const msg = document.getElementById('validationMsg');
+  msg.textContent = '⚠️ ' + text;
+  msg.classList.add('active');
+  msg.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TIPO INSTALACIÓN
+// ═══════════════════════════════════════════════════════════════
+function selectType(t){
+  state.type = t;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+  const idMap = {
+    comunitaria:     'btnComunitaria',
+    unifamiliar:     'btnUnifamiliar',
+    nuevoSuministro: 'btnNuevoSuministro',
+    fallida:         'btnFallida'
+  };
+  if (idMap[t]) document.getElementById(idMap[t]).classList.add('selected');
+
+  if (t === 'fallida'){
+    state.desmontajeHw = false;   // en fallida el desmontaje no aplica (desaparece)
+    syncDesmontajeHito();
+    setTimeout(() => showScreen('failed'), 200); return;
+  }
+
+  // Bornas: visibles solo en comunitaria
+  document.getElementById('bornasMsg').style.display = (t === 'comunitaria') ? 'flex' : 'none';
+  document.getElementById('bornasSection').style.display = (t === 'comunitaria') ? 'block' : 'none';
+
+  // Aviso de pantalla de fotos según tipo
+  const bornasMsgText = document.getElementById('bornasMsgText');
+  if (bornasMsgText){
+    if (t === 'nuevoSuministro'){
+      document.getElementById('bornasMsg').style.display = 'flex';
+      bornasMsgText.innerHTML = '⚡ <b>Nuevo suministro</b>: además de las fotos del cargador, son obligatorias las <b>9 fotos adicionales</b> (CGP, centralización, etc.).';
+    } else if (t === 'comunitaria'){
+      bornasMsgText.textContent = 'En garaje comunitario es obligatorio instalar bornas dobles (excepto kit pre-instalación).';
+    }
+  }
+
+  // Auto-rellenar el kit de pre-instalación cuando es nuevo suministro
+  applyKitPreinstAuto();
+
+  // Si la cita indica desmontaje, pre-marcar el hito y dejar la foto #12 obligatoria
+  aplicarDesmontajeCita();
+
+  renderPhotos();
+  renderChecklist();
+  applyBornasAuto();
+}
+
+// Auto-relleno del kit de pre-instalación al elegir "Nuevo suministro"
+function applyKitPreinstAuto(){
+  const input = document.getElementById('mat_preinst');
+  if (!input) return;
+  if (state.type === 'nuevoSuministro'){
+    if (!input.dataset.touched){
+      input.value = '1';
+      input.style.background = '#FFF7E0'; // marca suave para indicar autorelleno
+    }
+  } else {
+    // Si el usuario no lo había tocado y cambiamos a otro tipo, limpiarlo
+    if (!input.dataset.touched && input.value === '1') {
+      input.value = '';
+      input.style.background = '';
+    }
+  }
+}
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'mat_preinst'){
+    e.target.dataset.touched = '1';
+    e.target.style.background = '';
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-RELLENO BORNAS Y UTP
+// ═══════════════════════════════════════════════════════════════
+function applyBornasAuto(){
+  const bm = document.getElementById('bornasMono');
+  const bt = document.getElementById('bornasTrif');
+  const tm = document.getElementById('autoTagMono');
+  const tt = document.getElementById('autoTagTrif');
+  if (!bm || !bt) return;
+
+  if (state.type === 'comunitaria' && state.data.fase){
+    if (state.data.fase === 'mono'){
+      if (!bm.dataset.touched){ bm.value = '1'; if (tm) tm.style.display = 'inline-block'; }
+      if (!bt.dataset.touched){ bt.value = '0'; if (tt) tt.style.display = 'none'; }
+    } else if (state.data.fase === 'trif'){
+      if (!bt.dataset.touched){ bt.value = '1'; if (tt) tt.style.display = 'inline-block'; }
+      if (!bm.dataset.touched){ bm.value = '0'; if (tm) tm.style.display = 'none'; }
+    }
+  } else if (state.type === 'nuevoSuministro' || state.type === 'unifamiliar'){
+    // Nuevo suministro / unifamiliar: NO llevan borna doble de centralización.
+    // En nuevo suministro la borna simple ya va dentro del kit de nuevo suministro.
+    // Forzamos 0 y reseteamos "touched" para que el autorrelleno vuelva a funcionar
+    // si se cambia de nuevo a comunitaria.
+    delete bm.dataset.touched; delete bt.dataset.touched;
+    bm.value = '0'; bt.value = '0';
+    if (tm) tm.style.display = 'none';
+    if (tt) tt.style.display = 'none';
+  }
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'bornasMono'){
+    e.target.dataset.touched = '1';
+    const tag = document.getElementById('autoTagMono'); if (tag) tag.style.display = 'none';
+  }
+  if (e.target.id === 'bornasTrif'){
+    e.target.dataset.touched = '1';
+    const tag = document.getElementById('autoTagTrif'); if (tag) tag.style.display = 'none';
+  }
+});
+
+function autoUtp(){
+  const m = document.getElementById('metrosLinea').value;
+  const utp = document.getElementById('metrosUtp');
+  if (!utp.dataset.touched) utp.value = m;
+}
+function markUtpTouched(){ document.getElementById('metrosUtp').dataset.touched = '1'; }
+
+// ═══════════════════════════════════════════════════════════════
+// FOTOS
+// ═══════════════════════════════════════════════════════════════
+function renderPhotos(){
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = '';
+  FOTOS.forEach(f => {
+    if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return;
+    if (f.soloComunitaria     && state.type !== 'comunitaria')     return;
+    if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return;
+    const card = document.createElement('label');
+    const obligDesm = f.desmonte && state.desmontajeHw;   // foto #12 obligatoria si hay desmontaje
+    const esOpcional = f.opcional && !obligDesm;
+    card.className = 'photo-card' + (esOpcional ? ' optional' : '');
+    const photoData = state.photos[f.n];
+    card.innerHTML =
+      '<div class="photo-num">' + f.n + '. </div>' +
+      '<div class="photo-label">' + (f.label || f.nombre) + '</div>' +
+      '<div class="photo-tag">' + (esOpcional ? 'Opcional' : 'Obligatoria') + '</div>' +
+      '<div class="photo-status">' + (photoData ? '✓' : '') + '</div>' +
+      '<input type="file" accept="image/*" style="display:none">';
+    if (photoData) card.classList.add('uploaded');
+    const input = card.querySelector('input');
+    input.addEventListener('change', (e) => handlePhoto(e, f.n, f.nombre, card));
+    // Foto de desmontaje: si ya hay imagen, botón para quitarla (desmarca el hito)
+    if (f.desmonte && photoData){
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'photo-del';
+      del.textContent = '×';
+      del.addEventListener('click', removeDesmontajePhoto);
+      card.appendChild(del);
+    }
+    grid.appendChild(card);
+  });
+}
+
+function handlePhoto(e, num, nombre, card){
+  if (!e.target.files.length) return;
+  const file = e.target.files[0];
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const entry = {
+    file: file,
+    name: num + '. ' + nombre + '.' + ext
+  };
+  state.photos[num] = entry;
+  // v3.12.8: procesar la foto YA (comprimir + base64 en memoria). Si la lectura
+  // falla, se avisa al momento (con el técnico aún en la obra) y se retira la
+  // foto para que la vuelva a seleccionar.
+  entry.promise = procesarFotoEntry(entry, 'la foto "' + entry.name + '"')
+    .then(() => { lanzarSubidaBgFoto(entry); })
+    .catch(err => {
+      if (state.photos[num] === entry){
+        delete state.photos[num];
+        if (num === PHOTO_DESM_N && !state.citaDesmontaje){
+          state.desmontajeHw = false;
+          syncDesmontajeHito();
+        }
+        renderPhotos();
+        updateUploadIndicator();
+      }
+      alert('⚠️ ' + err.message);
+    });
+  card.classList.add('uploaded');
+  const st = card.querySelector('.photo-status'); if (st) st.textContent = '✓';
+  // Foto de desmontaje: subir la foto MARCA el hito de la pantalla 10
+  if (num === PHOTO_DESM_N){
+    state.desmontajeHw = true;
+    syncDesmontajeHito();
+    renderPhotos();   // re-render para mostrar el botón de quitar (×)
+  }
+  updateUploadIndicator();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VIDEO Y PDF
+// ═══════════════════════════════════════════════════════════════
+// v3.15.0: se RESTAURA la estabilización en memoria (estaba anulada en v3.14.0,
+// y esa anulación reintrodujo el fallo). En Android, la referencia al fichero del
+// sistema CADUCA si se lee tarde: la compresión es en tiempo real (minutos en un
+// vídeo largo) y, cuando luego toca leer los chunks, el FileReader del original
+// falla → 'Error leyendo chunk' y el vídeo NO sube (la carpeta de vídeo ni se crea
+// en Drive; caso e2628846). Solución: al SELECCIONAR el vídeo, leer sus bytes a un
+// File EN MEMORIA con la referencia aún fresca; a partir de ahí compresión y chunks
+// usan esos bytes estables y nunca caducan. Se crea un File (no un Blob) para
+// conservar .name, que comprimirVideo necesita. Acotado a STABILIZE_MAX para no
+// agotar memoria en móvil con vídeos enormes (por encima se usa el File original;
+// caso raro, y el bloqueo+reintento del envío evita perder el cierre).
+function estabilizarVideoEntry(entry){
+  entry.estable = false;
+  entry.stablePromise = (async () => {
+    try {
+      const f = entry.file;
+      if (f && typeof f.arrayBuffer === 'function' && f.size > 0 && f.size <= STABILIZE_MAX){
+        const buf = await f.arrayBuffer();
+        entry.file = new File([buf], f.name || entry.name || 'VIDEO RESUMEN.mp4', {
+          type: f.type || 'video/mp4',
+          lastModified: Date.now()
+        });
+      }
+    } catch(e){
+      console.warn('[estabilizarVideoEntry] no se pudo estabilizar, se usa el fichero original:', e);
+    } finally {
+      entry.estable = true;
+      try { updateUploadIndicator(); } catch(e){}
+    }
+  })();
+  return entry.stablePromise;
+}
+
+function handleVideo(e){
+  const files = Array.from(e.target.files);
+  state.videos = files.map((f, i) => ({
+    file: f,
+    name: 'VIDEO RESUMEN' + (i === 0 ? '' : ' ' + (i+1)) + '.' + (f.name.split('.').pop() || 'mp4'),
+    uploaded: false,
+    progress: 0
+  }));
+  state.videos.forEach(v => estabilizarVideoEntry(v));
+  document.getElementById('videoZone').classList.add('uploaded');
+  document.getElementById('videoZone').querySelector('.upload-title').textContent = '✓ ' + files.length + ' vídeo(s) seleccionado(s)';
+  renderVideoList();
+  updateUploadIndicator();
+  // v3.14.0: arrancar compresión+subida YA, al seleccionar (referencia fresca y
+  // máximo solape con el rellenado del formulario, para que al cerrar el vídeo
+  // ya esté subido y el técnico no tenga que esperar). Es idempotente: si la
+  // selección no cambia, no re-arranca.
+  if (!state.isSuper){
+    const errV = validarTamanoVideos();
+    if (errV){ alert('⚠️ ' + errV); }
+    else { iniciarSubidaVideosBackground(); }
+  }
+}
+
+function renderVideoList(){
+  const list = document.getElementById('videoList');
+  list.style.display = 'block';
+  list.innerHTML = state.videos.map(v => {
+    const sizeMB = (v.file.size / 1024 / 1024).toFixed(1);
+    return '<div class="upload-item"><span>' + v.name + ' (' + sizeMB + ' MB)</span><span>Pendiente</span></div>';
+  }).join('');
+}
+
+function handlePdf(e){
+  if (!e.target.files.length) return;
+  const file = e.target.files[0];
+  const cliente = state.cita.cliente || 'Cliente';
+  const entry = {
+    file: file,
+    name: 'HF ' + cliente + '.pdf'
+  };
+  state.pdfActa = entry;
+  document.getElementById('pdfZone').classList.add('uploaded');
+  document.getElementById('pdfZone').querySelector('.upload-title').textContent = '✓ Acta seleccionada';
+  // v3.13.0: leer YA y subir en background (fallback inline en el envío)
+  entry.promise = fileToBase64(file, 'el acta PDF')
+    .then(b64 => {
+      entry.b64 = b64.base64;
+      entry.contentType = 'application/pdf';
+      if (!state.isSuper){
+        wakeLockOn();   // v3.17.0
+        entry.tmpNombre = 'ACTA_' + Date.now() + '.pdf';
+        entry.bgEstado = 'subiendo';
+        entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, 'application/pdf')
+          .then(() => { entry.bgEstado = 'ok'; })
+          .catch(() => { entry.bgEstado = 'error'; });
+      }
+    })
+    .catch(err => {
+      if (state.pdfActa === entry){
+        state.pdfActa = null;
+        document.getElementById('pdfZone').classList.remove('uploaded');
+        document.getElementById('pdfZone').querySelector('.upload-title').textContent = 'Seleccionar acta (PDF)';
+      }
+      alert('⚠️ ' + err.message);
+    });
+}
+
+function handleFailMedia(e){
+  const files = Array.from(e.target.files);
+  state.fotosFallida = [];
+  state.videosFallida = [];
+  let countF = 1, countV = 1;
+  files.forEach(f => {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (f.type.startsWith('video/')){
+      const ve = {
+        file: f,
+        name: 'FALLIDA_VIDEO_' + (countV++) + '.' + (ext || 'mp4')
+      };
+      state.videosFallida.push(ve);
+      estabilizarVideoEntry(ve);   // v3.13.3: estabilizar en memoria al seleccionar
+    } else {
+      const entry = {
+        file: f,
+        name: 'FALLIDA_' + (countF++) + '.' + (ext || 'jpg')
+      };
+      state.fotosFallida.push(entry);
+      // v3.12.8: procesar al seleccionar; si falla la lectura, retirar y avisar
+      entry.promise = procesarFotoEntry(entry, 'la foto ' + entry.name)
+        .catch(err => {
+          const i = state.fotosFallida.indexOf(entry);
+          if (i >= 0){
+            state.fotosFallida.splice(i, 1);
+            document.getElementById('failMediaZone').querySelector('.upload-title').textContent =
+              '✓ ' + (state.fotosFallida.length + state.videosFallida.length) + ' archivo(s)';
+          }
+          alert('⚠️ ' + err.message);
+        });
+    }
+  });
+  document.getElementById('failMediaZone').classList.add('uploaded');
+  document.getElementById('failMediaZone').querySelector('.upload-title').textContent =
+    '✓ ' + (state.fotosFallida.length + state.videosFallida.length) + ' archivo(s)';
+}
+
+function updateUploadIndicator(){
+  const photoCount = Object.keys(state.photos).length;
+  const vb = state.videoBg;
+  const hayVideoBg = vb && (vb.active || vb.done || vb.error);
+  if (state.videos.length || photoCount > 0 || hayVideoBg){
+    document.getElementById('uploadIndicator').classList.add('active');
+    const requiredPhotos = getRequiredPhotosCount();
+    const subidasBg = Object.keys(state.photos).filter(k => state.photos[k] && state.photos[k].bgEstado === 'ok').length;
+    let txt = 'Fotos: ' + photoCount + '/' + requiredPhotos + (subidasBg ? ' · ☁️' + subidasBg : '');
+    if (hayVideoBg){
+      if (vb.error)      txt += ' · 📹 vídeo: error';
+      else if (vb.done)  txt += ' · 📹 vídeo ✓';
+      else               txt += ' · 📹 vídeo ' + (vb.phase === 'comprimiendo' ? 'optimizando…' : (vb.pct || 0) + '%');
+    } else if (state.videos.length){
+      txt += ' · Vídeo OK';
+    }
+    document.getElementById('uploadText').textContent = txt;
+  }
+}
+
+function getRequiredPhotosCount(){
+  return FOTOS.filter(f => {
+    if (f.soloUnifamiliar     && state.type !== 'unifamiliar')     return false;
+    if (f.soloComunitaria     && state.type !== 'comunitaria')     return false;
+    if (f.soloNuevoSuministro && state.type !== 'nuevoSuministro') return false;
+    return true;
+  }).length;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PILLS
+// ═══════════════════════════════════════════════════════════════
+function selectPill(el, key, value){
+  el.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  state.data[key] = value;
+}
+
+function selectFase(value, el){
+  ['bornasMono', 'bornasTrif'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (inp) delete inp.dataset.touched;
+  });
+  selectPill(el, 'fase', value);
+  applyBornasAuto();
+
+  const msg = document.getElementById('bornasFaseMsg');
+  const txt = document.getElementById('bornasFaseMsgText');
+  if (state.type === 'comunitaria' && msg && txt){
+    txt.textContent = 'Se autorrellenará 1 kit de Bornas ' + (value === 'mono' ? 'MONO' : 'TRIF') + ' en la pantalla de Protecciones (editable).';
+    msg.style.display = 'flex';
+  } else if (msg){ msg.style.display = 'none'; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HITOS Y CHECKLIST
+// ═══════════════════════════════════════════════════════════════
+function toggleHito(card, key){
+  if (key === 'desm'){ toggleDesmontaje(card); return; }
+  state.hitos[key] = !state.hitos[key];
+  card.classList.toggle('checked');
+}
+
+// ── Desmontaje de hardware: acoplado bidireccionalmente con la foto #12 ──
+// Invariante: desmontajeHw === true  ⟺  foto #12 presente  ⟺  hito marcado.
+function toggleDesmontaje(card){
+  const warn = document.getElementById('hitoDesmWarn');
+  if (!state.desmontajeHw){
+    // Marcar EXIGE la foto (salvo en modo super, donde no hay pantalla de fotos)
+    if (ES_ESBRAIN || state.isSuper || state.photos[PHOTO_DESM_N]){
+      state.desmontajeHw = true;
+      card.classList.add('checked');
+      if (warn) warn.style.display = 'none';
+    } else {
+      if (warn) warn.style.display = 'flex';  // aviso + botón "Ir a Fotos"
+    }
+  } else {
+    // Desmarcar: quitar también la foto para mantener la invariante
+    state.desmontajeHw = false;
+    card.classList.remove('checked');
+    if (warn) warn.style.display = 'none';
+    if (!ES_ESBRAIN && !state.isSuper && state.photos[PHOTO_DESM_N]){
+      delete state.photos[PHOTO_DESM_N];
+      renderPhotos();
+      updateUploadIndicator();
+    }
+  }
+}
+
+function syncDesmontajeHito(){
+  const card = document.getElementById('hitoDesmCard');
+  if (card) card.classList.toggle('checked', !!state.desmontajeHw);
+  const warn = document.getElementById('hitoDesmWarn');
+  if (warn && state.desmontajeHw) warn.style.display = 'none';
+}
+
+// Si la cita indica desmontaje, pre-marca el hito (sigue siendo desmarcable) y la
+// foto #12 pasa a obligatoria. No se llama en fallida (allí se limpia el desmontaje).
+function aplicarDesmontajeCita(){
+  if (!state.citaDesmontaje) return;
+  state.desmontajeHw = true;
+  const badge = document.getElementById('hitoDesmBadge');
+  if (badge) badge.textContent = 'DE LA CITA';
+  const desc = document.getElementById('hitoDesmDesc');
+  if (desc) desc.textContent = 'La cita incluye desmontaje · sube la foto (obligatoria). Puedes desmarcarlo si finalmente no procede.';
+  syncDesmontajeHito();
+}
+
+function irAFotosDesmonte(){
+  const warn = document.getElementById('hitoDesmWarn');
+  if (warn) warn.style.display = 'none';
+  showScreen(3);  // pantalla de fotos
+}
+
+// Quitar la foto #12 (botón × en su tarjeta): DESMARCA el hito
+function removeDesmontajePhoto(ev){
+  if (ev){ ev.preventDefault(); ev.stopPropagation(); }
+  delete state.photos[PHOTO_DESM_N];
+  state.desmontajeHw = false;
+  syncDesmontajeHito();
+  renderPhotos();
+  updateUploadIndicator();
+}
+
+function renderChecklist(){
+  const c = document.getElementById('checklistContainer');
+  c.innerHTML = '';
+  CHECKLIST.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item' + (state.checklist[i] ? ' checked' : '');
+    div.onclick = () => toggleCheck(i, div);
+    div.innerHTML = '<div class="checkbox">✓</div><div class="checklist-text">' + text + '</div>';
+    c.appendChild(div);
+  });
+}
+function toggleCheck(i, el){ state.checklist[i] = !state.checklist[i]; el.classList.toggle('checked'); }
+function acceptAll(){ state.checklist = state.checklist.map(() => true); renderChecklist(); }
+
+// ═══════════════════════════════════════════════════════════════
+// RESUMEN
+// ═══════════════════════════════════════════════════════════════
+function updateSummary(){
+  const tipoMap = {
+    comunitaria:     '🏢 Comunitaria',
+    unifamiliar:     '🏠 Unifamiliar',
+    nuevoSuministro: '⚡ Nuevo suministro'
+  };
+  document.getElementById('resumenCliente').textContent = state.cita.cliente || '—';
+  document.getElementById('resumenEquipo').textContent = state.cita.equipo || 'Búfala';
+  document.getElementById('resumenTipo').textContent = tipoMap[state.type] || '—';
+  const metros = document.getElementById('metrosLinea').value || '0';
+  document.getElementById('resumenMetros').textContent = metros + ' m';
+  document.getElementById('waText').textContent =
+    'INSTALACIÓN FINALIZADA – TODO OK – ' + (state.cita.cliente || '—') + ' – ' + metros + ' METROS FINALES INSTALADOS';
+}
+
+function copyWa(){
+  const text = document.getElementById('waText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERIZAR MATERIALES (canalizaciones, protecciones, trabajos)
+// ═══════════════════════════════════════════════════════════════
+function renderMaterialItem(item){
+  if (item.section) return '<div class="section-h">' + item.section + '</div>';
+
+  // Trabajos especiales con toggle (andamio, elevadora, soterramiento)
+  if (item.type === 'toggle' || item.type === 'toggle-presup' || item.type === 'toggle-metros'){
+    const presup = item.type === 'toggle-presup';
+    const metros = item.type === 'toggle-metros';
+    return '<div class="material-block trabajo-block">' +
+      '<div class="trabajo-row">' +
+        '<button type="button" class="trabajo-toggle" id="tgl_' + item.id + '" onclick="toggleTrabajoEspecial(\'' + item.id + '\')">' +
+          '<span class="trabajo-toggle-indicator"></span>' +
+          '<span class="trabajo-toggle-label">Aplicar</span>' +
+        '</button>' +
+        '<div class="trabajo-info">' +
+          '<div class="trabajo-name">' + item.name +
+            '<button type="button" class="info-btn" onclick="toggleTip(event,\'' + item.id + '\')">i</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
+      '<div class="trabajo-detail" id="trabDetail_' + item.id + '" style="display:none">' +
+        (presup ? (
+          '<div class="trabajo-presup-warn">' +
+            '⚠️ Esta partida requiere <strong>autorización previa de ESMOVE</strong>. ' +
+            'Confirma que la tienes antes de ejecutarla.' +
+          '</div>'
+        ) : '') +
+        (metros ? (
+          '<div class="trabajo-metros-row">' +
+            '<label class="trabajo-metros-label">Metros de zanja:</label>' +
+            '<input type="number" inputmode="decimal" min="0" step="0.1" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
+            '<span class="material-unit">m</span>' +
+          '</div>'
+        ) : '') +
+        // Bloque de fotos (ESBRAIN: las evidencias se suben en su plataforma)
+        (ES_ESBRAIN ? '' :
+        '<div class="trabajo-fotos-wrap">' +
+          '<div class="trabajo-fotos-label">📷 Fotos del trabajo <span class="trabajo-fotos-req">(mín. 1 obligatoria)</span></div>' +
+          '<label class="trabajo-fotos-btn" for="trabFotosInput_' + item.id + '">' +
+            '<span>＋ Añadir foto(s)</span>' +
+          '</label>' +
+          '<input type="file" id="trabFotosInput_' + item.id + '" accept="image/*" multiple style="display:none" onchange="handleTrabajoFoto(event,\'' + item.id + '\')">' +
+          '<div class="trabajo-fotos-grid" id="trabFotosGrid_' + item.id + '"></div>' +
+        '</div>') +
+      '</div>' +
+    '</div>';
+  }
+
+  // Render normal para otros materiales (con input numérico)
+  return '<div class="material-block">' +
+    '<div class="material-row">' +
+      '<div class="material-name-wrap">' +
+        '<div class="material-name">' + item.name +
+          '<button type="button" class="info-btn" onclick="toggleTip(event,\'' + item.id + '\')">i</button>' +
+        '</div>' +
+        (item.sub ? '<div class="material-sub">' + item.sub + '</div>' : '') +
+      '</div>' +
+      '<input type="number" class="material-input" id="mat_' + item.id + '" placeholder="0">' +
+      '<span class="material-unit">' + item.unit + '</span>' +
+    '</div>' +
+    '<div class="tooltip" id="tip-' + item.id + '">' + item.tip + '</div>' +
+  '</div>';
+}
+
+// Toggle de trabajo especial: activa/desactiva el detalle
+function toggleTrabajoEspecial(itemId){
+  const btn = document.getElementById('tgl_' + itemId);
+  const detail = document.getElementById('trabDetail_' + itemId);
+  if (!btn || !detail) return;
+  const isActive = btn.classList.toggle('activo');
+  detail.style.display = isActive ? 'block' : 'none';
+  // Si se desactiva, limpiar el campo de metros (si lo hay) pero NO las fotos
+  if (!isActive){
+    const inp = document.getElementById('mat_' + itemId);
+    if (inp) inp.value = '';
+  }
+}
+
+// Helper: ¿está activo este trabajo especial?
+function isTrabajoEspecialActivo(itemId){
+  const btn = document.getElementById('tgl_' + itemId);
+  return !!(btn && btn.classList.contains('activo'));
+}
+
+// Etiqueta legible por id de trabajo (para nombrar las fotos)
+const TRABAJO_LABEL = {
+  altAndamio:   'ALTURA_ANDAMIO',
+  altElevadora: 'ALTURA_ELEVADORA',
+  soterrM:      'SOTERRAMIENTO'
+};
+
+// Subir 1 o varias fotos a un trabajo especial
+function handleTrabajoFoto(e, itemId){
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  if (!state.trabajosFotos[itemId]) state.trabajosFotos[itemId] = [];
+  files.forEach((f) => {
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+    const entry = { file: f, ext: ext };
+    state.trabajosFotos[itemId].push(entry);
+    // v3.12.8: procesar al seleccionar; si falla la lectura, retirar y avisar
+    entry.promise = procesarFotoEntry(entry, 'una foto de ' + TRABAJO_LABEL[itemId])
+      .then(() => { lanzarSubidaBgFoto(entry); })
+      .catch(err => {
+        const arr = state.trabajosFotos[itemId] || [];
+        const i = arr.indexOf(entry);
+        if (i >= 0){ arr.splice(i, 1); renderTrabajoMiniaturas(itemId); }
+        alert('⚠️ ' + err.message);
+      });
+  });
+  e.target.value = '';  // permite volver a seleccionar las mismas fotos
+  renderTrabajoMiniaturas(itemId);
+}
+
+function renderTrabajoMiniaturas(itemId){
+  const grid = document.getElementById('trabFotosGrid_' + itemId);
+  if (!grid) return;
+  const fotos = state.trabajosFotos[itemId] || [];
+  grid.innerHTML = '';
+  fotos.forEach((ph, idx) => {
+    const url = URL.createObjectURL(ph.file);
+    const cell = document.createElement('div');
+    cell.className = 'trabajo-foto-cell';
+    cell.innerHTML =
+      '<img src="' + url + '" alt="">' +
+      '<button type="button" class="trabajo-foto-del" title="Eliminar" onclick="removeTrabajoFoto(\'' + itemId + '\',' + idx + ')">×</button>' +
+      '<div class="trabajo-foto-num">' + (idx + 1) + '</div>';
+    grid.appendChild(cell);
+  });
+}
+
+function removeTrabajoFoto(itemId, idx){
+  if (!state.trabajosFotos[itemId]) return;
+  state.trabajosFotos[itemId].splice(idx, 1);
+  renderTrabajoMiniaturas(itemId);
+}
+
+document.getElementById('canalizacionesCard').innerHTML = CANALIZACIONES.map(renderMaterialItem).join('');
+document.getElementById('proteccionesCard').innerHTML = PROTECCIONES.map(renderMaterialItem).join('');
+document.getElementById('trabajosCard').innerHTML = TRABAJOS.map(renderMaterialItem).join('');
+
+// ═══════════════════════════════════════════════════════════════
+// RECOLECTAR DATOS DEL FORMULARIO
+// ═══════════════════════════════════════════════════════════════
+function recolectarDatos(esFallida){
+  function num(id){ const el = document.getElementById(id); return el ? parseFloat(el.value) || 0 : 0; }
+  function matNum(id){ return num('mat_' + id); }
+
+  const datos = {
+    fechaIso:  state.cita.fecha || new Date().toISOString(),
+    cliente:   state.cita.cliente || '',
+    direccion: state.cita.direccion || '',
+    numInst:   state.cita.numInst || '',
+    equipo:    state.cita.equipo || 'Búfala',
+    hardware:  state.cita.hardware || '',
+    tipoInst:  state.type,
+    despFallido: esFallida,
+    modoSuper: state.isSuper,
+    // v1.0.0 ESBRAIN: el backend (v3.15.0+) procesa estos cierres por el
+    // camino "solo datos" (sin carpetas Drive) y etiqueta el Registro.
+    origenEsbrain: true,
+    esbrainUuid: state.cita.uuid || ''
+  };
+
+  if (esFallida){
+    datos.motivoFallido = document.getElementById('motivoFallido').value.trim();
+    return datos;
+  }
+
+  // Datos línea
+  datos.tipoLinea  = state.data.tipoLinea;
+  datos.fase       = state.data.fase;
+  datos.seccion    = state.data.seccion;
+  datos.metrosLinea = num('metrosLinea');
+  datos.metrosUtp  = num('metrosUtp');
+  datos.rj45       = num('rj45');
+
+  // Bornas
+  datos.bornasMono = num('bornasMono');
+  datos.bornasTrif = num('bornasTrif');
+
+  // Canalizaciones
+  CANALIZACIONES.forEach(c => { if (!c.section) datos[c.id] = matNum(c.id); });
+
+  // Protecciones
+  PROTECCIONES.forEach(p => { if (!p.section) datos[p.id] = matNum(p.id); });
+
+  // Trabajos especiales (toggle): si activo, 1 ud para andamio/elevadora;
+  // metros leídos del input para soterramiento. Si no activo, 0.
+  TRABAJOS.forEach(t => {
+    if (t.type === 'toggle' || t.type === 'toggle-presup'){
+      datos[t.id] = isTrabajoEspecialActivo(t.id) ? 1 : 0;
+    } else if (t.type === 'toggle-metros'){
+      datos[t.id] = isTrabajoEspecialActivo(t.id) ? matNum(t.id) : 0;
+    } else {
+      datos[t.id] = matNum(t.id);  // fallback
+    }
+  });
+
+  // Hitos
+  datos.hitoMontaje = state.hitos.h1;
+  datos.hitoExplic  = state.hitos.h2;
+  datos.hitoDocs    = state.hitos.h3;
+  datos.desmontajeHw = !!state.desmontajeHw;  // 2ª ud de montaje (desmontaje) si está marcado
+
+  return datos;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPRESIÓN DE IMÁGENES (canvas + toBlob)
+// ═══════════════════════════════════════════════════════════════
+function compressImage(file, maxDim, quality){
+  maxDim = maxDim || PHOTO_MAX_DIMENSION;
+  quality = quality || PHOTO_QUALITY;
+  return new Promise((resolve, reject) => {
+    // Si no es imagen, devolver tal cual
+    if (!file.type || !file.type.startsWith('image/')) {
+      resolve(file); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else if (h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (!blob){ resolve(file); return; } // fallback
+          // Si la compresión hace el archivo más grande (raro), devolver el original
+          if (blob.size >= file.size){ resolve(file); return; }
+          resolve(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILE → BASE64
+// ═══════════════════════════════════════════════════════════════
+// v3.12.8: lectura robusta — mensaje real (antes onerror rechazaba con el
+// evento, sin .message → la pantalla de error mostraba "undefined") y 1
+// reintento automático tras 400 ms (las lecturas pueden fallar puntualmente
+// bajo presión de memoria, p.ej. transcodificando un vídeo grande en paralelo).
+function fileToBase64(file, etiqueta){
+  const leer = () => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const str = reader.result;
+      const base64 = str.split(',')[1];
+      resolve({ base64: base64, contentType: file.type || 'application/octet-stream' });
+    };
+    reader.onerror = () => reject(new Error('No se ha podido leer ' +
+      (etiqueta || (file && file.name) || 'el archivo') +
+      '. Vuelve a seleccionarlo e inténtalo de nuevo.'));
+    reader.readAsDataURL(file);
+  });
+  return leer().catch(() => new Promise(r => setTimeout(r, 400)).then(leer));
+}
+
+// v3.12.8: procesa una foto EN EL MOMENTO de seleccionarla (comprime + base64)
+// y guarda el resultado en memoria. Así el envío no depende de releer el fichero
+// original, cuya referencia puede caducar en Android (la cámara reescribe el
+// JPEG tras el HDR) o fallar bajo presión de memoria.
+async function procesarFotoEntry(entry, etiqueta){
+  const comprimida = await compressImage(entry.file);
+  const b64 = await fileToBase64(comprimida, etiqueta);
+  entry.b64 = b64.base64;
+  entry.contentType = b64.contentType;
+  entry.ready = true;
+  return entry;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDAR TAMAÑO DE VÍDEOS
+// ═══════════════════════════════════════════════════════════════
+function validarTamanoVideos(){
+  const todos = state.videos.concat(state.videosFallida);
+  const grandes = todos.filter(v => v.file.size > VIDEO_MAX_SIZE);
+  if (grandes.length > 0){
+    const nombres = grandes.map(v => v.name + ' (' + (v.file.size/1024/1024).toFixed(1) + ' MB)').join(', ');
+    return 'Vídeo(s) demasiado grande(s) (máximo ' + (VIDEO_MAX_SIZE/1024/1024) + ' MB por vídeo):\n' + nombres +
+      '\n\nReduce la duración del vídeo o usa una calidad menor en la cámara del móvil.';
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ENVÍO PRINCIPAL DEL CIERRE
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// GUARDIA ANTI-CIERRE (v3.13.x)
+// Mientras un cierre se está enviando (fotos/acta/vídeo + POST final, incluidos
+// los reintentos), enviandoCierre=true y el navegador avisa si se intenta cerrar
+// o recargar. Nota: los navegadores modernos muestran un texto genérico propio
+// (no se puede personalizar el mensaje del diálogo nativo), pero el aviso SÍ
+// aparece y bloquea la salida hasta que el técnico confirme.
+let enviandoCierre = false;
+window.addEventListener('beforeunload', function(e){
+  if (enviandoCierre){
+    e.preventDefault();
+    e.returnValue = 'El cierre todavía se está enviando. Si sales ahora podría perderse.';
+    return e.returnValue;
+  }
+});
+
+// v3.16.0: envío de una INTERVENCIÓN SAT — sin fotos, acta, vídeo ni subidas
+// en background. Un único POST (con los reintentos automáticos de postCierre);
+// el backend (drive script v3.14.0) escribe Registro + pre-factura + índice
+// Holded y NO crea carpetas en Drive.
+async function submitIntervencion(){
+  const trabajo = (document.getElementById('trabajoRealizado').value || '').trim();
+  if (!trabajo){ alert('⚠️ Describe el trabajo realizado antes de enviar.'); return; }
+
+  const datos = {
+    fechaIso:  state.cita.fecha || new Date().toISOString(),
+    cliente:   state.cita.cliente || '',
+    direccion: state.cita.direccion || '',
+    numInst:   state.cita.numInst || ('INT-' + Date.now()),
+    equipo:    state.cita.equipo || 'Búfala',
+    hardware:  state.cita.hardware || '',
+    esIntervencion: true,
+    despFallido: false,
+    trabajoRealizado: trabajo,
+    observaciones: '🔧 INTERVENCIÓN SAT: ' + trabajo,
+    cierreId: (state.cita.numInst || 'INT') + '_' + Date.now()
+  };
+
+  showScreen('done');
+  wakeLockOn();   // v3.17.0
+  document.getElementById('navBar').style.display = 'none';
+  // v3.16.0: el aviso fijo habla de "Todo subido" (subida de archivos); en una
+  // intervención no hay archivos, así que se oculta para no confundir.
+  document.getElementById('doneWarning').style.display = 'none';
+  enviandoCierre = true;
+  document.getElementById('doneIcon').textContent = '⏳';
+  document.getElementById('doneTitle').textContent = 'Enviando intervención...';
+  document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
+  document.getElementById('dataPct').textContent = '0%';
+  document.getElementById('dataBar').style.width = '0%';
+  document.getElementById('vidPct').textContent = '—';
+  document.getElementById('vidBar').style.width = '0%';
+
+  try {
+    await postCierre(datos);
+    enviandoCierre = false;
+    document.getElementById('doneIcon').textContent = '✅';
+    document.getElementById('doneTitle').textContent = 'Intervención registrada';
+    wakeLockOff();   // v3.17.0
+    document.getElementById('doneText').textContent = 'Registro y pre-factura creados. Ya puedes cerrar esta pantalla.';
+    document.getElementById('dataPct').textContent = '100%';
+    document.getElementById('dataBar').style.width = '100%';
+  } catch(err){
+    enviandoCierre = false;
+    document.getElementById('doneIcon').textContent = '❌';
+    document.getElementById('doneTitle').textContent = 'Error al enviar';
+    document.getElementById('doneText').textContent = ((err && err.message) ? err.message : 'Revisa la cobertura.') +
+      '\n\nNo se ha perdido nada: pulsa Reintentar.';
+    const acts = document.getElementById('doneActions');
+    acts.style.display = 'flex';
+    acts.innerHTML = '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
+  }
+}
+
+async function submitClosure(esFallida){
+  // Validar vídeos antes
+  const errVideo = validarTamanoVideos();
+  if (errVideo){
+    alert('⚠️ ' + errVideo);
+    return;
+  }
+
+  // cierreId: si la subida en background ya lo generó, reutilizarlo (los chunks están bajo ese id)
+  if (!state.cierreId) state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
+
+  wakeLockOn();   // v3.17.0: pantalla despierta durante TODO el envío
+
+  // Recolectar datos
+  const datos = recolectarDatos(esFallida);
+  datos.cierreId = state.cierreId;
+
+  // Pasar a pantalla de éxito
+  showScreen('done');
+  enviandoCierre = true;   // v3.13.x: activa la guardia anti-cierre durante todo el envío
+  document.getElementById('doneIcon').textContent = '⏳';
+  document.getElementById('doneTitle').textContent = 'Procesando archivos...';
+  document.getElementById('doneText').textContent = 'No cierres la app hasta que termine.';
+  document.getElementById('dataPct').textContent = '0%';
+  document.getElementById('dataBar').style.width = '0%';
+  document.getElementById('vidPct').textContent = '0%';
+  document.getElementById('vidBar').style.width = '0%';
+
+  try {
+    // v3.17.0: GATE — nada se recolecta hasta que las subidas bg de fotos y
+    // acta hayan terminado (ok o error). Elimina los envíos "a medias".
+    await esperarSubidasBg();
+
+    // ── 1. Comprimir y convertir fotos ──
+    if (!esFallida && !state.isSuper){
+      const fotosArr = [];
+      const fotosRefArr = [];   // v3.13.0: referencias a fotos ya subidas en background
+      const fotoKeys = Object.keys(state.photos);
+      // Total a procesar: fotos normales + fotos de trabajos especiales
+      const totalTrabFotos = (state.trabajosFotos.altAndamio.length +
+                              state.trabajosFotos.altElevadora.length +
+                              state.trabajosFotos.soterrM.length);
+      const totalFotos = fotoKeys.length + totalTrabFotos;
+      let i = 0;
+      for (const num of fotoKeys){
+        let ph = state.photos[num];
+        document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
+        // v3.12.8: la foto se procesó al seleccionarla; aquí solo se reutiliza.
+        if (ph && !ph.b64 && ph.promise){ try { await ph.promise; } catch(e){} }
+        ph = state.photos[num];
+        if (!ph){
+          throw new Error('La foto ' + num + ' no se ha podido leer. Vuelve a la pantalla de Fotos, selecciónala de nuevo y reintenta.');
+        }
+        if (!ph.b64){
+          const compressed = await compressImage(ph.file);
+          const b64 = await fileToBase64(compressed, 'la foto "' + ph.name + '"');
+          ph.b64 = b64.base64; ph.contentType = b64.contentType;
+        }
+        // v3.13.0: si la subida bg está en curso, darle hasta 5 s antes de caer a inline
+        if (ph.bgEstado === 'subiendo' && ph.bgPromise){
+          await Promise.race([ph.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+        }
+        if (ph.bgEstado === 'ok' && ph.tmpNombre){
+          fotosRefArr.push({ nombre: ph.name, tmpNombre: ph.tmpNombre });
+        } else {
+          fotosArr.push({ nombre: ph.name, base64: ph.b64, contentType: ph.contentType });
+        }
+        i++;
+        const pct = Math.round((i / Math.max(totalFotos, 1)) * 30); // hasta 30%
+        document.getElementById('dataPct').textContent = pct + '%';
+        document.getElementById('dataBar').style.width = pct + '%';
+      }
+      // Fotos de trabajos especiales (van a la misma carpeta FOTOS Y VÍDEO INSTALACIÓN)
+      for (const itemId of ['altAndamio','altElevadora','soterrM']){
+        const fotos = state.trabajosFotos[itemId] || [];
+        for (let j = 0; j < fotos.length; j++){
+          const ph = fotos[j];
+          const nombreBase = TRABAJO_LABEL[itemId] + '_' + (j + 1);
+          document.getElementById('doneText').textContent = 'Comprimiendo foto ' + (i+1) + '/' + totalFotos + '...';
+          if (!ph.b64 && ph.promise){ try { await ph.promise; } catch(e){} }
+          if (!ph.b64){
+            const compressed = await compressImage(ph.file);
+            const b64 = await fileToBase64(compressed, 'una foto de ' + TRABAJO_LABEL[itemId]);
+            ph.b64 = b64.base64; ph.contentType = b64.contentType;
+          }
+          if (ph.bgEstado === 'subiendo' && ph.bgPromise){
+            await Promise.race([ph.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+          }
+          if (ph.bgEstado === 'ok' && ph.tmpNombre){
+            fotosRefArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), tmpNombre: ph.tmpNombre });
+          } else {
+            fotosArr.push({ nombre: nombreBase + '.' + (ph.ext || 'jpg'), base64: ph.b64, contentType: ph.contentType });
+          }
+          i++;
+          const pct = Math.round((i / Math.max(totalFotos, 1)) * 30);
+          document.getElementById('dataPct').textContent = pct + '%';
+          document.getElementById('dataBar').style.width = pct + '%';
+        }
+      }
+      datos.fotos = fotosArr;
+      datos.fotosRef = fotosRefArr;                          // v3.13.0
+      datos.fotosTmpId = state.fotosTmpId || null;           // v3.13.0
+      datos.protocolo = 2;                                   // v3.13.0
+    }
+
+    // ── 2. Acta PDF ──
+    if (!esFallida && !state.isSuper && state.pdfActa){
+      document.getElementById('doneText').textContent = 'Procesando acta PDF...';
+      const pa = state.pdfActa;
+      if (!pa.b64 && pa.promise){ try { await pa.promise; } catch(e){} }
+      if (pa.bgEstado === 'subiendo' && pa.bgPromise){
+        await Promise.race([pa.bgPromise, new Promise(r => setTimeout(r, 5000))]);
+      }
+      if (pa.bgEstado === 'ok' && pa.tmpNombre){
+        datos.actaRef = { nombre: pa.name, tmpNombre: pa.tmpNombre };   // v3.13.0
+      } else {
+        if (!pa.b64){
+          const b64 = await fileToBase64(pa.file, 'el acta PDF');
+          pa.b64 = b64.base64;
+        }
+        datos.acta = { nombre: pa.name, base64: pa.b64 };
+      }
+      document.getElementById('dataPct').textContent = '40%';
+      document.getElementById('dataBar').style.width = '40%';
+    }
+
+    // ── 3. Vídeos: el vídeo se ha ido subiendo EN SEGUNDO PLANO durante el
+    //    wizard. Aquí NO lo re-subimos de forma síncrona (eso ralentizaba el
+    //    cierre y, si un chunk fallaba, lo abortaba entero — caso del 24/06).
+    //    Esperamos a que termine el background un tiempo ACOTADO; si no confirma,
+    //    seguimos igual: referenciamos lo subido (datos.videos) y el backend
+    //    ensambla los chunks que ya estén en Drive. La obra NO se pierde por el vídeo. ──
+    if (!esFallida && !state.isSuper && state.videos.length){
+      datos.cierreId = state.cierreId;
+      // v3.14.0: el cierre NO se completa sin el vídeo. Bloqueamos aquí hasta que
+      // la subida (que arrancó al seleccionar el vídeo) termine al 100%, con
+      // progreso visible. Si no había arrancado o quedó en error (reintento), se
+      // re-arranca. Si finalmente no se puede subir, LANZAMOS error → el cierre
+      // NO se da por bueno y el técnico puede reintentar. No se pierde nada: los
+      // chunks subidos quedan 48 h en el servidor y el vídeo sigue en el móvil.
+      if (!state.videoBg.promise || state.videoBg.error ||
+          _sigVideos(state.videos) !== state.videoBg.sig){
+        iniciarSubidaVideosBackground();
+      }
+      const _prog = setInterval(() => {
+        const vb = state.videoBg;
+        if (vb && vb.active){
+          document.getElementById('doneText').textContent =
+            (vb.phase === 'comprimiendo' ? '🎬 Optimizando vídeo ' : '☁️ Subiendo vídeo ') +
+            (vb.pct || 0) + '% · no cierres la app';
+        }
+      }, 500);
+      let metaOk = null, errVideo = null;
+      try { metaOk = await state.videoBg.promise; }
+      catch(e){ errVideo = e; }
+      clearInterval(_prog);
+      if (errVideo || !metaOk || !metaOk.length){
+        throw new Error('No se ha podido subir el vídeo (revisa la cobertura). ' +
+          'El resto del cierre está listo; pulsa Reintentar para completar la subida. ' +
+          'No se ha perdido nada: el vídeo sigue en tu móvil.');
+      }
+      datos.videos = metaOk;
+    }
+
+    // ── 4. Fallida (fotos + vídeos en INCIDENCIAS) ──
+    if (esFallida){
+      const fotosF = [];
+      let i = 0;
+      for (const f of state.fotosFallida){
+        document.getElementById('doneText').textContent = 'Procesando archivo ' + (i+1) + '...';
+        if (!f.b64 && f.promise){ try { await f.promise; } catch(e){} }
+        if (!f.b64){
+          const compressed = await compressImage(f.file);
+          const b64 = await fileToBase64(compressed, 'la foto ' + f.name);
+          f.b64 = b64.base64; f.contentType = b64.contentType;
+        }
+        fotosF.push({ nombre: f.name, base64: f.b64, contentType: f.contentType });
+        i++;
+      }
+      datos.fotosFallida = fotosF;
+
+      if (state.videosFallida.length){
+        // v3.13.2: si la subida del vídeo de la incidencia falla, NO abortamos el
+        // cierre; referenciamos lo subido (metaParcial) y marcamos vídeo incompleto.
+        let metaFallidaParcial = [];
+        try {
+          datos.videosFallida = await uploadVideosChunked(state.videosFallida, state.cierreId, 100,
+                                   null, (m) => { metaFallidaParcial.push(m); });
+        } catch(e){
+          datos.videosFallida = metaFallidaParcial;
+          datos.videoIncompleto = true;
+        }
+      }
+    }
+
+    // ── 5. POST único con metadatos (vídeos ya subidos por chunks) ──
+    document.getElementById('doneText').textContent = 'Enviando al sistema Búfala...';
+    document.getElementById('dataPct').textContent = '70%';
+    document.getElementById('dataBar').style.width = '70%';
+
+    await postCierre(datos);
+
+    document.getElementById('dataPct').textContent = '100%';
+    document.getElementById('dataBar').style.width = '100%';
+
+    // ── ÉXITO ──
+    document.getElementById('doneIcon').textContent = '✅';
+    if (datos.videoIncompleto){
+      document.getElementById('doneTitle').textContent = 'Cierre enviado';
+      document.getElementById('doneText').innerHTML =
+        'El cierre está <strong>recibido y a salvo</strong> en el servidor.<br>' +
+        '⚠️ El vídeo se subía con cobertura débil: el sistema lo montará con lo que haya llegado. ' +
+        'Si en unos minutos no aparece el vídeo en la carpeta de la obra, avisa a César para revisarlo.';
+      document.getElementById('doneWarning').style.display = 'none';
+    } else {
+      document.getElementById('doneTitle').textContent = 'Todo subido';
+      wakeLockOff();   // v3.17.0: trabajo terminado, la pantalla ya puede apagarse
+      document.getElementById('doneText').innerHTML =
+        'Recibido y a salvo en el servidor. El sistema archivará la obra automáticamente en ~1 minuto.<br>' +
+        'Ya puedes cerrar la app y, si lo necesitas, liberar espacio del móvil.';
+      document.getElementById('doneWarning').style.display = 'none';
+    }
+
+  } catch (err){
+    console.error('Error en submitClosure:', err);
+    // v3.12.8: si algo rechaza sin .message (evento, string...), mostrar algo útil
+    const msgErr = (err && err.message) ? err.message : ('Error inesperado: ' + String(err));
+    document.getElementById('doneIcon').textContent = '❌';
+    document.getElementById('doneTitle').textContent = 'Error al enviar';
+    document.getElementById('doneText').textContent = msgErr + '\n\nPuedes reintentar pulsando el botón.';
+    document.getElementById('doneActions').style.display = 'block';
+    document.getElementById('doneActions').innerHTML =
+      '<button type="button" class="nav-btn nav-btn-next" onclick="reintentar()">↻ Reintentar</button>';
+  } finally {
+    // v3.13.x: el envío ha concluido (éxito o error) → se libera la guardia.
+    // Durante los reintentos de postCierre seguimos dentro del try, así que el
+    // flag permanece activo hasta que de verdad termina todo el proceso.
+    enviandoCierre = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUBIDA DE VÍDEOS POR CHUNKS — usa endpoint videoChunk del Apps Script
+// Devuelve un array con la metadata de cada vídeo (para enviar en datos.videos)
+// videoIndexOffset permite separar los índices entre videos normales y fallida
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// COMPRESIÓN DE VÍDEO EN EL MÓVIL ANTES DE SUBIR (v3.10.4 / 20-may-2026)
+// ═══════════════════════════════════════════════════════════════
+// Comprime un vídeo a 720p / 1.5 Mbps antes de chunkear/subirlo.
+// Vídeo típico de 150 MB → 25-40 MB. Reduce tiempo de subida 4-6×.
+// Si por cualquier motivo la compresión no es posible (codec no
+// soportado, memoria, timeout), devuelve el archivo ORIGINAL sin
+// error → el wizard sigue funcionando como antes.
+async function comprimirVideo(file, onProgress){
+  const TIMEOUT_MS = 240000; // 4 min: da tiempo a comprimir vídeos largos antes de caer al original
+  const MAX_WIDTH = 1280;
+  const MAX_HEIGHT = 1280;
+  const VIDEO_BITRATE = 1500000;
+  const AUDIO_BITRATE = 96000;
+  const FPS = 24;
+
+  if (typeof MediaRecorder === 'undefined' ||
+      !HTMLCanvasElement.prototype.captureStream){
+    return file;
+  }
+
+  let mimeType = '';
+  for (const m of ['video/mp4;codecs=h264,aac',
+                   'video/mp4;codecs=h264',
+                   'video/webm;codecs=vp9,opus',
+                   'video/webm;codecs=vp8,opus',
+                   'video/webm']){
+    if (MediaRecorder.isTypeSupported(m)){ mimeType = m; break; }
+  }
+  if (!mimeType) return file;
+
+  return new Promise((resolve) => {
+    let resolved = false, timeoutId = null;
+    const fallback = (motivo) => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      console.warn('[comprimirVideo] Fallback al original: ' + motivo);
+      resolve(file);
+    };
+
+    try {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      const urlBlob = URL.createObjectURL(file);
+      video.src = urlBlob;
+      video.onerror = () => fallback('error cargando vídeo');
+
+      video.onloadedmetadata = () => {
+        try {
+          let w = video.videoWidth;
+          let h = video.videoHeight;
+          if (w > MAX_WIDTH || h > MAX_HEIGHT){
+            const ratio = Math.min(MAX_WIDTH/w, MAX_HEIGHT/h);
+            w = Math.round(w * ratio / 2) * 2;
+            h = Math.round(h * ratio / 2) * 2;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          const canvasStream = canvas.captureStream(FPS);
+          try {
+            if (video.captureStream){
+              const orig = video.captureStream();
+              orig.getAudioTracks().forEach(t => canvasStream.addTrack(t));
+            }
+          } catch(e){ console.warn('[comprimirVideo] sin audio:', e); }
+
+          const recorder = new MediaRecorder(canvasStream, {
+            mimeType: mimeType,
+            videoBitsPerSecond: VIDEO_BITRATE,
+            audioBitsPerSecond: AUDIO_BITRATE
+          });
+          const chunks = [];
+          recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+          recorder.onerror = () => fallback('error MediaRecorder');
+          recorder.onstop = () => {
+            try {
+              if (resolved) return;
+              resolved = true;
+              if (timeoutId) clearTimeout(timeoutId);
+              URL.revokeObjectURL(urlBlob);
+              if (chunks.length === 0){ resolve(file); return; }
+              const blob = new Blob(chunks, { type: mimeType });
+              if (blob.size >= file.size * 0.95){
+                console.log('[comprimirVideo] no mejora, usando original');
+                resolve(file);
+                return;
+              }
+              const ext = mimeType.indexOf('mp4') >= 0 ? '.mp4' : '.webm';
+              const nuevoNombre = file.name.replace(/\.[^.]+$/, '') + ext;
+              const compressed = new File([blob], nuevoNombre, {
+                type: mimeType,
+                lastModified: Date.now()
+              });
+              console.log('[comprimirVideo] ✅ ' +
+                Math.round(file.size/1024/1024) + 'MB → ' +
+                Math.round(compressed.size/1024/1024) + 'MB');
+              resolve(compressed);
+            } catch(e){ fallback('onstop: ' + e); }
+          };
+
+          let lastDraw = 0;
+          const drawFrame = () => {
+            if (resolved || video.ended){
+              if (!resolved && recorder.state === 'recording') recorder.stop();
+              return;
+            }
+            const now = performance.now();
+            if (now - lastDraw >= 1000/FPS){
+              ctx.drawImage(video, 0, 0, w, h);
+              lastDraw = now;
+              if (onProgress && video.duration > 0){
+                onProgress(Math.min(99, Math.round((video.currentTime/video.duration)*100)));
+              }
+            }
+            requestAnimationFrame(drawFrame);
+          };
+
+          video.onended = () => {
+            if (recorder.state === 'recording') recorder.stop();
+          };
+
+          timeoutId = setTimeout(() => {
+            if (recorder.state === 'recording') recorder.stop();
+            fallback('timeout ' + TIMEOUT_MS + 'ms');
+          }, TIMEOUT_MS);
+
+          recorder.start(1000);
+          video.play().then(() => drawFrame()).catch((e) => fallback('play: ' + e));
+
+        } catch(e){ fallback('setup: ' + e); }
+      };
+    } catch(e){ fallback('general: ' + e); }
+  });
+}
+
+async function uploadVideosChunked(videos, cierreId, videoIndexOffset, onProgress, onMeta){
+  const meta = [];
+  for (let vi = 0; vi < videos.length; vi++){
+    const v = videos[vi];
+    if (v.stablePromise){ try { await v.stablePromise; } catch(e){} }   // v3.13.3: bytes estables en memoria antes de leer/chunkear
+    let file = v.file;
+    let nombre = v.name;
+
+    // ▶ v3.10.4: comprimir antes de subir
+    document.getElementById('doneText').textContent =
+      'Optimizando vídeo ' + (vi+1) + '/' + videos.length + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)...';
+    try {
+      const comprimido = await comprimirVideo(file, (pct) => {
+        document.getElementById('doneText').textContent =
+          'Optimizando vídeo ' + (vi+1) + '/' + videos.length + ' · ' + pct + '%';
+        if (onProgress) onProgress(pct, 'comprimiendo');
+      });
+      if (comprimido !== file){
+        file = comprimido;
+        // Ajustar extensión del nombre según mime real
+        if (file.type.indexOf('webm') >= 0){
+          nombre = nombre.replace(/\.[^.]+$/, '') + '.webm';
+        } else if (file.type.indexOf('mp4') >= 0){
+          nombre = nombre.replace(/\.[^.]+$/, '') + '.mp4';
+        }
+      }
+    } catch(e){
+      console.warn('Error comprimiendo, subiendo original:', e);
+    }
+    // ◀
+
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE_RAW);
+    const videoIndex = (videoIndexOffset || 0) + vi;
+
+    // v3.13.2: registrar la meta del vídeo ANTES de subir los chunks, para que el
+    // envío pueda referenciarlo aunque algún chunk no confirme (degradación
+    // elegante: el backend ensambla los chunks que sí llegaron a Drive).
+    const metaEntry = { chunked:true, cierreId:cierreId, videoIndex:videoIndex,
+                        totalChunks:totalChunks, nombre:nombre, mimeType:(file.type || 'video/mp4') };
+    meta.push(metaEntry);
+    if (onMeta){ try { onMeta(metaEntry); } catch(e){} }
+
+    document.getElementById('doneText').textContent =
+      'Subiendo vídeo ' + (vi+1) + '/' + videos.length + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)...';
+
+    // v3.10.5: subida de chunks EN PARALELO (3 a la vez) para acelerar.
+    // El chunk 0 va solo primero (crea la carpeta temporal en Drive sin carreras);
+    // el resto se envían en lotes concurrentes.
+    // v3.14.2: 3 chunks EN PARALELO (como antes de v3.14.1) para que la subida sea
+    // RÁPIDA. Lo que hacía fallar el vídeo NO era el paralelismo, sino el TAMAÑO:
+    // un chunk de 12 MB no pasaba por Apps Script. Ahora cada chunk es de 4 MB
+    // (tamaño probado), así que 3 en paralelo son 3 POST pequeños y fiables a la
+    // vez → rápido y sin fallos. Con timeout de 180 s hay margen de sobra en 4G flojo.
+    const CHUNK_CONCURRENCY = 3;
+    const CHUNK_REINTENTOS = 4;   // 5 intentos por chunk (1 + 4) para cobertura mala
+    const CHUNK_BACKOFF_MS = [1500, 3000, 5000, 8000];  // espera antes de cada reintento
+    let chunksHechos = 0;
+    const enviarChunk = async (ci) => {
+      const start = ci * CHUNK_SIZE_RAW;
+      const end   = Math.min(start + CHUNK_SIZE_RAW, file.size);
+      // v3.12.8: lectura + POST con reintentos y espera creciente (1,5 s / 3 s):
+      // en 4G flojo un fragmento puede fallar puntualmente sin que la subida
+      // entera tenga que morir.
+      let ultimoError = null;
+      for (let intento = 0; intento <= CHUNK_REINTENTOS; intento++){
+        try {
+          const b64data = await blobToBase64Raw(file.slice(start, end));
+          await postChunk({
+            action:      'videoChunk',
+            cierreId:    cierreId,
+            videoIndex:  String(videoIndex),
+            chunkIndex:  String(ci),
+            totalChunks: String(totalChunks),
+            base64:      b64data
+          });
+          ultimoError = null;
+          break;
+        } catch(e){
+          ultimoError = e;
+          if (intento < CHUNK_REINTENTOS) await new Promise(r => setTimeout(r, CHUNK_BACKOFF_MS[intento] || 8000));
+        }
+      }
+      if (ultimoError) throw ultimoError;
+      chunksHechos++;
+      const overall = ((vi + chunksHechos / totalChunks) / videos.length) * 100;
+      const pct = Math.min(99, Math.round(overall));
+      document.getElementById('vidPct').textContent = pct + '%';
+      document.getElementById('vidBar').style.width = pct + '%';
+      if (onProgress) onProgress(pct, 'subiendo');
+    };
+    if (totalChunks > 0) await enviarChunk(0);              // crea la carpeta temporal
+    for (let ci = 1; ci < totalChunks; ci += CHUNK_CONCURRENCY){
+      const lote = [];
+      for (let k = 0; k < CHUNK_CONCURRENCY && (ci + k) < totalChunks; k++) lote.push(enviarChunk(ci + k));
+      await Promise.all(lote);
+    }
+
+    // (la meta de este vídeo ya se añadió arriba, antes de subir los chunks)
+  }
+  document.getElementById('vidPct').textContent = '100%';
+  document.getElementById('vidBar').style.width = '100%';
+  return meta;
+}
+
+// Convertir un Blob a base64 puro (sin prefijo data:)
+function blobToBase64Raw(blob){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const i = result.indexOf(',');
+      resolve(i >= 0 ? result.substring(i + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Error leyendo chunk'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// POST de un chunk al Apps Script (fetch no-cors, esperamos a que termine)
+function _sigVideos(videos){
+  // v3.13.3: firma estable aunque entry.file pase de File a Blob al estabilizar
+  // (un Blob no tiene .name). Se usa nombre lógico + tamaño, que no cambian.
+  return (videos || []).map(v => (v.name || '') + ':' + ((v.file && v.file.size) || 0)).join('|');
+}
+
+// v3.10.5: arranca (o re-arranca si cambió la selección) el procesado + subida del
+// vídeo EN SEGUNDO PLANO, para solaparlo con el rellenado del wizard.
+function iniciarSubidaVideosBackground(){
+  if (state.isSuper) return;
+  if (!state.videos || state.videos.length === 0) return;
+  const sig = _sigVideos(state.videos);
+  if (state.videoBg.sig === sig && state.videoBg.promise) return; // ya en curso/hecho para estos vídeos
+  // Selección nueva o cambiada → nuevo cierreId (carpeta temporal limpia) e invalida lo anterior
+  state.videoBg.token++;
+  const myToken = state.videoBg.token;
+  state.cierreId = (state.cita.numInst || 'INST') + '_' + Date.now();
+  Object.assign(state.videoBg, { sig:sig, active:true, done:false, error:null, pct:0, phase:'comprimiendo', meta:null, metaParcial:null });
+  updateUploadIndicator();
+  const cid = state.cierreId;
+  wakeLockOn();   // v3.17.0: pantalla despierta durante la subida del vídeo
+  state.videoBg.promise = uploadVideosChunked(state.videos, cid, 0, (pct, phase) => {
+    if (myToken !== state.videoBg.token) return;          // progreso obsoleto
+    state.videoBg.pct = pct; state.videoBg.phase = phase || '';
+    updateUploadIndicator();
+  }, (m) => {
+    // v3.13.2: meta del vídeo en cuanto se conoce (antes de subir chunks), para
+    // poder referenciarlo en el envío aunque la subida no llegue a confirmar.
+    if (myToken !== state.videoBg.token) return;
+    state.videoBg.metaParcial = (state.videoBg.metaParcial || []).concat([m]);
+  }).then(meta => {
+    if (myToken !== state.videoBg.token) return null;     // resultado obsoleto
+    Object.assign(state.videoBg, { meta:meta, done:true, active:false, pct:100, phase:'' });
+    updateUploadIndicator();
+    return meta;
+  }).catch(err => {
+    if (myToken !== state.videoBg.token) return null;
+    Object.assign(state.videoBg, { error:err, active:false });
+    updateUploadIndicator();
+    throw err;
+  });
+}
+
+function postChunk(params){
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    Object.keys(params).forEach(k => fd.append(k, params[k]));
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 180000; // v3.14.1: 3 min por chunk (margen amplio para 4G flojo con chunks de 4 MB)
+    // v3.13.0: verificar la respuesta real (antes cualquier onload contaba como
+    // éxito, incluso el HTML de un despliegue roto → chunk "subido" falso).
+    xhr.onload  = () => {
+      let r = null; try { r = JSON.parse(xhr.responseText); } catch(e){}
+      if (r && r.ok === true) resolve();
+      else reject(new Error('El servidor no ha confirmado un fragmento del vídeo (respuesta inesperada)'));
+    };
+    xhr.onerror = () => reject(new Error('Error de red al subir un fragmento del vídeo'));
+    xhr.ontimeout = () => reject(new Error('Timeout al subir un fragmento del vídeo'));
+    xhr.send(fd);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v3.13.0 — FOTOS/ACTA EN BACKGROUND (mismo patrón que los chunks)
+// ═══════════════════════════════════════════════════════════════
+// Id estable de la sesión para la carpeta temporal del servidor
+function ensureFotosTmpId(){
+  if (!state.fotosTmpId){
+    state.fotosTmpId = ((state.cita.numInst || 'INST') + '_F' + Date.now()).replace(/[^\w\-]/g, '_');
+  }
+  return state.fotosTmpId;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v3.17.0 — WAKE LOCK: la pantalla NO se apaga sola mientras haya trabajo
+// (subidas en curso o envío). No puede impedir el bloqueo MANUAL con el botón,
+// pero elimina el apagado automático por inactividad — la causa de todos los
+// cierres a medias (24/06, 15/07, 22/07, 27/07). Si el navegador no lo
+// soporta, se sigue sin él en silencio.
+// ═══════════════════════════════════════════════════════════════
+let _wakeLock = null;
+let _wakeLockQuerido = false;   // intención: re-adquirir al volver a la app
+async function wakeLockOn(){
+  _wakeLockQuerido = true;
+  try {
+    if (!_wakeLock && 'wakeLock' in navigator) {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    }
+  } catch(e) { _wakeLock = null; }
+}
+function wakeLockOff(){
+  _wakeLockQuerido = false;
+  try { if (_wakeLock) _wakeLock.release(); } catch(e) {}
+  _wakeLock = null;
+}
+// El sistema suelta el lock al cambiar de app: re-adquirir al volver
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && _wakeLockQuerido) wakeLockOn();
+});
+
+// v3.17.0 — GATE DE SUBIDAS: espera a que TODAS las subidas en background de
+// fotos y acta terminen (ok o error) antes de recolectar el envío. Las que
+// acaben en error irán inline en el payload (fallback de siempre); lo que ya
+// no se permite es enviar con subidas EN VUELO (así se repartían fotos entre
+// el temporal y la nada). Con el Wake Lock activo la espera no muere por
+// pantalla apagada. Cada subida tiene 3 intentos con timeout: esta espera
+// siempre termina.
+async function esperarSubidasBg(){
+  const pendientes = [];
+  const recoger = (ph) => { if (ph && ph.bgEstado === 'subiendo' && ph.bgPromise) pendientes.push(ph.bgPromise); };
+  Object.keys(state.photos).forEach(k => recoger(state.photos[k]));
+  ['altAndamio','altElevadora','soterrM'].forEach(id => (state.trabajosFotos[id] || []).forEach(recoger));
+  if (state.pdfActa) recoger(state.pdfActa);
+  if (!pendientes.length) return;
+  document.getElementById('doneText').textContent =
+    'Terminando de subir fotos y acta (' + pendientes.length + ' pendiente' + (pendientes.length === 1 ? '' : 's') + ')... No bloquees el móvil.';
+  await Promise.allSettled(pendientes);
+}
+
+// Sube un archivo (foto/acta) a la carpeta temporal, con verificación real
+// (ok:true) y 3 intentos con espera creciente. Petición SIMPLE (sin preflight).
+function postRefBg(nombreTmp, base64, contentType){
+  const intento = () => new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('action', 'fotoBg');
+    fd.append('cierreId', ensureFotosTmpId());
+    fd.append('nombre', nombreTmp);
+    fd.append('base64', base64);
+    fd.append('contentType', contentType || 'image/jpeg');
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 120000;
+    xhr.onload = () => {
+      let r = null; try { r = JSON.parse(xhr.responseText); } catch(e){}
+      if (r && r.ok === true) resolve();
+      else reject(new Error('Sin confirmación del servidor'));
+    };
+    xhr.onerror = () => reject(new Error('Error de red'));
+    xhr.ontimeout = () => reject(new Error('Timeout'));
+    xhr.send(fd);
+  });
+  return intento()
+    .catch(() => new Promise(r => setTimeout(r, 1500)).then(intento))
+    .catch(() => new Promise(r => setTimeout(r, 3000)).then(intento));
+}
+
+// Encadena la subida en background tras el procesado local de una foto.
+// Si no confirma (bgEstado 'error'), el envío final la incluirá inline.
+function lanzarSubidaBgFoto(entry){
+  if (state.isSuper) return;
+  wakeLockOn();   // v3.17.0: pantalla despierta mientras suben fotos
+  entry.tmpNombre = 'FOTO_' + Date.now() + '_' + Math.floor(Math.random() * 1e6) + '.jpg';
+  entry.bgEstado = 'subiendo';
+  entry.bgPromise = postRefBg(entry.tmpNombre, entry.b64, entry.contentType)
+    .then(() => { entry.bgEstado = 'ok'; updateUploadIndicator(); })
+    .catch(() => { entry.bgEstado = 'error'; updateUploadIndicator(); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POST AL APPS SCRIPT — v3.12.9: XHR con VERIFICACIÓN REAL
+// Antes: formulario a un iframe ciego + "éxito" asumido a los 5 s. Si el
+// despliegue estaba roto o el servidor fallaba, el wizard decía "Todo subido"
+// con el cierre perdido (así se perdieron los 2 cierres del 10/06). Ahora se
+// espera la respuesta JSON del doPost ({ok, errores[]}) y solo hay éxito si
+// ok === true. Cualquier otra cosa (HTML de error de Google, login, caída de
+// red, timeout) se muestra como error con instrucciones.
+// El formulario oculto bufalaPostForm queda en el HTML pero ya no se usa.
+// ═══════════════════════════════════════════════════════════════
+function postCierre(datos){
+  let payloadStr;
+  try {
+    payloadStr = JSON.stringify(datos);
+  } catch(err){ return Promise.reject(err); }
+  if (payloadStr.length > 10 * 1024 * 1024){
+    console.warn('Payload grande:', (payloadStr.length / 1024 / 1024).toFixed(1), 'MB');
+  }
+
+  // Progreso: ticker suave 70 → 97 % mientras llega la confirmación real (uno solo
+  // para toda la secuencia de reintentos).
+  let pctEnvio = 70;
+  const pintarEnvio = () => {
+    document.getElementById('dataPct').textContent = pctEnvio + '%';
+    document.getElementById('dataBar').style.width = pctEnvio + '%';
+  };
+  pintarEnvio();
+  const tickerEnvio = setInterval(() => {
+    if (pctEnvio < 97){ pctEnvio++; pintarEnvio(); }
+  }, 2000);
+
+  // v3.13.x: REINTENTOS AUTOMÁTICOS del POST final. Antes era 1 solo intento:
+  // un corte de red/timeout puntual obligaba al técnico a reenviar a mano, y si
+  // no lo hacía el cierre se quedaba sin encolar (fotos en _TMP_VIDEOS pero sin
+  // COLA_). Ahora se reintenta con esperas crecientes. Es SEGURO frente a
+  // duplicados: el backend deduplica por cierreId (procesa el primero, marca
+  // done_, los COLA_ repetidos quedan como DUP_ y se ignoran).
+  const MAX_INTENTOS = 4;
+  const ESPERAS_MS   = [0, 2000, 4000, 8000];  // antes de cada intento
+
+  const unaPeticion = () => new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('payload', payloadStr);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', WEB_APP_URL, true);
+    xhr.timeout = 300000;
+
+    // v3.12.10: SIN listeners en xhr.upload (evita preflight OPTIONS que Apps
+    // Script no contesta → CORS). Petición simple = POST + FormData.
+    xhr.onload = () => {
+      let r = null;
+      try { r = JSON.parse(xhr.responseText); } catch(e){ /* respuesta no JSON */ }
+      if (r && r.ok === true){
+        resolve(r);
+      } else if (r && r.ok === false){
+        const det = (r.errores && r.errores.length) ? r.errores.join(' · ') : 'error desconocido';
+        reject(new Error('El sistema ha rechazado el cierre: ' + det +
+                         '\nEl cierre NO está guardado. Reintenta y, si se repite, avisa a César.'));
+      } else {
+        reject(new Error('El sistema ha respondido algo inesperado (HTTP ' + xhr.status +
+                         ', no es la confirmación del backend). El cierre NO está guardado. ' +
+                         'Reintenta y, si se repite, avisa a César: puede ser un problema del despliegue.'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('No se ha podido contactar con el sistema Búfala (sin red o bloqueado). ' +
+                                         'El cierre NO está guardado. Comprueba la cobertura y reintenta.'));
+    xhr.ontimeout = () => reject(new Error('El sistema no ha confirmado el cierre en 5 minutos. ' +
+                                           'Es posible que NO esté guardado. Reintenta; si se repite, avisa a César antes de salir de la obra.'));
+    xhr.send(fd);
+  });
+
+  return new Promise((resolve, reject) => {
+    let intento = 0;
+    const probar = () => {
+      intento++;
+      if (intento > 1){
+        const dt = document.getElementById('doneText');
+        if (dt) dt.textContent = 'Reintentando envío (' + intento + '/' + MAX_INTENTOS + ')… No cierres la app.';
+      }
+      const espera = ESPERAS_MS[intento - 1] || 8000;
+      setTimeout(() => {
+        unaPeticion().then(
+          (r)   => { clearInterval(tickerEnvio); resolve(r); },
+          (err) => {
+            if (intento < MAX_INTENTOS){
+              console.warn('postCierre intento ' + intento + ' fallido, reintentando:', err && err.message);
+              probar();
+            } else {
+              clearInterval(tickerEnvio);
+              reject(err);
+            }
+          }
+        );
+      }, espera);
+    };
+    probar();
+  });
+}
+
+function reintentar(){
+  document.getElementById('navBar').style.display = 'flex';
+  document.getElementById('doneActions').style.display = 'none';
+  if (state.esIntervencion){
+    // v3.16.0: la pantalla SAT tiene su propio botón; la barra de navegación sobra
+    showScreen('sat');
+    document.getElementById('navBar').style.display = 'none';
+    return;
+  }
+  showScreen(state.type === 'fallida' ? 'failed' : 12);
+}
+
+function nuevoCierre(){
+  // Recargar la página (el técnico tendrá que pasar por otro link de Calendar)
+  if (confirm('¿Iniciar un nuevo cierre? Los datos actuales se perderán.')){
+    location.href = location.pathname; // sin params
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v1.0.0 ESBRAIN — ajustes de interfaz al arrancar
+// ═══════════════════════════════════════════════════════════════
+function initEsbrainUI(){
+  // Teléfono del cliente como botón de llamada
+  if (state.cita.telefono){
+    var tel = state.cita.telefono.replace(/[^\d+ ]/g, '');
+    var telEl = document.getElementById('dataTelefono');
+    if (telEl) telEl.innerHTML = '<a href="tel:' + tel.replace(/\s+/g,'') + '" style="color:inherit; text-decoration:underline">📞 ' + tel + '</a>';
+  }
+  // Línea de presupuesto de la ficha ESBRAIN
+  if (state.cita.desc){
+    var prEl = document.getElementById('dataPresup');
+    if (prEl) prEl.textContent = state.cita.desc;
+  }
+  // Pre-selección del tipo según ESBRAIN (el técnico puede cambiarla)
+  if (!state.type){
+    if (state.cita.preinst) selectType('nuevoSuministro');
+    else if (/COMUNITARI/i.test(state.cita.garaje || '')) selectType('comunitaria');
+    else if (/UNIFAMILIAR/i.test(state.cita.garaje || '')) selectType('unifamiliar');
+  }
+  // Metros presupuestados como referencia en la pantalla de metros
+  if (state.cita.metrosPres){
+    var h = document.getElementById('hintMetrosPres');
+    if (h){ h.textContent = '📐 ESBRAIN: ' + state.cita.metrosPres + ' m presupuestados (indica aquí los REALES instalados)'; h.style.display = 'block'; }
+  }
+  // Sin vídeos en este flujo: fuera su barra de progreso en la pantalla final
+  try {
+    var vp = document.getElementById('vidPct');
+    if (vp && vp.closest){ var fila = vp.closest('.success-progress-row'); if (fila) fila.style.display = 'none'; }
+    var vb = document.getElementById('vidBar');
+    if (vb && vb.parentElement) vb.parentElement.style.display = 'none';
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INICIO
+// ═══════════════════════════════════════════════════════════════
+parseUrlParams();
+checkSuperOnLoad();
+renderSteps();
+renderChecklist();
+initEsbrainUI();   // v1.0.0 ESBRAIN
+if (state.esIntervencion){
+  // v3.16.0: flujo INTERVENCIÓN SAT — directo a la pantalla única, sin pasos
+  document.getElementById('satCliente').textContent   = state.cita.cliente   || '—';
+  document.getElementById('satDireccion').textContent = state.cita.direccion || '—';
+  document.getElementById('satNumInst').textContent   = state.cita.numInst   || '—';
+  document.getElementById('satEquipo').textContent    = state.cita.equipo    || '—';
+  var pcInterv = document.querySelector('.progress-container');
+  if (pcInterv) pcInterv.style.display = 'none';
+  showScreen('sat');
+  document.getElementById('navBar').style.display = 'none';
+} else {
+  showScreen(1);
+}
+</script>
+
+</body>
+</html>
