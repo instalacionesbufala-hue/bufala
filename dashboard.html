@@ -476,7 +476,8 @@
         <select id="filtroBrigada" onchange="onFiltroChange()"></select>
       </div>
       <button class="btn-theme" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro">🌙</button>
-      <button class="btn-logout" onclick="forzarActualizacion()" title="Buscar última versión y recargar">🔄 Actualizar</button>
+      <button class="btn-logout" onclick="recargarDatosFrescos()" title="Recalcular los datos en el servidor, ignorando toda caché (tarda unos segundos)">⚡ Datos frescos</button>
+      <button class="btn-logout" onclick="forzarActualizacion()" title="Buscar última versión del dashboard y recargar">🔄 Actualizar</button>
       <button class="btn-logout" onclick="logout()">Salir</button>
     </div>
   </div>
@@ -613,11 +614,95 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260717-1200";
+const DASHBOARD_BUILD = "20260807-1500";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
 const THEME_KEY = "bufala_dashboard_theme_v1";
+
+// ── build 20260807-1500 · CACHÉ LOCAL (localStorage) ──────────────
+// El backend v3.16.0 cachea el payload en servidor, pero la PRIMERA
+// petición de cada sesión sigue costando su viaje de red. Aquí se guarda
+// el último payload de cada combinación mes+brigada para pintar al
+// instante y refrescar en segundo plano ("stale-while-revalidate"):
+// se ve el dashboard nada más abrirlo y los datos se actualizan solos.
+const LS_PREFIX      = "bufala_dash_v1_";
+const LS_MAX_ENTRADAS = 12;    // se rotan las más antiguas al llegar al tope
+const LS_MAX_EDAD_MIN = 720;   // 12 h: más viejo que esto no se pinta
+const PREFETCH_DELAY_MS = 1800; // margen tras pintar antes de precargar
+let prefetchHecho = {};         // combinaciones ya precargadas en esta sesión
+
+function lsClave(mes, brigada) {
+  return LS_PREFIX + (mes || 'auto') + '__' + (brigada || 'todas');
+}
+
+function lsGuardar(mes, brigada, data) {
+  try {
+    localStorage.setItem(lsClave(mes, brigada),
+      JSON.stringify({ ts: Date.now(), build: DASHBOARD_BUILD, data: data }));
+    lsRotar();
+  } catch (e) {
+    // Cuota llena: se limpia lo viejo y se reintenta una vez.
+    try { lsLimpiarTodo(); localStorage.setItem(lsClave(mes, brigada),
+      JSON.stringify({ ts: Date.now(), build: DASHBOARD_BUILD, data: data })); } catch (e2) {}
+  }
+}
+
+function lsLeer(mes, brigada) {
+  try {
+    const raw = localStorage.getItem(lsClave(mes, brigada));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.data) return null;
+    // Un payload guardado por otra build puede no encajar con este render.
+    if (obj.build !== DASHBOARD_BUILD) return null;
+    if ((Date.now() - (obj.ts || 0)) / 60000 > LS_MAX_EDAD_MIN) return null;
+    obj.data.__localTs = obj.ts;
+    return obj.data;
+  } catch (e) { return null; }
+}
+
+function lsEntradas() {
+  const out = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(LS_PREFIX) === 0) {
+        let ts = 0;
+        try { ts = (JSON.parse(localStorage.getItem(k)) || {}).ts || 0; } catch (e) {}
+        out.push({ k: k, ts: ts });
+      }
+    }
+  } catch (e) {}
+  return out;
+}
+
+function lsRotar() {
+  try {
+    const e = lsEntradas();
+    if (e.length <= LS_MAX_ENTRADAS) return;
+    e.sort((a, b) => a.ts - b.ts);              // más antiguas primero
+    e.slice(0, e.length - LS_MAX_ENTRADAS).forEach(x => localStorage.removeItem(x.k));
+  } catch (e) {}
+}
+
+function lsLimpiarTodo() {
+  try { lsEntradas().forEach(x => localStorage.removeItem(x.k)); } catch (e) {}
+}
+
+function textoFrescura(data) {
+  const meta = (data && data.meta) || {};
+  if (data && data.__stale) {
+    const min = Math.round((Date.now() - (data.__localTs || Date.now())) / 60000);
+    return min < 1 ? 'datos de hace menos de 1 min · actualizando…'
+                   : 'datos de hace ' + min + ' min · actualizando…';
+  }
+  if (meta.cache) {
+    const min = Math.round((meta.cacheEdadS || 0) / 60);
+    return min < 1 ? 'recién calculado (caché)' : 'calculado hace ' + min + ' min';
+  }
+  return 'recién calculado';
+}
 
 // ── PALETA FIJA (spec v3 visual) ──
 const COL_VERDE     = '#2D6A4F';  // Búfala 1 / verde corporativo
@@ -768,39 +853,114 @@ function fmtValor(v, formato) {
 // ═══════════════════════════════════════════════════════════════
 async function initDashboard() { aplicarIconoTema(); await loadDashboardData(); }
 
-async function loadDashboardData() {
+function urlDashboard(mes, brigada, noCache) {
+  let url = ENDPOINT + '?action=dashboard';
+  if (mes) url += '&mes=' + encodeURIComponent(mes);
+  if (brigada && brigada !== 'todas') url += '&brigada=' + encodeURIComponent(brigada);
+  if (noCache) url += '&nocache=1';
+  return url;
+}
+
+// noCache=true fuerza al backend a reconstruir el payload (ignora su caché).
+async function loadDashboardData(noCache) {
   ultimaCargaDatos = Date.now();
-  document.getElementById('loader').style.display = 'block';
-  document.getElementById('dashContent').style.display = 'none';
   document.getElementById('errorArea').innerHTML = '';
 
-  let url = ENDPOINT + '?action=dashboard';
-  if (currentMes) url += '&mes=' + encodeURIComponent(currentMes);
-  if (currentBrigada && currentBrigada !== 'todas') url += '&brigada=' + encodeURIComponent(currentBrigada);
+  const mes = currentMes, brigada = currentBrigada;
 
+  // ── 1. Pintar YA lo que haya en local (salvo recarga forzada) ──
+  let pintadoLocal = false;
+  if (!noCache) {
+    const local = lsLeer(mes, brigada);
+    if (local) {
+      local.__stale = true;
+      lastData = local;
+      try {
+        renderDashboard(local);
+        primeraCarga = false;
+        pintadoLocal = true;
+      } catch (e) { console.warn('[dashboard] caché local no renderizable:', e); }
+    }
+  }
+
+  if (!pintadoLocal) {
+    document.getElementById('loader').style.display = 'block';
+    document.getElementById('dashContent').style.display = 'none';
+  }
+
+  // ── 2. Traer datos frescos ──
   try {
-    const res = await fetch(url, { method: 'GET' });
+    const res = await fetch(urlDashboard(mes, brigada, noCache), { method: 'GET' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Respuesta sin datos');
+
+    // Si el usuario cambió de filtro mientras llegaba, esta respuesta ya no vale.
+    if (mes !== currentMes || brigada !== currentBrigada) return;
+
+    lsGuardar(mes, brigada, data);
     lastData = data;
     renderDashboard(data);
     primeraCarga = false;
+    programarPrefetch(data);
   } catch (err) {
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('errorArea').innerHTML =
-      '<div class="error-box">' +
-        '<div class="err-title">⚠️ No se pudo cargar el dashboard</div>' +
-        '<div class="err-detail">' + (err.message || err) + '</div>' +
-        '<div style="margin-top:10px"><button class="btn-logout" style="background:#991B1B" onclick="loadDashboardData()">Reintentar</button></div>' +
-      '</div>';
+    if (pintadoLocal) {
+      // Hay algo en pantalla: avisar sin tapar los datos.
+      document.getElementById('errorArea').innerHTML =
+        '<div class="error-box" style="background:#FEF3C7; border-color:#F59E0B; color:#92400E">' +
+          '<div class="err-title">⚠️ Mostrando datos guardados</div>' +
+          '<div class="err-detail">No se pudo contactar con el servidor (' + (err.message || err) + ').</div>' +
+          '<div style="margin-top:10px"><button class="btn-logout" style="background:#92400E" onclick="loadDashboardData(true)">Reintentar</button></div>' +
+        '</div>';
+    } else {
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('errorArea').innerHTML =
+        '<div class="error-box">' +
+          '<div class="err-title">⚠️ No se pudo cargar el dashboard</div>' +
+          '<div class="err-detail">' + (err.message || err) + '</div>' +
+          '<div style="margin-top:10px"><button class="btn-logout" style="background:#991B1B" onclick="loadDashboardData()">Reintentar</button></div>' +
+        '</div>';
+    }
   }
+}
+
+// Precarga silenciosa de las otras brigadas del mes visible, para que
+// cambiar el filtro sea instantáneo. Secuencial y con margen, para no
+// competir con la carga principal ni saturar el backend.
+function programarPrefetch(data) {
+  try {
+    const brigadas = ((data.filtros || {}).brigadas || []).slice(0, 6);
+    const mes = (data.meta || {}).mes;
+    if (!mes || brigadas.length < 2) return;
+
+    setTimeout(async () => {
+      for (const b of brigadas) {
+        if (b === currentBrigada) continue;
+        const marca = mes + '|' + b;
+        if (prefetchHecho[marca]) continue;
+        if (lsLeer(mes, b)) { prefetchHecho[marca] = true; continue; }
+        try {
+          const r = await fetch(urlDashboard(mes, b, false), { method: 'GET' });
+          if (!r.ok) continue;
+          const d = await r.json();
+          if (d && d.ok) { lsGuardar(mes, b, d); prefetchHecho[marca] = true; }
+        } catch (e) { /* el prefetch nunca molesta al usuario */ }
+      }
+    }, PREFETCH_DELAY_MS);
+  } catch (e) {}
 }
 
 function onFiltroChange() {
   currentMes = document.getElementById('filtroMes').value || null;
   currentBrigada = document.getElementById('filtroBrigada').value || 'todas';
   loadDashboardData();
+}
+
+// Botón «⚡ Datos frescos»: ignora caché local y de servidor.
+function recargarDatosFrescos() {
+  lsLimpiarTodo();
+  prefetchHecho = {};
+  loadDashboardData(true);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -830,7 +990,8 @@ function renderDashboard(data) {
     document.getElementById('subtitle').textContent =
       (meta.mesLabel || '') + ' · ' +
       (meta.brigadaFiltro === 'todas' || !meta.brigadaFiltro ? 'Todas las brigadas' : meta.brigadaFiltro) +
-      ' · Actualizado ' + new Date(meta.generado || Date.now()).toLocaleString('es-ES');
+      ' · ' + textoFrescura(data) +
+      ' · ' + new Date(meta.generado || Date.now()).toLocaleString('es-ES');
     document.getElementById('footerVersion').textContent = meta.version || '';
   });
 
