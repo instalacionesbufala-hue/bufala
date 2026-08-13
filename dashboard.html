@@ -614,7 +614,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260807-1500";
+const DASHBOARD_BUILD = "20260813-1230";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -702,6 +702,60 @@ function textoFrescura(data) {
     return min < 1 ? 'recién calculado (caché)' : 'calculado hace ' + min + ' min';
   }
   return 'recién calculado';
+}
+
+// ── build 20260813 · REINTENTOS DE RED ───────────────────────────
+// El /exec de Apps Script devuelve 404/5xx TRANSITORIOS de vez en cuando,
+// sobre todo tras ejecuciones largas (reconstrucción en frío del payload).
+// Detalle clave: cuando pasa, el servidor normalmente YA terminó y dejó el
+// payload cacheado — el reintento es un hit de caché y vuelve en 1-2 s.
+const FETCH_REINTENTOS   = 3;
+const FETCH_BACKOFF_MS   = [800, 2000];
+const FETCH_RETRY_STATUS = { 404: 1, 408: 1, 429: 1, 500: 1, 502: 1, 503: 1, 504: 1 };
+
+async function fetchConReintentos(url, onIntento) {
+  let ultimoErr = null;
+  for (let i = 0; i < FETCH_REINTENTOS; i++) {
+    if (i > 0) {
+      if (onIntento) { try { onIntento(i + 1, FETCH_REINTENTOS); } catch (e) {} }
+      await new Promise(r => setTimeout(r, FETCH_BACKOFF_MS[Math.min(i - 1, FETCH_BACKOFF_MS.length - 1)]));
+    }
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      if (res.ok) return res;
+      ultimoErr = new Error('HTTP ' + res.status);
+      if (!FETCH_RETRY_STATUS[res.status]) break;   // 4xx no recuperable: no insistir
+    } catch (e) {
+      ultimoErr = e;   // fallo de red → reintentar
+    }
+  }
+  throw ultimoErr || new Error('Sin respuesta del servidor');
+}
+
+// "2026-08" → "2026-07" (para el prefetch del mes anterior)
+function mesAnteriorStr(m) {
+  const p = /^(\d{4})-(\d{2})$/.exec(String(m || ''));
+  if (!p) return null;
+  let y = +p[1], mo = +p[2] - 1;
+  if (mo < 1) { mo = 12; y--; }
+  return y + '-' + (mo < 10 ? '0' + mo : String(mo));
+}
+
+// Banner de carga NO bloqueante: se usa cuando ya hay un dashboard pintado
+// (de otro mes/brigada) y la vista nueva se está calculando en el servidor.
+function etiquetaFiltro(mes, brigada) {
+  const selM = document.getElementById('filtroMes');
+  const opM = selM && selM.selectedOptions && selM.selectedOptions[0];
+  const m = opM ? opM.textContent.replace('📅 ', '') : (mes || 'mes actual');
+  return m + ((brigada && brigada !== 'todas') ? ' · ' + brigada : '');
+}
+function setBannerCarga(mes, brigada, extra) {
+  document.getElementById('errorArea').innerHTML =
+    '<div class="error-box banner-carga" style="background:#EFF6FF; border-color:#3B82F6; color:#1E40AF">' +
+      '<div class="err-title">⏳ Cargando ' + etiquetaFiltro(mes, brigada) + '…</div>' +
+      '<div class="err-detail">Primera consulta de esta vista: el servidor la está calculando (~30-60 s). ' +
+      'Quedará cacheada y las siguientes serán instantáneas.' + (extra ? ' · ' + extra : '') + '</div>' +
+    '</div>';
 }
 
 // ── PALETA FIJA (spec v3 visual) ──
@@ -884,14 +938,24 @@ async function loadDashboardData(noCache) {
   }
 
   if (!pintadoLocal) {
-    document.getElementById('loader').style.display = 'block';
-    document.getElementById('dashContent').style.display = 'none';
+    if (lastData && !primeraCarga) {
+      // build 20260813: ya hay un dashboard pintado (otro mes/brigada) — no
+      // taparlo con el loader a pantalla completa: atenuar y avisar arriba.
+      setBannerCarga(mes, brigada, null);
+      document.getElementById('dashContent').style.opacity = '0.45';
+    } else {
+      document.getElementById('loader').style.display = 'block';
+      document.getElementById('dashContent').style.display = 'none';
+    }
   }
 
   // ── 2. Traer datos frescos ──
   try {
-    const res = await fetch(urlDashboard(mes, brigada, noCache), { method: 'GET' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // build 20260813: reintentos ante 404/5xx transitorios del /exec. Si la
+    // primera ejecución ya terminó en el servidor (lo normal), el reintento
+    // es un hit de caché y vuelve en 1-2 s.
+    const res = await fetchConReintentos(urlDashboard(mes, brigada, noCache),
+      (n, total) => setBannerCarga(mes, brigada, 'reintentando (' + n + '/' + total + ')…'));
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Respuesta sin datos');
 
@@ -900,10 +964,12 @@ async function loadDashboardData(noCache) {
 
     lsGuardar(mes, brigada, data);
     lastData = data;
+    document.getElementById('errorArea').innerHTML = '';   // build 20260813: fuera banner/avisos
     renderDashboard(data);
     primeraCarga = false;
     programarPrefetch(data);
   } catch (err) {
+    document.getElementById('dashContent').style.opacity = '1';   // build 20260813: deshacer atenuado
     if (pintadoLocal) {
       // Hay algo en pantalla: avisar sin tapar los datos.
       document.getElementById('errorArea').innerHTML =
@@ -924,24 +990,38 @@ async function loadDashboardData(noCache) {
   }
 }
 
-// Precarga silenciosa de las otras brigadas del mes visible, para que
-// cambiar el filtro sea instantáneo. Secuencial y con margen, para no
-// competir con la carga principal ni saturar el backend.
+// Precarga silenciosa: primero el MES ANTERIOR (todas) — el cambio de filtro
+// más habitual y el que hasta ahora salía siempre en frío — y después las
+// otras brigadas del mes visible. Secuencial y con margen, para no competir
+// con la carga principal ni saturar el backend.
 function programarPrefetch(data) {
   try {
     const brigadas = ((data.filtros || {}).brigadas || []).slice(0, 6);
     const mes = (data.meta || {}).mes;
-    if (!mes || brigadas.length < 2) return;
+    if (!mes) return;
 
     setTimeout(async () => {
+      // build 20260813: mes anterior + todas
+      const mesAnt = mesAnteriorStr(mes);
+      if (mesAnt && !prefetchHecho[mesAnt + '|todas']) {
+        if (lsLeer(mesAnt, 'todas')) { prefetchHecho[mesAnt + '|todas'] = true; }
+        else {
+          try {
+            const r = await fetchConReintentos(urlDashboard(mesAnt, 'todas', false));
+            const d = await r.json();
+            if (d && d.ok) { lsGuardar(mesAnt, 'todas', d); prefetchHecho[mesAnt + '|todas'] = true; }
+          } catch (e) { /* el prefetch nunca molesta al usuario */ }
+        }
+      }
+      // Otras brigadas del mes visible
+      if (brigadas.length < 2) return;
       for (const b of brigadas) {
         if (b === currentBrigada) continue;
         const marca = mes + '|' + b;
         if (prefetchHecho[marca]) continue;
         if (lsLeer(mes, b)) { prefetchHecho[marca] = true; continue; }
         try {
-          const r = await fetch(urlDashboard(mes, b, false), { method: 'GET' });
-          if (!r.ok) continue;
+          const r = await fetchConReintentos(urlDashboard(mes, b, false));
           const d = await r.json();
           if (d && d.ok) { lsGuardar(mes, b, d); prefetchHecho[marca] = true; }
         } catch (e) { /* el prefetch nunca molesta al usuario */ }
@@ -970,6 +1050,7 @@ function renderDashboard(data) {
   document.getElementById('loader').style.display = 'none';
   const dash = document.getElementById('dashContent');
   dash.style.display = 'block';
+  dash.style.opacity = '1';   // build 20260813: deshacer atenuado del banner de carga
   dash.classList.toggle('anim-in', primeraCarga);
 
   // Defensivo: el render NUNCA debe cascar entero por un campo ausente.
