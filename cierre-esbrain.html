@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.0.1 (07/08/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.1.0 (17/08/2026)
+     v1.1.0: GUARDA DE BRIGADA. Si el enlace llega con equipo «—» o vacío
+     (instalación sin asignar en ESBRAIN cuando el sync generó el link), el
+     wizard EXIGE elegir Búfala 1/2/3 en la pantalla 1 y bloquea el avance
+     —también hacia la fallida— hasta que se elige. Nunca vuelve a salir un
+     cierre sin brigada (caso E2630659/E2630733 del 17/08: 968 € invisibles
+     en 📊 Rentabilidad). El corrector horario del backend sigue alineando
+     los links con el calendario de brigada; esto es la red final. Además,
+     el envío deja de convertir un equipo vacío en «Búfala» a secas.
      v1.0.1: LOGO DE MARCA (mismo PNG que el dashboard y que cierre-v2.html
      v3.17.1, reescalado a 96 px y optimizado). Sin cambios funcionales.
 
@@ -571,6 +579,11 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 }
 .modal-cancel{background:var(--bg); border:1px solid var(--border); color:var(--text)}
 .modal-confirm{background:var(--accent); color:white}
+.eq-selector{margin:10px 0 2px;padding:10px 12px;background:#FFF3CD;border:1px solid #d9a400;border-radius:10px}
+.eq-warn{font-size:.86rem;color:#7a5c00;margin-bottom:8px;line-height:1.35}
+.eq-btns{display:flex;gap:8px}
+.eq-btn{flex:1;padding:12px 6px;border:2px solid #2D6A4F;background:#fff;color:#2D6A4F;border-radius:10px;font-weight:700;font-size:.95rem;cursor:pointer}
+.eq-btn.selected{background:#2D6A4F;color:#fff}
 </style>
 </head>
 <body>
@@ -611,6 +624,15 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <div class="row"><span class="row-label">Dirección</span><span class="row-value" id="dataDireccion">—</span></div>
     <div class="row"><span class="row-label">Hora</span><span class="row-value" id="dataHora">—</span></div>
     <div class="row"><span class="row-label">Equipo</span><span class="row-value" id="dataEquipo">—</span></div>
+    <!-- v1.1.0: guarda de brigada — visible solo si el link llega sin equipo válido -->
+    <div id="equipoSelector" class="eq-selector" style="display:none">
+      <div class="eq-warn">⚠️ El enlace ha llegado <b>sin brigada asignada</b>. Elige quién hace esta instalación:</div>
+      <div class="eq-btns">
+        <button type="button" class="eq-btn" id="eqBtn1" onclick="elegirEquipo('Búfala 1')">Búfala 1</button>
+        <button type="button" class="eq-btn" id="eqBtn2" onclick="elegirEquipo('Búfala 2')">Búfala 2</button>
+        <button type="button" class="eq-btn" id="eqBtn3" onclick="elegirEquipo('Búfala 3')">Búfala 3</button>
+      </div>
+    </div>
     <div class="row"><span class="row-label">Hardware</span><span class="row-value" id="dataHardware">—</span></div>
     <div class="row"><span class="row-label">Nº Inst.</span><span class="row-value" id="dataNumInst">—</span></div>
     <div class="row"><span class="row-label">Teléfono</span><span class="row-value" id="dataTelefono">—</span></div>
@@ -991,6 +1013,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
 const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
 const ES_ESBRAIN = true;   // v1.0.0: wizard SOLO DATOS del flujo ESBRAIN (sin vídeo/fotos/acta)
+const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3'];   // v1.1.0: guarda de brigada
 const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
 const CHUNK_SIZE_RAW  = 4 * 1024 * 1024;   // v3.14.1: 4 MB raw → ~5,3 MB en base64. Un chunk de 12 MB (~16 MB b64) NO pasaba por Apps Script (el primer chunk no llegaba y el vídeo se quedaba a 0%); 4 MB es el tamaño que SÍ subió en producción.
 const STABILIZE_MAX   = 150 * 1024 * 1024; // v3.15.0: leer a memoria (estabilizar) solo vídeos ≤150 MB. Evita OOM en móvil con vídeos enormes; por encima se deja el File original.
@@ -1191,6 +1214,15 @@ function parseUrlParams(){
   document.getElementById('dataCliente').textContent   = state.cita.cliente   || '—';
   document.getElementById('dataDireccion').textContent = state.cita.direccion || '—';
   document.getElementById('dataEquipo').textContent    = state.cita.equipo    || '—';
+  // v1.1.0: GUARDA DE BRIGADA. Si el link no trae una brigada válida (la
+  // instalación estaba sin asignar en ESBRAIN al generarse), se exige
+  // elegirla aquí. selectType() bloquea el avance hasta entonces.
+  state.equipoPendiente = EQUIPOS_VALIDOS.indexOf(state.cita.equipo) < 0;
+  if (state.equipoPendiente){
+    document.getElementById('dataEquipo').textContent = '⚠️ sin asignar';
+    const selEq = document.getElementById('equipoSelector');
+    if (selEq) selEq.style.display = 'block';
+  }
   document.getElementById('dataHardware').textContent  = state.cita.hardware  || '—';
   document.getElementById('dataNumInst').textContent   = state.cita.numInst   || '—';
 
@@ -1407,7 +1439,26 @@ function showError(text){
 // ═══════════════════════════════════════════════════════════════
 // TIPO INSTALACIÓN
 // ═══════════════════════════════════════════════════════════════
+// v1.1.0: elección manual de brigada cuando el link llega sin ella.
+function elegirEquipo(nombre){
+  state.cita.equipo = nombre;
+  state.equipoPendiente = false;
+  document.getElementById('dataEquipo').textContent = nombre;
+  ['eqBtn1', 'eqBtn2', 'eqBtn3'].forEach(function (id) {
+    const b = document.getElementById(id);
+    if (b) b.classList.toggle('selected', b.textContent === nombre);
+  });
+}
+
 function selectType(t){
+  // v1.1.0: sin brigada no se avanza — ni a instalación ni a fallida. La
+  // fallida también factura (60 €) y también necesita brigada.
+  if (state.equipoPendiente){
+    alert('⚠️ Este enlace ha llegado sin brigada.\n\nElige el equipo (Búfala 1, 2 o 3) en la tarjeta de datos antes de continuar.');
+    const selEq = document.getElementById('equipoSelector');
+    if (selEq) selEq.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   state.type = t;
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   const idMap = {
@@ -2060,7 +2111,7 @@ function recolectarDatos(esFallida){
     cliente:   state.cita.cliente || '',
     direccion: state.cita.direccion || '',
     numInst:   state.cita.numInst || '',
-    equipo:    state.cita.equipo || 'Búfala',
+    equipo:    EQUIPOS_VALIDOS.indexOf(state.cita.equipo) >= 0 ? state.cita.equipo : '—',   // v1.1.0
     hardware:  state.cita.hardware || '',
     tipoInst:  state.type,
     despFallido: esFallida,
@@ -2234,7 +2285,7 @@ async function submitIntervencion(){
     cliente:   state.cita.cliente || '',
     direccion: state.cita.direccion || '',
     numInst:   state.cita.numInst || ('INT-' + Date.now()),
-    equipo:    state.cita.equipo || 'Búfala',
+    equipo:    EQUIPOS_VALIDOS.indexOf(state.cita.equipo) >= 0 ? state.cita.equipo : '—',   // v1.1.0
     hardware:  state.cita.hardware || '',
     esIntervencion: true,
     despFallido: false,
