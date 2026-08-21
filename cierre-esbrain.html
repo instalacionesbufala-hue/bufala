@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.1.0 (17/08/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.1.1 (19/08/2026)
+     v1.1.1: FECHA DE CIERRE REAL. El payload añade fechaCierreIso (el momento
+     exacto de pulsar enviar). El backend (v3.16.20) la usa como FECHA del
+     Registro y de la pre-factura en instalaciones y fallidas — una obra que
+     empieza el 18 y se remata el 19 factura el 19, no la fecha programada del
+     link. Las intervenciones SAT siguen imputando la fecha del evento.
      v1.1.0: GUARDA DE BRIGADA. Si el enlace llega con equipo «—» o vacío
      (instalación sin asignar en ESBRAIN cuando el sync generó el link), el
      wizard EXIGE elegir Búfala 1/2/3 en la pantalla 1 y bloquea el avance
@@ -2108,6 +2113,10 @@ function recolectarDatos(esFallida){
 
   const datos = {
     fechaIso:  state.cita.fecha || new Date().toISOString(),
+    // v1.1.1: momento REAL del envío del cierre. El backend lo usa como FECHA
+    // (Registro, pre-factura, Holded) en instalaciones y fallidas — una obra
+    // rematada al día siguiente factura el día que se cierra, no el programado.
+    fechaCierreIso: new Date().toISOString(),
     cliente:   state.cita.cliente || '',
     direccion: state.cita.direccion || '',
     numInst:   state.cita.numInst || '',
