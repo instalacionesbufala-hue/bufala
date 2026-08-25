@@ -582,13 +582,13 @@
             <thead>
               <tr>
                 <th class="col-brigada">Brigada</th>
-                <th>Inst. fact.</th>
+                <th>Salidas fact.</th>
                 <th>Ingresos Holded</th>
-                <th>Ingreso medio</th>
+                <th>Ingreso medio real</th>
                 <th>€/día</th>
                 <th>Coste material</th>
-                <th>Coste estructura</th>
-                <th>Margen neto</th>
+                <th>Costes brigada</th>
+                <th>Margen brigada</th>
                 <th>% Margen</th>
                 <th>Bonus ESMOVE</th>
               </tr>
@@ -614,7 +614,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260813-1230";
+const DASHBOARD_BUILD = "20260825-1600";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1097,8 +1097,8 @@ function renderDashboard(data) {
     var cr = graficos.comparativaRentabilidad || {};
     document.getElementById('subComparativa').textContent =
       (meta.mesLabel || '') +
-      ' · Instalaciones: Registro ' + (cr.instRegistro || 0) + ' · Holded ' + (cr.instHolded || 0) +
-      ' · Beneficio neto = Ingresos − materiales − estructura (nóminas, renting, combustible)';
+      ' · Salidas: Registro ' + (cr.instRegistro || 0) + ' · Holded ' + (cr.instHolded || 0) +
+      ' · Beneficio neto = ' + ((cr.detalle && cr.detalle.formulaBeneficio) || 'Ingresos − costes');
   });
 
   seguro('tablaOperativa', () => renderTablaOperativa(data.tablaBrigadas || []));
@@ -1186,10 +1186,23 @@ function pickSerie(series, claves) {
 function renderKPIs(k, meta, series) {
   const grid = document.getElementById('kpiGrid');
   grid.innerHTML = '';
+
+  // v3.17.0: los KPI salen de la pestaña espejo 📊 KPI Mensual (misma fuente
+  // que 📊 Rentabilidad Holded). Si el backend no tiene fila para el mes
+  // pedido, avisa y NO pinta números calculados por otra vía.
+  if (!k || (meta && meta.kpiAviso)) {
+    const aviso = document.createElement('div');
+    aviso.className = 'kpi-card amber';
+    aviso.style.gridColumn = '1 / -1';
+    aviso.innerHTML =
+      '<div class="kpi-head"><div class="kpi-label">⚠️ Sin datos precalculados</div></div>' +
+      '<div class="kpi-sub">' + ((meta && meta.kpiAviso) ||
+      'Sin datos en 📊 KPI Mensual para este mes. Regenera 📊 Rentabilidad Holded.') + '</div>';
+    grid.appendChild(aviso);
+    if (!k) return;
+  }
   k = k || {};
 
-  // Defensivo: una tarjeta con datos ausentes se omite (con aviso en consola)
-  // en vez de tumbar el grid entero y todo lo que se renderiza después.
   function nz(v) { return Number(v) || 0; }
   function tarjeta(nombre, kpi, fn) {
     if (!kpi) { console.warn('[dashboard] KPI ausente en el payload:', nombre); return; }
@@ -1220,49 +1233,83 @@ function renderKPIs(k, meta, series) {
       (opts.bar || '');
     grid.appendChild(c);
   }
+  function trendDe(x) {
+    return x.anterior > 0
+      ? { cls: x.deltaPct > 0 ? 'up' : (x.deltaPct < 0 ? 'down' : 'neutro'),
+          html: (x.deltaPct > 0 ? '▲' : (x.deltaPct < 0 ? '▼' : '·')) + ' ' +
+                Math.abs(nz(x.deltaPct)).toFixed(1) + '%' }
+      : null;
+  }
 
-  // ─── KPI 1: Instalaciones ───
+  // ─── KPI 1: Instalaciones realizadas (conteo separado de fallidas) ───
   tarjeta('instalaciones', k.instalaciones, function(x) {
     card({
-      label: 'Instalaciones',
+      label: 'Instalaciones realizadas',
       valor: x.valor,
       unidad: 'obras',
       semaforo: x.semaforo,
-      sub: 'Objetivo: ' + x.objetivo,
-      trend: x.anterior > 0
-        ? { cls: x.deltaPct > 0 ? 'up' : (x.deltaPct < 0 ? 'down' : 'neutro'),
-            html: (x.deltaPct > 0 ? '▲' : (x.deltaPct < 0 ? '▼' : '·')) + ' ' +
-                  Math.abs(nz(x.deltaPct)).toFixed(1) + '%' }
-        : null,
+      sub: x.salidas + ' salidas facturadas (' + x.valor + ' inst. + ' + x.fallidas +
+           ' fallidas) · objetivo ' + x.objetivo + ' salidas',
+      trend: trendDe(x),
       spark: sparklineSVG(pickSerie(series, ['instalaciones']), false),
-      bar: bar(x.valor, x.ambar, x.objetivo)
+      bar: bar(x.salidas, x.ambar, x.objetivo)
     });
   });
 
-  // ─── KPI 2: Facturado Holded ───
+  // ─── KPI 2: Visitas fallidas ───
+  tarjeta('fallidasKpi', k.fallidasKpi, function(x) {
+    card({
+      label: 'Visitas fallidas',
+      valor: x.valor,
+      semaforo: x.semaforo,
+      sub: 'Se facturan (' + fmtEur.format(nz(x.eur)) + ') pero no cuentan como instalación' +
+           (x.anterior > 0 ? ' · mes anterior: ' + x.anterior : '')
+    });
+  });
+
+  // ─── KPI 3: Intervenciones SAT ───
+  tarjeta('intervencionesSAT', k.intervencionesSAT, function(x) {
+    card({
+      label: 'Intervenciones SAT',
+      valor: x.valor,
+      semaforo: 'neutro',
+      sub: 'Facturadas ' + fmtEur.format(nz(x.eur)) + ' · fuera de todos los conteos de instalaciones'
+    });
+  });
+
+  // ─── KPI 4: Facturado Holded ───
   tarjeta('facturadoHolded', k.facturadoHolded, function(x) {
     card({
       label: 'Facturado Holded',
       valor: fmtEur.format(x.valor),
       semaforo: x.semaforo,
-      sub: x.nInst + ' inst. facturadas · objetivo: ' + fmtEur.format(x.objetivo),
-      trend: x.anterior > 0
-        ? { cls: x.deltaPct > 0 ? 'up' : (x.deltaPct < 0 ? 'down' : 'neutro'),
-            html: (x.deltaPct > 0 ? '▲' : (x.deltaPct < 0 ? '▼' : '·')) + ' ' +
-                  Math.abs(nz(x.deltaPct)).toFixed(1) + '%' }
-        : null,
+      sub: x.nSalidas + ' salidas facturadas (' + x.nRealizadas + ' inst. + ' + x.nFallidas +
+           ' fallidas) · objetivo: ' + fmtEur.format(x.objetivo),
+      trend: trendDe(x),
       spark: sparklineSVG(pickSerie(series, ['facturado', 'facturadoHolded']), false),
       bar: bar(x.valor, x.umbral1, x.umbral2)
     });
   });
 
-  // ─── KPI 3: Margen bruto % (Registro) ───
+  // ─── KPI 5: Ingreso medio real por instalación ───
+  tarjeta('ingresoMedioReal', k.ingresoMedioReal, function(x) {
+    card({
+      label: 'Ingreso medio real',
+      valor: fmtEur.format(x.valor),
+      unidad: '/ inst.',
+      semaforo: 'neutro',
+      sub: '(Ingresos − ' + fmtEur.format(nz(x.eurFallidas)) + ' fallidas − ' +
+           fmtEur.format(nz(x.eurIntervenciones)) + ' SAT) / ' + x.nRealizadas + ' realizadas'
+    });
+  });
+
+  // ─── KPI 6: Margen bruto (base Holded) ───
   tarjeta('margenPct', k.margenPct, function(x) {
     card({
       label: 'Margen bruto',
       valor: nz(x.valor).toFixed(1) + '%',
       semaforo: x.semaforo,
-      sub: fmtEurD.format(x.valorEur) + ' (Ingresos − Coste material)',
+      sub: fmtEurD.format(x.valorEur) + ' (Ingresos Holded − coste material)',
       trend: x.anterior > 0
         ? { cls: x.deltaPp >= 0 ? 'up' : 'down',
             html: (x.deltaPp >= 0 ? '▲' : '▼') + ' ' +
@@ -1273,21 +1320,26 @@ function renderKPIs(k, meta, series) {
     });
   });
 
-  // ─── KPI 4: Margen NETO Holded (€) ───
+  // ─── KPI 7: Margen NETO (= MARGEN EMPRESA FINAL HOLDED de la pestaña) ───
   tarjeta('margenHolded', k.margenHolded, function(x) {
     const margenNetoEur = nz(x.valorEur);
     card({
-      label: 'Margen neto Holded',
+      label: x.conEstructura ? 'Margen neto empresa' : 'Margen de brigada',
       valor: fmtEur.format(margenNetoEur),
       danger: margenNetoEur < 0,
       semaforo: x.semaforo,
-      sub: 'Después de materiales (' + fmtEur.format(nz(x.costeMaterial)) +
-           ') y estructura (' + fmtEur.format(nz(x.costeEstructura)) + ')',
+      sub: x.conEstructura
+        ? 'Ingresos − costes brigada (' + fmtEur.format(nz(x.costeBrigada)) +
+          ') − pagas extra (' + fmtEur.format(nz(x.pagasExtra)) +
+          ') − estructura (' + fmtEur.format(nz(x.costeEstructura)) + ')'
+        : 'Margen de la brigada sin estructura (la estructura no se asigna a brigadas): ' +
+          'Ingresos − costes brigada (' + fmtEur.format(nz(x.costeBrigada)) +
+          ') − pagas extra (' + fmtEur.format(nz(x.pagasExtra)) + ')',
       spark: sparklineSVG(pickSerie(series, ['margenNeto', 'margenHolded']), false)
     });
   });
 
-  // ─── KPI 5: Productividad m/día ───
+  // ─── KPI 8: Productividad m/día ───
   tarjeta('productividad', k.productividad, function(x) {
     card({
       label: 'Productividad',
@@ -1295,25 +1347,45 @@ function renderKPIs(k, meta, series) {
       unidad: 'm/día',
       semaforo: x.semaforo,
       sub: fmtNum.format(x.metrosTotal) + ' m en ' +
-           fmtNum1.format(x.diasTrabajados) + ' días · objetivo: ' + x.objetivo,
+           fmtNum1.format(x.diasTrabajados) + ' brigadas-día · objetivo: ' + x.objetivo,
       spark: sparklineSVG(pickSerie(series, ['productividad', 'metrosDia']), false),
       bar: bar(x.metrosDia, x.umbral1, x.umbral2)
     });
   });
 
-  // ─── KPI 6: Finalizadas % ───
+  // ─── KPI 9: % Ocupación (salidas/capacidad) ───
+  tarjeta('ocupacion', k.ocupacion, function(x) {
+    card({
+      label: 'Ocupación',
+      valor: nz(x.pct).toFixed(1) + '%',
+      semaforo: 'neutro',
+      sub: x.salidas + ' salidas / ' + fmtNum1.format(x.capacidad) + ' capacidad · ' + x.info
+    });
+  });
+
+  // ─── KPI 10: % Productividad de instalaciones (realizadas/capacidad) ───
+  tarjeta('productividadInst', k.productividadInst, function(x) {
+    card({
+      label: 'Productividad instalaciones',
+      valor: nz(x.pct).toFixed(1) + '%',
+      semaforo: 'neutro',
+      sub: x.realizadas + ' realizadas / ' + fmtNum1.format(x.capacidad) + ' capacidad · ' + x.info
+    });
+  });
+
+  // ─── KPI 11: Finalizadas % ───
   tarjeta('finalizadas', k.finalizadas, function(x) {
     card({
       label: 'Instalaciones finalizadas',
       valor: nz(x.pct).toFixed(1) + '%',
       semaforo: x.semaforo,
-      sub: x.finalizadas + ' de ' + x.total +
+      sub: x.finalizadas + ' de ' + x.total + ' salidas' +
            (x.fallidas > 0 ? ' · ' + x.fallidas + ' fallida' + (x.fallidas > 1 ? 's' : '') : ''),
       spark: sparklineSVG(pickSerie(series, ['finalizadas', 'finalizadasPct']), false)
     });
   });
 
-  // ─── KPI 7: Disponibilidad ───
+  // ─── KPI 12: Disponibilidad ───
   tarjeta('disponibilidad', k.disponibilidad, function(x) {
     card({
       label: 'Disponibilidad equipos',
@@ -1327,7 +1399,7 @@ function renderKPIs(k, meta, series) {
     });
   });
 
-  // ─── KPI 8: Km adicionales ───
+  // ─── KPI 13: Km adicionales ───
   tarjeta('kmExceso', k.kmExceso, function(x) {
     card({
       label: 'Km adicionales',
@@ -1932,46 +2004,56 @@ function renderTablaOperativa(filas) {
 }
 
 function renderTablaEconomica(filas) {
+  // v3.17.0: la tabla pinta los números del payload (pestaña espejo 📊 KPI
+  // Mensual) y ya NO recalcula el margen en cliente (quinta vía de
+  // divergencia eliminada). El margen mostrado es el MARGEN DE BRIGADA
+  // (sin estructura: no se asigna a brigadas); el margen final de empresa
+  // está en la tarjeta «Margen neto empresa».
+  function nzv(v) { return Number(v) || 0; }
   const tbody = document.getElementById('tablaEconomicaBody');
   tbody.innerHTML = '';
   filas.forEach(f => {
-    const fact = f.facturadoHolded != null ? f.facturadoHolded : f.facturado;
-    const nIH = f.nInstHolded != null ? f.nInstHolded : f.instalaciones;
-    const ingMedio = nIH > 0 ? fact / nIH : 0;
-    const ingDia = f.brigadasDiaEquiv > 0 ? fact / f.brigadasDiaEquiv : 0;
-    const costEst = f.costeEstructura != null ? f.costeEstructura : 0;
-    const margenNeto = fact - f.coste - costEst;
-    const margenPct = fact > 0 ? (margenNeto / fact * 100) : 0;
-    const semMarg = margenNeto >= 0 ? 'verde' : 'rojo';
+    const fact = nzv(f.facturadoHolded);
+    const ingMedio = f.ingresoMedio != null ? f.ingresoMedio
+      : (f.nInstHolded > 0 ? fact / f.nInstHolded : 0);
+    const ingDia = f.ingresoPorDia != null ? f.ingresoPorDia
+      : (f.brigadasDiaEquiv > 0 ? fact / f.brigadasDiaEquiv : 0);
+    const costeBrig = f.costeTotal != null ? f.costeTotal : nzv(f.costeEstructura);
+    const margen = f.margenHoldedEur != null ? f.margenHoldedEur : (fact - nzv(f.coste) - costeBrig);
+    const margenPct = f.margenHoldedPct != null ? f.margenHoldedPct
+      : (fact > 0 ? (margen / fact * 100) : 0);
+    const semMarg = margen >= 0 ? 'verde' : 'rojo';
 
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="col-brigada"><strong>' + f.brigada + '</strong></td>' +
-      '<td>' + nIH + '</td>' +
+      '<td>' + nzv(f.nInstHolded) + '</td>' +
       '<td>' + fmtEur.format(fact) + '</td>' +
       '<td>' + fmtEur.format(ingMedio) + '</td>' +
       '<td>' + fmtEur.format(ingDia) + '</td>' +
-      '<td>' + fmtEur.format(f.coste) + '</td>' +
-      '<td>' + fmtEur.format(costEst) + '</td>' +
-      '<td>' + badge(fmtEur.format(margenNeto), semMarg) + '</td>' +
+      '<td>' + fmtEur.format(nzv(f.coste)) + '</td>' +
+      '<td>' + fmtEur.format(costeBrig) + '</td>' +
+      '<td>' + badge(fmtEur.format(margen), semMarg) + '</td>' +
       '<td>' + badge(margenPct.toFixed(1) + '%', semMarg) + '</td>' +
       '<td>' + fmtEur.format(f.bonus || 0) + '</td>';
     tbody.appendChild(tr);
   });
 
   const t = {
-    nIH:      filas.reduce((s, f) => s + (f.nInstHolded != null ? f.nInstHolded : f.instalaciones), 0),
-    fact:     filas.reduce((s, f) => s + (f.facturadoHolded != null ? f.facturadoHolded : f.facturado), 0),
-    coste:    filas.reduce((s, f) => s + f.coste, 0),
-    costEst:  filas.reduce((s, f) => s + (f.costeEstructura || 0), 0),
-    bde:      filas.reduce((s, f) => s + (f.brigadasDiaEquiv || 0), 0),
-    bonus:    filas.reduce((s, f) => s + (f.bonus || 0), 0)
+    nIH:       filas.reduce((s, f) => s + nzv(f.nInstHolded), 0),
+    fact:      filas.reduce((s, f) => s + nzv(f.facturadoHolded), 0),
+    coste:     filas.reduce((s, f) => s + nzv(f.coste), 0),
+    costeBrig: filas.reduce((s, f) => s + (f.costeTotal != null ? f.costeTotal : 0), 0),
+    margen:    filas.reduce((s, f) => s + (f.margenHoldedEur != null ? f.margenHoldedEur : 0), 0),
+    realizadas:filas.reduce((s, f) => s + nzv(f.finalizadas), 0),
+    eurDesc:   filas.reduce((s, f) => s + nzv(f.eurFallidas) + nzv(f.eurIntervenciones), 0),
+    bde:       filas.reduce((s, f) => s + nzv(f.brigadasDiaEquiv), 0),
+    bonus:     filas.reduce((s, f) => s + (f.bonus || 0), 0)
   };
-  const tIngMedio = t.nIH > 0 ? t.fact / t.nIH : 0;
+  const tIngMedio = t.realizadas > 0 ? (t.fact - t.eurDesc) / t.realizadas : 0;
   const tIngDia = t.bde > 0 ? t.fact / t.bde : 0;
-  const tMargenNeto = t.fact - t.coste - t.costEst;
-  const tMargenPct = t.fact > 0 ? (tMargenNeto / t.fact * 100) : 0;
-  const sem = tMargenNeto >= 0 ? 'verde' : 'rojo';
+  const tMargenPct = t.fact > 0 ? (t.margen / t.fact * 100) : 0;
+  const sem = t.margen >= 0 ? 'verde' : 'rojo';
 
   const tr = document.createElement('tr');
   tr.className = 'total-row';
@@ -1982,8 +2064,8 @@ function renderTablaEconomica(filas) {
     '<td>' + fmtEur.format(tIngMedio) + '</td>' +
     '<td>' + fmtEur.format(tIngDia) + '</td>' +
     '<td>' + fmtEur.format(t.coste) + '</td>' +
-    '<td>' + fmtEur.format(t.costEst) + '</td>' +
-    '<td>' + badge(fmtEur.format(tMargenNeto), sem) + '</td>' +
+    '<td>' + fmtEur.format(t.costeBrig) + '</td>' +
+    '<td>' + badge(fmtEur.format(t.margen), sem) + '</td>' +
     '<td>' + badge(tMargenPct.toFixed(1) + '%', sem) + '</td>' +
     '<td>' + fmtEur.format(t.bonus) + '</td>';
   tbody.appendChild(tr);
