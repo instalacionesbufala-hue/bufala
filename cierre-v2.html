@@ -1,5 +1,28 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.17.1 (ago 2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.18.2 (05/09/2026)
+     v3.18.2: TEMA INSTANTBOX. Con &partner=instantbox el wizard cambia el
+     verde Búfala por GRAFITO #111827 (pulsado #000), a juego con la web de
+     InstantBox, más badge "INSTANTBOX" en el header. Se mantienen el verde
+     de éxito y el rojo de error: son señales de estado, no de marca. El
+     flujo ESMOVE queda con su verde de siempre (el tema solo se activa con
+     la clase ib-theme).
+     v3.18.1: en el flujo INSTANTBOX, "Nuevo suministro" se mantiene como
+     tipo (existe: es el adicional de alta de contador). Al elegirlo se
+     auto-marca 'Alta nueva contador (adec. cuadro)' en la pantalla de
+     adicionales (editable) y se piden las fotos NS de siempre. Sigue SIN
+     mostrarse ningún precio al técnico en todo el flujo.
+     v3.18.0: FLUJO INSTANTBOX (&partner=instantbox del link de captura).
+     Pantallas: 1 (tipo, sin "Nuevo suministro") → ib (fase+tramo del pedido
+     bloqueados salvo checkbox de cambio AUTORIZADO CON ANTELACIÓN por
+     cliente y oficina; metros reales; 14 adicionales, cada uno con la
+     coletilla "solo antes de iniciar y con autorización de oficina";
+     confirmación WhatsApp opcional) → 2 (vídeo) → 3 (fotos, nomenclatura
+     ESMOVE) → enviar. Fallida InstantBox: no retribuida (0 €), con aviso.
+     Payload nuevo: partner, tramoIb, adicionalesIB, metrosFinales,
+     cambioTramoAutorizado, confirmadoWhatsapp. SIN precios a la vista del
+     técnico. Requiere backend v3.18.2+ (columna PARTNER + tarifario IB).
+     El flujo ESMOVE queda EXACTAMENTE igual (cero cambios si no hay
+     &partner en el link).
      v3.17.1: LOGO DE MARCA. El búfalo dibujado en SVG se sustituye por el
      mismo PNG que usa el dashboard, para que ambos productos muestren la
      misma imagen. Reescalado a 96 px de alto y optimizado (5,8 KB en vez de
@@ -145,6 +168,22 @@
   --accent-light:#e8f3ed; --danger:#dc2626; --warning:#d97706; --success:#16a34a;
   --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
 }
+/* ═══ v3.18.2 — TEMA INSTANTBOX ═══
+   Solo se aplica con &partner=instantbox (clase ib-theme en <body>): el
+   flujo ESMOVE conserva el verde Búfala intacto. Grafito #111827 en vez de
+   negro puro: sin deslumbramiento a pleno sol, deja margen para el estado
+   pulsado (#000) y no compite con el logo, que ya va en negro puro.
+   El VERDE de --success y el ROJO de --danger NO se tocan: son señales de
+   seguridad (foto subida, "Todo subido", error), no color de marca. */
+body.ib-theme{
+  --accent:#111827; --accent-hover:#000000; --accent-light:#f1f2f4;
+}
+body.ib-theme .partner-tag{
+  display:inline-flex; align-items:center; gap:6px; background:#111827;
+  color:#fff; font-size:11px; font-weight:700; letter-spacing:.6px;
+  padding:5px 10px; border-radius:6px;
+}
+.partner-tag{display:none}
 *{box-sizing:border-box; margin:0; padding:0}
 html{-webkit-text-size-adjust:100%}
 body{
@@ -494,6 +533,15 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .nav-btn-next:active{background:var(--accent-hover)}
 .nav-btn-next:disabled{opacity:.5; cursor:not-allowed}
 .nav-btn-send{background:var(--success); color:white; flex:1}
+/* v3.18.0 — flujo InstantBox */
+.check-row{display:flex; align-items:flex-start; gap:10px; font-size:14px; line-height:1.4; cursor:pointer}
+.check-row input{width:20px; height:20px; margin-top:1px; flex-shrink:0}
+.pills.ib-locked .pill:not(.selected){opacity:.35; pointer-events:none}
+.ib-adic-row{display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border)}
+.ib-adic-row:last-child{border-bottom:none}
+.ib-adic-row input{width:20px; height:20px; margin-top:1px; flex-shrink:0}
+.ib-adic-label{font-size:14px; line-height:1.35}
+.ib-adic-note{font-size:11.5px; color:var(--warning, #b45309); margin-top:2px}
 
 .validation{
   background:rgba(220,38,38,.08); border:1px solid var(--danger); color:var(--danger);
@@ -561,6 +609,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <img src="data:image/png;base64,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" alt="Búfala Tech" class="logo-img">
     <span class="logo-text">BÚFALA<span>tech</span></span>
   </div>
+  <span class="partner-tag" id="partnerTag">INSTANTBOX</span>
   <span class="super-tag" id="superTag">⭐ MODO ADMIN</span>
 </header>
 
@@ -613,6 +662,55 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
       <span class="type-icon">❌</span>
       <div>Instalación fallida<div class="type-desc">No se ha podido realizar la instalación</div></div>
     </button>
+  </div>
+</section>
+
+<!-- ═══ PANTALLA INSTANTBOX (v3.18.0): TRAMO + ADICIONALES ═══ -->
+<section class="screen" data-screen="ib">
+  <h1 class="title">Instalación InstantBox</h1>
+  <p class="subtitle">Tramo del pedido y adicionales autorizados</p>
+
+  <div class="field">
+    <label class="label">Fase</label>
+    <div class="pills" id="ibFasePills"></div>
+  </div>
+
+  <div class="field">
+    <label class="label">Tramo de metros (el del pedido)</label>
+    <div class="pills" id="ibTramoPills"></div>
+    <div class="warning-box" id="ibTramoAviso" style="margin-top:12px">
+      <span>⚠️</span>
+      <div><b>El tramo facturable es el del pedido.</b> Solo puede cambiarse si el
+      cambio se ha autorizado <b>con antelación</b> por el <b>cliente</b> y por
+      <b>oficina</b>.</div>
+    </div>
+    <label class="check-row" id="ibCambioRow" style="display:none; margin-top:10px">
+      <input type="checkbox" id="ibCambioAutorizado" onchange="ibToggleCambio()">
+      <span>Cambio de tramo/fase <b>autorizado con antelación</b> por el cliente y por oficina</span>
+    </label>
+  </div>
+
+  <div class="field">
+    <label class="label">Metros reales instalados</label>
+    <input type="number" class="input" id="ibMetros" placeholder="0">
+    <div class="hint">Solo para productividad y coste de material — no cambia la tarifa</div>
+  </div>
+
+  <div class="field">
+    <label class="label">Adicionales instalados</label>
+    <div class="warning-box" style="margin-bottom:10px">
+      <span>⚠️</span>
+      <div>Los adicionales <b>solo pueden añadirse ANTES de iniciar la instalación
+      y con autorización de oficina</b>. No marques ninguno que no esté autorizado.</div>
+    </div>
+    <div class="card" id="ibAdicionalesCard"></div>
+  </div>
+
+  <div class="field">
+    <label class="check-row">
+      <input type="checkbox" id="ibWhatsapp">
+      <span>Cliente ha confirmado la finalización por <b>WhatsApp</b> (opcional)</span>
+    </label>
   </div>
 </section>
 
@@ -863,7 +961,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 
   <div class="warning-box">
     <span>ℹ️</span>
-    <div>Se registrará la visita como fallida con el motivo y las evidencias indicadas.</div>
+    <div id="failInfoText">Se registrará la visita como fallida con el motivo y las evidencias indicadas.</div>
   </div>
 
   <div class="field">
@@ -1070,6 +1168,9 @@ const state = {
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
+  esInstantbox: false, // v3.18.0: flujo INSTANTBOX (&partner=instantbox)
+  ib: { fase:null, tramo:null, faseDefault:null, tramoDefault:null,
+        cambioAutorizado:false, adicionales:{}, confirmadoWhatsapp:false },
   isSuper: false,
   cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
   videoBg: { token:0, promise:null, meta:null, sig:null, active:false, pct:0, phase:'', done:false, error:null }
@@ -1149,6 +1250,20 @@ function parseUrlParams(){
   // &tipo=intervencion. Una sola pantalla, sin fotos/acta/vídeo, sin Drive.
   state.esIntervencion = (state.cita.tipo === 'intervencion');
 
+  // v3.18.0: flujo INSTANTBOX — el link de la captura llega con
+  // &partner=instantbox (+ fase/tramo/vivienda capturados del pedido, si el
+  // link es de captura v1.6+). Pantallas: 1 (tipo) → ib (tramo+adicionales)
+  // → 2 (vídeo) → 3 (fotos, nomenclatura ESMOVE) → enviar. Tarifa CERRADA
+  // por tramo: sin línea/sección/canalizaciones/protecciones/hitos/acta.
+  state.esInstantbox = (p.get('partner') === 'instantbox');
+  if (state.esInstantbox){
+    state.ib.faseDefault  = (p.get('fase') === 'trif') ? 'trif' : (p.get('fase') === 'mono' ? 'mono' : null);
+    state.ib.tramoDefault = p.get('tramo') || null;
+    state.ib.fase  = state.ib.faseDefault;
+    state.ib.tramo = state.ib.tramoDefault;
+    setupInstantbox(p.get('vivienda') || '');
+  }
+
   // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
   // (p.ej. "DESMONTAJE + HARDWARE MONTAJE Y CONEXIONADO") o si el calendario
   // pasa ?desmontaje=1 explícito. Se pre-activará al elegir tipo (no en fallida).
@@ -1169,6 +1284,110 @@ function parseUrlParams(){
         d.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
     } catch(e){ document.getElementById('dataHora').textContent = state.cita.fecha; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLUJO INSTANTBOX (v3.18.0)
+// Claves de ADICIONALES_IB idénticas a las del backend v3.18.2+ (regla de
+// coherencia carácter a carácter). SIN precios a la vista del técnico.
+// ═══════════════════════════════════════════════════════════════
+const IB_TRAMOS = { mono: ['0-20','21-40','41-50','51-60','61-100'], trif: ['0-20','21-40'] };
+const IB_ADICIONALES = [
+  { id:'cajaSuperficieContador',   label:'Caja superficie para el nuevo contador' },
+  { id:'caloForjado',              label:'Calo en forjado' },
+  { id:'dosCalosForjado',          label:'2 Calos en forjado' },
+  { id:'cuadroElectricoAdicional', label:'Cuadro eléctrico adicional' },
+  { id:'extraCable10mm',           label:'Extra por cable de 10mm' },
+  { id:'instalacionDPN',           label:'Instalación DPN' },
+  { id:'instalacionIGAAdicional',  label:'Instalación IGA adicional' },
+  { id:'tomaTierraAdicional',      label:'Instalación toma tierra adicional' },
+  { id:'modificacionCuadroGeneral',label:'Modificación de cuadro general' },
+  { id:'actualizacionCIE',         label:'Actualización CIE de la vivienda' },
+  { id:'adaptarColumnaRedonda',    label:'Adaptar cargador a columna redonda' },
+  { id:'altaNuevoContador',        label:'Alta nueva contador (adec. cuadro)' },
+  { id:'cableado16mm80m',          label:'Cableado 16mm hasta 80 metros' },
+  { id:'cajaEmpalmeBornasSigma',   label:'Caja de empalme con bornas Sigma adic.' }
+];
+const IB_COLETILLA = '⚠️ Solo antes de iniciar la instalación y con autorización de oficina';
+
+function setupInstantbox(vivienda){
+  // v3.18.1: "Nuevo suministro" SÍ existe en InstantBox — corresponde al
+  // adicional 'Alta nueva contador (adec. cuadro)' (ADECUACIÓN EN CUARTO DE
+  // CONTADORES POR ALTA NUEVO CONTADOR en Holded). Al elegirlo se auto-marca
+  // ese adicional (editable) y se piden las fotos NS de siempre.
+  // v3.18.2: tema visual InstantBox (grafito) — solo en este flujo
+  document.body.classList.add('ib-theme');
+  const tag = document.getElementById('partnerTag');
+  if (tag) tag.style.display = 'inline-flex';
+  const titulo = document.querySelector('[data-screen="1"] .title');
+  if (titulo) titulo.textContent = 'Cierre de obra — InstantBox';
+  // Preselección del tipo de vivienda capturado (editable)
+  if (vivienda === 'comunitaria' || vivienda === 'unifamiliar'){
+    setTimeout(() => selectType(vivienda), 50);
+  }
+  renderIbScreen();
+}
+
+function renderIbScreen(){
+  // Fase
+  const fasePills = document.getElementById('ibFasePills');
+  fasePills.innerHTML = ['mono','trif'].map(f =>
+    '<div class="pill' + (state.ib.fase === f ? ' selected' : '') + '" data-fase="' + f +
+    '" onclick="ibSelectFase(\'' + f + '\', this)">' + (f === 'mono' ? '⚡ Monofásica' : '⚡⚡⚡ Trifásica') + '</div>'
+  ).join('');
+  // Tramos de la fase activa (o mono si aún no hay fase)
+  const fase = state.ib.fase || 'mono';
+  const tramoPills = document.getElementById('ibTramoPills');
+  tramoPills.innerHTML = IB_TRAMOS[fase].map(t =>
+    '<div class="pill' + (state.ib.tramo === t ? ' selected' : '') + '" data-tramo="' + t +
+    '" onclick="ibSelectTramo(\'' + t + '\', this)">' + t + ' m</div>'
+  ).join('');
+  // Con defaults del pedido y sin autorización marcada: pills bloqueadas
+  ibAplicarBloqueo();
+  // Adicionales (cada uno con la coletilla de autorización)
+  const card = document.getElementById('ibAdicionalesCard');
+  if (card && !card.dataset.rendered){
+    card.innerHTML = IB_ADICIONALES.map(a =>
+      '<label class="ib-adic-row"><input type="checkbox" id="ibAdic_' + a.id + '">' +
+      '<div><div class="ib-adic-label">' + a.label + '</div>' +
+      '<div class="ib-adic-note">' + IB_COLETILLA + '</div></div></label>'
+    ).join('');
+    card.dataset.rendered = '1';
+  }
+}
+
+function ibHayDefaults(){ return !!(state.ib.faseDefault && state.ib.tramoDefault); }
+
+function ibAplicarBloqueo(){
+  const bloqueado = ibHayDefaults() && !state.ib.cambioAutorizado;
+  document.getElementById('ibFasePills').classList.toggle('ib-locked', bloqueado);
+  document.getElementById('ibTramoPills').classList.toggle('ib-locked', bloqueado);
+  // El checkbox de autorización solo aparece cuando hay defaults del pedido
+  document.getElementById('ibCambioRow').style.display = ibHayDefaults() ? 'flex' : 'none';
+}
+
+function ibToggleCambio(){
+  state.ib.cambioAutorizado = document.getElementById('ibCambioAutorizado').checked;
+  if (!state.ib.cambioAutorizado && ibHayDefaults()){
+    // Al desmarcar, vuelve el tramo/fase del pedido
+    state.ib.fase  = state.ib.faseDefault;
+    state.ib.tramo = state.ib.tramoDefault;
+  }
+  renderIbScreen();
+}
+
+function ibSelectFase(f, el){
+  if (state.ib.fase === f) return;
+  state.ib.fase = f;
+  // El tramo actual puede no existir en la nueva fase
+  if (IB_TRAMOS[f].indexOf(state.ib.tramo) < 0) state.ib.tramo = null;
+  renderIbScreen();
+}
+
+function ibSelectTramo(t, el){
+  state.ib.tramo = t;
+  document.querySelectorAll('#ibTramoPills .pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1203,7 +1422,14 @@ function showScreen(num){
   target.classList.add('active');
   state.currentScreen = num;
 
-  if (typeof num === 'number'){
+  if (state.esInstantbox && (num === 1 || num === 'ib' || num === 2 || num === 3)){
+    // v3.18.0: progreso propio del flujo IB (4 pasos)
+    const mapa = { 1:1, ib:2, 2:3, 3:4 };
+    const paso = mapa[num];
+    document.getElementById('progressStep').textContent = 'Paso ' + paso + ' de 4';
+    document.getElementById('progressPct').textContent = Math.round(paso / 4 * 100) + '%';
+    document.getElementById('progressFill').style.width = Math.round(paso / 4 * 100) + '%';
+  } else if (typeof num === 'number'){
     const pct = Math.round((num / state.totalScreens) * 100);
     document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
     document.getElementById('progressPct').textContent = pct + '%';
@@ -1214,7 +1440,11 @@ function showScreen(num){
 
   // Botones nav
   document.getElementById('btnPrev').style.visibility = (num === 1 || num === 'done') ? 'hidden' : 'visible';
-  if (num === 12 || num === 'failed'){
+  if (state.esInstantbox && num === 3){
+    // v3.18.0: en IB la pantalla de fotos es la última → enviar
+    document.getElementById('btnNext').textContent = '✓ Enviar cierre';
+    document.getElementById('btnNext').classList.add('nav-btn-send');
+  } else if (num === 12 || num === 'failed'){
     document.getElementById('btnNext').textContent = num === 'failed' ? '✓ Enviar fallida' : '✓ Enviar cierre';
     document.getElementById('btnNext').classList.add('nav-btn-send');
   } else if (num === 'done'){
@@ -1243,7 +1473,8 @@ function showScreen(num){
 
 function renderSteps(){
   const bar = document.getElementById('stepsBar');
-  if (state.currentScreen === 'failed' || state.currentScreen === 'done'){
+  if (state.currentScreen === 'failed' || state.currentScreen === 'done' ||
+      state.esInstantbox){   // v3.18.0: IB usa su propio contador (4 pasos)
     bar.style.display = 'none'; return;
   }
   bar.style.display = 'flex';
@@ -1268,6 +1499,21 @@ function nextScreen(){
   if (state.currentScreen === 12){ submitClosure(false); return; }
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
 
+  // v3.18.0 — flujo INSTANTBOX: 1 → ib → 2 (vídeo) → 3 (fotos) → enviar
+  if (state.esInstantbox){
+    if (state.currentScreen === 1){ showScreen('ib'); return; }
+    if (state.currentScreen === 'ib'){ showScreen(2); return; }
+    if (state.currentScreen === 2){
+      if (!state.isSuper && state.videos.length){
+        const errV = validarTamanoVideos();
+        if (errV){ alert('⚠️ ' + errV); return; }
+        iniciarSubidaVideosBackground();
+      }
+      showScreen(3); return;
+    }
+    if (state.currentScreen === 3){ submitClosure(false); return; }
+  }
+
   // v3.10.5: al salir de la pantalla de vídeo, valida tamaño y arranca la subida en background
   if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
     const errV = validarTamanoVideos();
@@ -1285,6 +1531,12 @@ function nextScreen(){
 
 function prevScreen(){
   if (state.currentScreen === 'failed'){ showScreen(1); return; }
+  // v3.18.0 — flujo INSTANTBOX
+  if (state.esInstantbox){
+    if (state.currentScreen === 'ib'){ showScreen(1); return; }
+    if (state.currentScreen === 2){ showScreen('ib'); return; }
+    if (state.currentScreen === 3){ showScreen(2); return; }
+  }
   if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
     let prev = state.currentScreen - 1;
     if (state.isSuper){
@@ -1296,6 +1548,20 @@ function prevScreen(){
 
 function validateScreen(num){
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
+  // v3.18.0 — pantalla InstantBox
+  if (num === 'ib'){
+    if (!state.ib.fase){ showError('Selecciona la fase'); return false; }
+    if (!state.ib.tramo){ showError('Selecciona el tramo de metros'); return false; }
+    const m = parseFloat(document.getElementById('ibMetros').value) || 0;
+    if (m <= 0){ showError('Indica los metros reales instalados'); return false; }
+    const cambio = ibHayDefaults() &&
+      (state.ib.fase !== state.ib.faseDefault || state.ib.tramo !== state.ib.tramoDefault);
+    if (cambio && !state.ib.cambioAutorizado){
+      showError('El cambio de tramo/fase requiere autorización previa del cliente y de oficina');
+      return false;
+    }
+    return true;
+  }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
     if (!state.data.fase){ showError('Selecciona la fase'); return false; }
@@ -1386,6 +1652,11 @@ function selectType(t){
   if (t === 'fallida'){
     state.desmontajeHw = false;   // en fallida el desmontaje no aplica (desaparece)
     syncDesmontajeHito();
+    // v3.18.0: InstantBox no retribuye las visitas fallidas — avisar
+    if (state.esInstantbox){
+      const ft = document.getElementById('failInfoText');
+      if (ft) ft.innerHTML = 'Se registrará la visita como fallida. <b>InstantBox no retribuye las visitas fallidas</b> (0 €): quedará en el Registro para control interno.';
+    }
     setTimeout(() => showScreen('failed'), 200); return;
   }
 
@@ -1406,6 +1677,14 @@ function selectType(t){
 
   // Auto-rellenar el kit de pre-instalación cuando es nuevo suministro
   applyKitPreinstAuto();
+
+  // v3.18.1 (modo IB): "Nuevo suministro" ⇔ adicional de alta de contador.
+  // Auto-marcado bidireccional (editable después por el técnico): al elegir
+  // NS se marca; al cambiar a otro tipo se desmarca.
+  if (state.esInstantbox){
+    const chkAlta = document.getElementById('ibAdic_altaNuevoContador');
+    if (chkAlta) chkAlta.checked = (t === 'nuevoSuministro');
+  }
 
   // Si la cita indica desmontaje, pre-marcar el hito y dejar la foto #12 obligatoria
   aplicarDesmontajeCita();
@@ -2031,9 +2310,32 @@ function recolectarDatos(esFallida){
     modoSuper: state.isSuper
   };
 
+  // v3.18.0: PARTNER SIEMPRE (también en fallida) — el backend enruta el
+  // tarifario y marca la columna PARTNER + EXCLUIR BONUS con este campo.
+  if (state.esInstantbox){
+    datos.partner = 'instantbox';
+    datos.fase    = state.ib.fase || 'mono';
+  }
+
   if (esFallida){
     datos.motivoFallido = document.getElementById('motivoFallido').value.trim();
     return datos;
+  }
+
+  // v3.18.0: cierre InstantBox — tramo del pedido (o autorizado), adicionales
+  // con autorización de oficina, metros reales. Tarifa cerrada: nada más.
+  if (state.esInstantbox){
+    datos.tramoIb = state.ib.tramo;
+    datos.metrosFinales = parseFloat(document.getElementById('ibMetros').value) || 0;
+    datos.metrosUtp = datos.metrosFinales;
+    datos.cambioTramoAutorizado = !!state.ib.cambioAutorizado;
+    datos.confirmadoWhatsapp = !!document.getElementById('ibWhatsapp').checked;
+    datos.adicionalesIB = {};
+    IB_ADICIONALES.forEach(a => {
+      const el = document.getElementById('ibAdic_' + a.id);
+      if (el && el.checked) datos.adicionalesIB[a.id] = true;
+    });
+    return datos;   // sin línea/sección/canalizaciones/protecciones/hitos
   }
 
   // Datos línea
