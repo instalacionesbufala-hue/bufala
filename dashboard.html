@@ -474,6 +474,7 @@
       <div class="filter-bar">
         <select id="filtroMes" onchange="onFiltroChange()"></select>
         <select id="filtroBrigada" onchange="onFiltroChange()"></select>
+        <select id="filtroPartner" onchange="onFiltroChange()" style="display:none"></select>
       </div>
       <button class="btn-theme" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema claro/oscuro">🌙</button>
       <button class="btn-logout" onclick="recargarDatosFrescos()" title="Recalcular los datos en el servidor, ignorando toda caché (tarda unos segundos)">⚡ Datos frescos</button>
@@ -598,6 +599,27 @@
         </div>
       </div>
 
+      <!-- TABLA 3 (v3.19.0): REPARTO POR PARTNER -->
+      <div class="tabla-card" id="cardPartners" style="display:none">
+        <div class="chart-title">Reparto por partner</div>
+        <div class="chart-subtitle" id="subPartners">Facturado, instalaciones y fallidas de cada cliente</div>
+        <div class="tabla-wrap">
+          <table id="tablaPartners">
+            <thead>
+              <tr>
+                <th class="col-brigada">Partner</th>
+                <th>Brigada</th>
+                <th>Facturado</th>
+                <th>Instalaciones</th>
+                <th>Fallidas</th>
+                <th>% del facturado</th>
+              </tr>
+            </thead>
+            <tbody id="tablaPartnersBody"></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -614,7 +636,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260825-1600";
+const DASHBOARD_BUILD = "20260905-2030";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1033,8 +1055,16 @@ function programarPrefetch(data) {
 function onFiltroChange() {
   currentMes = document.getElementById('filtroMes').value || null;
   currentBrigada = document.getElementById('filtroBrigada').value || 'todas';
+  // v3.19.0: el filtro de partner NO se re-consulta al servidor: el payload
+  // ya trae el desglose completo del mes, así que se aplica en cliente
+  // (instantáneo y sin gastar cuota de Apps Script).
+  currentPartner = document.getElementById('filtroPartner').value || 'todos';
+  if (window._ultimoPayload) {
+    try { renderPartners(window._ultimoPayload); } catch (e) { console.warn(e); }
+  }
   loadDashboardData();
 }
+var currentPartner = 'todos';
 
 // Botón «⚡ Datos frescos»: ignora caché local y de servidor.
 function recargarDatosFrescos() {
@@ -1103,6 +1133,8 @@ function renderDashboard(data) {
 
   seguro('tablaOperativa', () => renderTablaOperativa(data.tablaBrigadas || []));
   seguro('tablaEconomica', () => renderTablaEconomica(data.tablaBrigadas || []));
+  window._ultimoPayload = data;                       // v3.19.0
+  seguro('partners', () => renderPartners(data));
 
   if (fallos.length > 0) {
     seguro('avisoFallos', () => {
@@ -2001,6 +2033,83 @@ function renderTablaOperativa(filas) {
     '<td>' + t.fallidas + '</td>' +
     '<td>' + t.kmExceso + ' km</td>';
   tbody.appendChild(tr);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v3.19.0 — REPARTO POR PARTNER
+// Muestra lo que pidió César: facturado, instalaciones y fallidas de cada
+// partner, y de qué brigada viene cada cosa. Sin costes ni margen: las
+// nóminas/renting/estructura no se pueden separar por partner (se pagan
+// igual venga el trabajo de donde venga), así que repartirlas sería
+// inventar. El margen sigue en las tarjetas y en la tabla económica, para
+// el conjunto de la empresa.
+// Todo se calcula sobre data.partners (pestaña espejo 📊 KPI Partner).
+// ═══════════════════════════════════════════════════════════════
+function renderPartners(data) {
+  const card = document.getElementById('cardPartners');
+  const sel  = document.getElementById('filtroPartner');
+  const p    = data.partners;
+
+  if (!p || !p.resumen || !p.resumen.length) {
+    card.style.display = 'none';
+    sel.style.display  = 'none';
+    return;
+  }
+
+  // Selector (se rellena una vez; conserva la selección del usuario)
+  const disponibles = p.disponibles || [];
+  const deseado = sel.value || currentPartner || 'todos';
+  sel.innerHTML = '<option value="todos">Todos los partners</option>' +
+    disponibles.map(x => '<option value="' + x + '">' + x + '</option>').join('');
+  sel.value = disponibles.indexOf(deseado) >= 0 ? deseado : 'todos';
+  currentPartner = sel.value;
+  // Con un único partner (solo ESMOVE) el selector no aporta nada
+  sel.style.display = disponibles.length > 1 ? '' : 'none';
+
+  const totalFact = p.resumen.reduce((s, r) => s + (Number(r.facturado) || 0), 0);
+  const filtrado  = currentPartner !== 'todos';
+  const filas = (p.porBrigada || []).filter(r => !filtrado || r.partner === currentPartner);
+
+  const tbody = document.getElementById('tablaPartnersBody');
+  tbody.innerHTML = '';
+  filas.forEach(r => {
+    const fact = Number(r.facturado) || 0;
+    const pct  = totalFact > 0 ? (fact / totalFact * 100) : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="col-brigada"><strong>' + r.partner + '</strong></td>' +
+      '<td>' + r.brigada + '</td>' +
+      '<td>' + fmtEur.format(fact) + '</td>' +
+      '<td>' + (Number(r.instalaciones) || 0) + '</td>' +
+      '<td>' + (Number(r.fallidas) || 0) + '</td>' +
+      '<td>' + pct.toFixed(1) + '%</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Fila de totales por partner (siempre visible, aunque haya filtro)
+  p.resumen.forEach(r => {
+    if (filtrado && r.partner !== currentPartner) return;
+    const fact = Number(r.facturado) || 0;
+    const pct  = totalFact > 0 ? (fact / totalFact * 100) : 0;
+    const tr = document.createElement('tr');
+    tr.style.fontWeight = '700';
+    tr.style.borderTop  = '2px solid var(--border, #e5e7eb)';
+    tr.innerHTML =
+      '<td class="col-brigada">TOTAL ' + r.partner + '</td>' +
+      '<td>—</td>' +
+      '<td>' + fmtEur.format(fact) + '</td>' +
+      '<td>' + (Number(r.instalaciones) || 0) + '</td>' +
+      '<td>' + (Number(r.fallidas) || 0) + '</td>' +
+      '<td>' + pct.toFixed(1) + '%</td>';
+    tbody.appendChild(tr);
+  });
+
+  const meta = data.meta || {};
+  document.getElementById('subPartners').textContent =
+    (meta.mesLabel || '') + ' · facturado, instalaciones y fallidas por cliente' +
+    (filtrado ? ' · filtrado: ' + currentPartner : '') +
+    ' · sin costes ni margen (no se reparten por partner)';
+  card.style.display = '';
 }
 
 function renderTablaEconomica(filas) {
