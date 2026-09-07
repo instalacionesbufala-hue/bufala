@@ -1,5 +1,17 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.18.2 (05/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.0 (06/09/2026)
+     v3.19.0 — INSTANTBOX CON EL MISMO RECORRIDO QUE ESMOVE (César 06/09):
+     fuera la pantalla propia de tramo/adicionales. El técnico rellena las
+     pantallas de siempre (tipo, vídeo, fotos, línea, medidas, canalizaciones,
+     protecciones, trabajos especiales, checklist, resumen), saltando ACTA e
+     HITOS HW, que no aplican a la tarifa cerrada. Los 14 adicionales están
+     en la pantalla de trabajos especiales con el MISMO componente toggle que
+     ya funciona en producción (los checkbox nativos del intento anterior no
+     respondían: en este wizard no se usan en ningún sitio — causa del fallo
+     de la simulación). El tramo del baremo lo deduce el BACKEND de los
+     metros reales medidos, ya subidos a la plataforma de InstantBox y
+     autorizados por el cliente. Sin precios a la vista del técnico.
+     Requiere backend v3.19.1+.
      v3.18.2: TEMA INSTANTBOX. Con &partner=instantbox el wizard cambia el
      verde Búfala por GRAFITO #111827 (pulsado #000), a juego con la web de
      InstantBox, más badge "INSTANTBOX" en el header. Se mantienen el verde
@@ -665,55 +677,6 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   </div>
 </section>
 
-<!-- ═══ PANTALLA INSTANTBOX (v3.18.0): TRAMO + ADICIONALES ═══ -->
-<section class="screen" data-screen="ib">
-  <h1 class="title">Instalación InstantBox</h1>
-  <p class="subtitle">Tramo del pedido y adicionales autorizados</p>
-
-  <div class="field">
-    <label class="label">Fase</label>
-    <div class="pills" id="ibFasePills"></div>
-  </div>
-
-  <div class="field">
-    <label class="label">Tramo de metros (el del pedido)</label>
-    <div class="pills" id="ibTramoPills"></div>
-    <div class="warning-box" id="ibTramoAviso" style="margin-top:12px">
-      <span>⚠️</span>
-      <div><b>El tramo facturable es el del pedido.</b> Solo puede cambiarse si el
-      cambio se ha autorizado <b>con antelación</b> por el <b>cliente</b> y por
-      <b>oficina</b>.</div>
-    </div>
-    <label class="check-row" id="ibCambioRow" style="display:none; margin-top:10px">
-      <input type="checkbox" id="ibCambioAutorizado" onchange="ibToggleCambio()">
-      <span>Cambio de tramo/fase <b>autorizado con antelación</b> por el cliente y por oficina</span>
-    </label>
-  </div>
-
-  <div class="field">
-    <label class="label">Metros reales instalados</label>
-    <input type="number" class="input" id="ibMetros" placeholder="0">
-    <div class="hint">Solo para productividad y coste de material — no cambia la tarifa</div>
-  </div>
-
-  <div class="field">
-    <label class="label">Adicionales instalados</label>
-    <div class="warning-box" style="margin-bottom:10px">
-      <span>⚠️</span>
-      <div>Los adicionales <b>solo pueden añadirse ANTES de iniciar la instalación
-      y con autorización de oficina</b>. No marques ninguno que no esté autorizado.</div>
-    </div>
-    <div class="card" id="ibAdicionalesCard"></div>
-  </div>
-
-  <div class="field">
-    <label class="check-row">
-      <input type="checkbox" id="ibWhatsapp">
-      <span>Cliente ha confirmado la finalización por <b>WhatsApp</b> (opcional)</span>
-    </label>
-  </div>
-</section>
-
 <!-- ═══ PANTALLA 2: VIDEO ═══ -->
 <section class="screen" data-screen="2">
   <h1 class="title">Subir vídeo</h1>
@@ -869,14 +832,26 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 <!-- ═══ PANTALLA 8: TRABAJOS ESPECIALES ═══ -->
 <section class="screen" data-screen="8">
   <h1 class="title">Trabajos especiales</h1>
-  <p class="subtitle">Solo con autorización previa de ESMOVE</p>
+  <p class="subtitle" id="trabajosSubtitle">Solo con autorización previa de ESMOVE</p>
 
   <div class="warning-box">
     <span>⚠️</span>
-    <div>Estos trabajos requieren <strong>autorización previa de ESMOVE</strong>.</div>
+    <div id="trabajosWarnText">Estos trabajos requieren <strong>autorización previa de ESMOVE</strong>.</div>
   </div>
 
   <div class="card" id="trabajosCard"></div>
+
+  <!-- v3.19.0: adicionales InstantBox (solo con &partner=instantbox) -->
+  <div id="ibAdicionalesWrap" style="display:none">
+    <h1 class="title" style="margin-top:30px">Adicionales InstantBox</h1>
+    <p class="subtitle">Marca solo los que se hayan ejecutado</p>
+    <div class="warning-box">
+      <span>⚠️</span>
+      <div>Solo pueden añadirse <strong>antes de iniciar la instalación y con
+      autorización de oficina</strong>.</div>
+    </div>
+    <div class="card" id="ibAdicionalesCard"></div>
+  </div>
 </section>
 
 <!-- ═══ PANTALLA 9: PDF ACTA ═══ -->
@@ -1168,9 +1143,8 @@ const state = {
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
-  esInstantbox: false, // v3.18.0: flujo INSTANTBOX (&partner=instantbox)
-  ib: { fase:null, tramo:null, faseDefault:null, tramoDefault:null,
-        cambioAutorizado:false, adicionales:{}, confirmadoWhatsapp:false },
+  esInstantbox: false, // v3.19.0: flujo INSTANTBOX (&partner=instantbox)
+  ib: { tramoPedido: '' },   // trazabilidad; el precio va por metros reales
   isSuper: false,
   cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
   videoBg: { token:0, promise:null, meta:null, sig:null, active:false, pct:0, phase:'', done:false, error:null }
@@ -1257,10 +1231,9 @@ function parseUrlParams(){
   // por tramo: sin línea/sección/canalizaciones/protecciones/hitos/acta.
   state.esInstantbox = (p.get('partner') === 'instantbox');
   if (state.esInstantbox){
-    state.ib.faseDefault  = (p.get('fase') === 'trif') ? 'trif' : (p.get('fase') === 'mono' ? 'mono' : null);
-    state.ib.tramoDefault = p.get('tramo') || null;
-    state.ib.fase  = state.ib.faseDefault;
-    state.ib.tramo = state.ib.tramoDefault;
+    // El tramo del pedido viaja SOLO como trazabilidad: el precio lo decide
+    // el backend con los metros reales medidos en obra.
+    state.ib.tramoPedido = p.get('tramo') || '';
     setupInstantbox(p.get('vivienda') || '');
   }
 
@@ -1287,107 +1260,92 @@ function parseUrlParams(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FLUJO INSTANTBOX (v3.18.0)
-// Claves de ADICIONALES_IB idénticas a las del backend v3.18.2+ (regla de
-// coherencia carácter a carácter). SIN precios a la vista del técnico.
+// FLUJO INSTANTBOX (v3.19.0 — MISMO RECORRIDO QUE ESMOVE)
+// ───────────────────────────────────────────────────────────────
+// El técnico rellena las MISMAS pantallas que en ESMOVE (tipo, vídeo, fotos,
+// tipo de línea, medidas, canalizaciones, protecciones, trabajos especiales,
+// checklist, resumen). No elige tramo ni ve precios: el backend deduce el
+// tramo del baremo InstantBox a partir de los METROS REALES medidos, que ya
+// se subieron a la plataforma de InstantBox y el cliente autorizó antes de
+// ejecutar la obra (decisión César 06/09/2026).
+// Se saltan dos pantallas que no aplican: ACTA (9), porque la firma va por
+// su plataforma o WhatsApp, e HITOS HW (10), porque la tarifa es cerrada y
+// no existen los 3 hitos de 30 €.
+// Los 14 adicionales usan el MISMO componente toggle que los trabajos
+// especiales: en este wizard los <input type="checkbox"> nativos no se usan
+// en ningún sitio y no respondían (causa del fallo de la simulación).
 // ═══════════════════════════════════════════════════════════════
-const IB_TRAMOS = { mono: ['0-20','21-40','41-50','51-60','61-100'], trif: ['0-20','21-40'] };
 const IB_ADICIONALES = [
-  { id:'cajaSuperficieContador',   label:'Caja superficie para el nuevo contador' },
-  { id:'caloForjado',              label:'Calo en forjado' },
-  { id:'dosCalosForjado',          label:'2 Calos en forjado' },
-  { id:'cuadroElectricoAdicional', label:'Cuadro eléctrico adicional' },
-  { id:'extraCable10mm',           label:'Extra por cable de 10mm' },
-  { id:'instalacionDPN',           label:'Instalación DPN' },
-  { id:'instalacionIGAAdicional',  label:'Instalación IGA adicional' },
-  { id:'tomaTierraAdicional',      label:'Instalación toma tierra adicional' },
-  { id:'modificacionCuadroGeneral',label:'Modificación de cuadro general' },
-  { id:'actualizacionCIE',         label:'Actualización CIE de la vivienda' },
-  { id:'adaptarColumnaRedonda',    label:'Adaptar cargador a columna redonda' },
-  { id:'altaNuevoContador',        label:'Alta nueva contador (adec. cuadro)' },
-  { id:'cableado16mm80m',          label:'Cableado 16mm hasta 80 metros' },
-  { id:'cajaEmpalmeBornasSigma',   label:'Caja de empalme con bornas Sigma adic.' }
+  { id:'ibCajaSuperficieContador',  key:'cajaSuperficieContador',   label:'Caja superficie para el nuevo contador' },
+  { id:'ibCaloForjado',             key:'caloForjado',              label:'Calo en forjado' },
+  { id:'ibDosCalosForjado',         key:'dosCalosForjado',          label:'2 Calos en forjado' },
+  { id:'ibCuadroElectricoAdic',     key:'cuadroElectricoAdicional', label:'Cuadro eléctrico adicional' },
+  { id:'ibExtraCable10mm',          key:'extraCable10mm',           label:'Extra por cable de 10mm' },
+  { id:'ibInstalacionDPN',          key:'instalacionDPN',           label:'Instalación DPN' },
+  { id:'ibInstalacionIGAAdic',      key:'instalacionIGAAdicional',  label:'Instalación IGA adicional' },
+  { id:'ibTomaTierraAdic',          key:'tomaTierraAdicional',      label:'Instalación toma tierra adicional' },
+  { id:'ibModifCuadroGeneral',      key:'modificacionCuadroGeneral',label:'Modificación de cuadro general' },
+  { id:'ibActualizacionCIE',        key:'actualizacionCIE',         label:'Actualización CIE de la vivienda' },
+  { id:'ibAdaptarColumnaRedonda',   key:'adaptarColumnaRedonda',    label:'Adaptar cargador a columna redonda' },
+  { id:'ibAltaNuevoContador',       key:'altaNuevoContador',        label:'Alta nueva contador (adec. cuadro)' },
+  { id:'ibCableado16mm80m',         key:'cableado16mm80m',          label:'Cableado 16mm hasta 80 metros' },
+  { id:'ibCajaEmpalmeSigma',        key:'cajaEmpalmeBornasSigma',   label:'Caja de empalme con bornas Sigma adic.' }
 ];
-const IB_COLETILLA = '⚠️ Solo antes de iniciar la instalación y con autorización de oficina';
+
+// Recorrido IB: se salta 9 (acta) y 10 (hitos HW)
+const IB_PASOS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12];
 
 function setupInstantbox(vivienda){
-  // v3.18.1: "Nuevo suministro" SÍ existe en InstantBox — corresponde al
-  // adicional 'Alta nueva contador (adec. cuadro)' (ADECUACIÓN EN CUARTO DE
-  // CONTADORES POR ALTA NUEVO CONTADOR en Holded). Al elegirlo se auto-marca
-  // ese adicional (editable) y se piden las fotos NS de siempre.
-  // v3.18.2: tema visual InstantBox (grafito) — solo en este flujo
+  // Tema visual grafito + badge (solo en este flujo)
   document.body.classList.add('ib-theme');
   const tag = document.getElementById('partnerTag');
   if (tag) tag.style.display = 'inline-flex';
   const titulo = document.querySelector('[data-screen="1"] .title');
   if (titulo) titulo.textContent = 'Cierre de obra — InstantBox';
-  // Preselección del tipo de vivienda capturado (editable)
+
+  // En InstantBox la autorización la da OFICINA, no ESMOVE
+  const sub = document.getElementById('trabajosSubtitle');
+  if (sub) sub.textContent = 'Solo con autorización previa de oficina';
+  const warn = document.getElementById('trabajosWarnText');
+  if (warn) warn.innerHTML = 'Estos trabajos requieren <strong>autorización previa de oficina</strong>.';
+
+  renderIbAdicionales();
+
+  // Tipo de vivienda capturado del pedido, preseleccionado y editable
   if (vivienda === 'comunitaria' || vivienda === 'unifamiliar'){
     setTimeout(() => selectType(vivienda), 50);
   }
-  renderIbScreen();
 }
 
-function renderIbScreen(){
-  // Fase
-  const fasePills = document.getElementById('ibFasePills');
-  fasePills.innerHTML = ['mono','trif'].map(f =>
-    '<div class="pill' + (state.ib.fase === f ? ' selected' : '') + '" data-fase="' + f +
-    '" onclick="ibSelectFase(\'' + f + '\', this)">' + (f === 'mono' ? '⚡ Monofásica' : '⚡⚡⚡ Trifásica') + '</div>'
-  ).join('');
-  // Tramos de la fase activa (o mono si aún no hay fase)
-  const fase = state.ib.fase || 'mono';
-  const tramoPills = document.getElementById('ibTramoPills');
-  tramoPills.innerHTML = IB_TRAMOS[fase].map(t =>
-    '<div class="pill' + (state.ib.tramo === t ? ' selected' : '') + '" data-tramo="' + t +
-    '" onclick="ibSelectTramo(\'' + t + '\', this)">' + t + ' m</div>'
-  ).join('');
-  // Con defaults del pedido y sin autorización marcada: pills bloqueadas
-  ibAplicarBloqueo();
-  // Adicionales (cada uno con la coletilla de autorización)
+function renderIbAdicionales(){
+  const wrap = document.getElementById('ibAdicionalesWrap');
   const card = document.getElementById('ibAdicionalesCard');
-  if (card && !card.dataset.rendered){
-    card.innerHTML = IB_ADICIONALES.map(a =>
-      '<label class="ib-adic-row"><input type="checkbox" id="ibAdic_' + a.id + '">' +
-      '<div><div class="ib-adic-label">' + a.label + '</div>' +
-      '<div class="ib-adic-note">' + IB_COLETILLA + '</div></div></label>'
-    ).join('');
-    card.dataset.rendered = '1';
-  }
+  if (!wrap || !card) return;
+  wrap.style.display = '';
+  if (card.dataset.rendered) return;
+  card.innerHTML = IB_ADICIONALES.map(a =>
+    '<div class="material-block trabajo-block">' +
+      '<div class="trabajo-row">' +
+        '<button type="button" class="trabajo-toggle" id="tgl_' + a.id +
+          '" onclick="toggleTrabajoEspecial(\'' + a.id + '\')">' +
+          '<span class="trabajo-toggle-indicator"></span>' +
+          '<span class="trabajo-toggle-label">Aplicar</span>' +
+        '</button>' +
+        '<div class="trabajo-info"><div class="trabajo-name">' + a.label + '</div></div>' +
+      '</div>' +
+      '<div class="trabajo-detail" id="trabDetail_' + a.id + '" style="display:none">' +
+        '<div class="trabajo-presup-warn">⚠️ Debe estar <strong>autorizado por oficina</strong> ' +
+        'y haberse acordado antes de iniciar la instalación.</div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+  card.dataset.rendered = '1';
 }
 
-function ibHayDefaults(){ return !!(state.ib.faseDefault && state.ib.tramoDefault); }
-
-function ibAplicarBloqueo(){
-  const bloqueado = ibHayDefaults() && !state.ib.cambioAutorizado;
-  document.getElementById('ibFasePills').classList.toggle('ib-locked', bloqueado);
-  document.getElementById('ibTramoPills').classList.toggle('ib-locked', bloqueado);
-  // El checkbox de autorización solo aparece cuando hay defaults del pedido
-  document.getElementById('ibCambioRow').style.display = ibHayDefaults() ? 'flex' : 'none';
-}
-
-function ibToggleCambio(){
-  state.ib.cambioAutorizado = document.getElementById('ibCambioAutorizado').checked;
-  if (!state.ib.cambioAutorizado && ibHayDefaults()){
-    // Al desmarcar, vuelve el tramo/fase del pedido
-    state.ib.fase  = state.ib.faseDefault;
-    state.ib.tramo = state.ib.tramoDefault;
-  }
-  renderIbScreen();
-}
-
-function ibSelectFase(f, el){
-  if (state.ib.fase === f) return;
-  state.ib.fase = f;
-  // El tramo actual puede no existir en la nueva fase
-  if (IB_TRAMOS[f].indexOf(state.ib.tramo) < 0) state.ib.tramo = null;
-  renderIbScreen();
-}
-
-function ibSelectTramo(t, el){
-  state.ib.tramo = t;
-  document.querySelectorAll('#ibTramoPills .pill').forEach(p => p.classList.remove('selected'));
-  el.classList.add('selected');
+function recogerAdicionalesIB(){
+  const out = {};
+  IB_ADICIONALES.forEach(a => { if (isTrabajoEspecialActivo(a.id)) out[a.key] = true; });
+  return out;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1422,13 +1380,13 @@ function showScreen(num){
   target.classList.add('active');
   state.currentScreen = num;
 
-  if (state.esInstantbox && (num === 1 || num === 'ib' || num === 2 || num === 3)){
-    // v3.18.0: progreso propio del flujo IB (4 pasos)
-    const mapa = { 1:1, ib:2, 2:3, 3:4 };
-    const paso = mapa[num];
-    document.getElementById('progressStep').textContent = 'Paso ' + paso + ' de 4';
-    document.getElementById('progressPct').textContent = Math.round(paso / 4 * 100) + '%';
-    document.getElementById('progressFill').style.width = Math.round(paso / 4 * 100) + '%';
+  if (state.esInstantbox && typeof num === 'number' && IB_PASOS.indexOf(num) >= 0){
+    // v3.19.0: progreso del recorrido IB (10 pasos: sin acta ni hitos HW)
+    const pasoIB = IB_PASOS.indexOf(num) + 1, totIB = IB_PASOS.length;
+    const pctIB = Math.round(pasoIB / totIB * 100);
+    document.getElementById('progressStep').textContent = 'Paso ' + pasoIB + ' de ' + totIB;
+    document.getElementById('progressPct').textContent = pctIB + '%';
+    document.getElementById('progressFill').style.width = pctIB + '%';
   } else if (typeof num === 'number'){
     const pct = Math.round((num / state.totalScreens) * 100);
     document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
@@ -1440,11 +1398,7 @@ function showScreen(num){
 
   // Botones nav
   document.getElementById('btnPrev').style.visibility = (num === 1 || num === 'done') ? 'hidden' : 'visible';
-  if (state.esInstantbox && num === 3){
-    // v3.18.0: en IB la pantalla de fotos es la última → enviar
-    document.getElementById('btnNext').textContent = '✓ Enviar cierre';
-    document.getElementById('btnNext').classList.add('nav-btn-send');
-  } else if (num === 12 || num === 'failed'){
+  if (num === 12 || num === 'failed'){
     document.getElementById('btnNext').textContent = num === 'failed' ? '✓ Enviar fallida' : '✓ Enviar cierre';
     document.getElementById('btnNext').classList.add('nav-btn-send');
   } else if (num === 'done'){
@@ -1499,19 +1453,17 @@ function nextScreen(){
   if (state.currentScreen === 12){ submitClosure(false); return; }
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
 
-  // v3.18.0 — flujo INSTANTBOX: 1 → ib → 2 (vídeo) → 3 (fotos) → enviar
-  if (state.esInstantbox){
-    if (state.currentScreen === 1){ showScreen('ib'); return; }
-    if (state.currentScreen === 'ib'){ showScreen(2); return; }
-    if (state.currentScreen === 2){
-      if (!state.isSuper && state.videos.length){
+  // v3.19.0 — INSTANTBOX: mismo recorrido que ESMOVE saltando 9 y 10
+  if (state.esInstantbox && typeof state.currentScreen === 'number'){
+    const idxIB = IB_PASOS.indexOf(state.currentScreen);
+    if (idxIB >= 0 && idxIB < IB_PASOS.length - 1){
+      if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
         const errV = validarTamanoVideos();
         if (errV){ alert('⚠️ ' + errV); return; }
         iniciarSubidaVideosBackground();
       }
-      showScreen(3); return;
+      showScreen(IB_PASOS[idxIB + 1]); return;
     }
-    if (state.currentScreen === 3){ submitClosure(false); return; }
   }
 
   // v3.10.5: al salir de la pantalla de vídeo, valida tamaño y arranca la subida en background
@@ -1531,11 +1483,10 @@ function nextScreen(){
 
 function prevScreen(){
   if (state.currentScreen === 'failed'){ showScreen(1); return; }
-  // v3.18.0 — flujo INSTANTBOX
-  if (state.esInstantbox){
-    if (state.currentScreen === 'ib'){ showScreen(1); return; }
-    if (state.currentScreen === 2){ showScreen('ib'); return; }
-    if (state.currentScreen === 3){ showScreen(2); return; }
+  // v3.19.0 — INSTANTBOX: retroceso por el mismo recorrido
+  if (state.esInstantbox && typeof state.currentScreen === 'number'){
+    const idxIB = IB_PASOS.indexOf(state.currentScreen);
+    if (idxIB > 0){ showScreen(IB_PASOS[idxIB - 1]); return; }
   }
   if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
     let prev = state.currentScreen - 1;
@@ -1548,20 +1499,6 @@ function prevScreen(){
 
 function validateScreen(num){
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
-  // v3.18.0 — pantalla InstantBox
-  if (num === 'ib'){
-    if (!state.ib.fase){ showError('Selecciona la fase'); return false; }
-    if (!state.ib.tramo){ showError('Selecciona el tramo de metros'); return false; }
-    const m = parseFloat(document.getElementById('ibMetros').value) || 0;
-    if (m <= 0){ showError('Indica los metros reales instalados'); return false; }
-    const cambio = ibHayDefaults() &&
-      (state.ib.fase !== state.ib.faseDefault || state.ib.tramo !== state.ib.tramoDefault);
-    if (cambio && !state.ib.cambioAutorizado){
-      showError('El cambio de tramo/fase requiere autorización previa del cliente y de oficina');
-      return false;
-    }
-    return true;
-  }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
     if (!state.data.fase){ showError('Selecciona la fase'); return false; }
@@ -1678,12 +1615,15 @@ function selectType(t){
   // Auto-rellenar el kit de pre-instalación cuando es nuevo suministro
   applyKitPreinstAuto();
 
-  // v3.18.1 (modo IB): "Nuevo suministro" ⇔ adicional de alta de contador.
-  // Auto-marcado bidireccional (editable después por el técnico): al elegir
-  // NS se marca; al cambiar a otro tipo se desmarca.
+  // v3.19.0 (modo IB): "Nuevo suministro" ⇔ adicional de alta de contador
+  // (ADECUACIÓN EN CUARTO DE CONTADORES POR ALTA NUEVO CONTADOR en Holded).
+  // Auto-marcado bidireccional sobre el MISMO toggle que usan los trabajos
+  // especiales; el técnico puede corregirlo a mano después.
   if (state.esInstantbox){
-    const chkAlta = document.getElementById('ibAdic_altaNuevoContador');
-    if (chkAlta) chkAlta.checked = (t === 'nuevoSuministro');
+    const deseado = (t === 'nuevoSuministro');
+    if (isTrabajoEspecialActivo('ibAltaNuevoContador') !== deseado){
+      toggleTrabajoEspecial('ibAltaNuevoContador');
+    }
   }
 
   // Si la cita indica desmontaje, pre-marcar el hito y dejar la foto #12 obligatoria
@@ -2312,9 +2252,14 @@ function recolectarDatos(esFallida){
 
   // v3.18.0: PARTNER SIEMPRE (también en fallida) — el backend enruta el
   // tarifario y marca la columna PARTNER + EXCLUIR BONUS con este campo.
+  // v3.19.0: PARTNER siempre (también en fallida) — el backend enruta el
+  // tarifario y marca la columna PARTNER + EXCLUIR BONUS con este campo.
+  // El tramo facturable lo deduce el backend de los metros reales; aquí solo
+  // viaja el del pedido, como trazabilidad, y los adicionales marcados.
   if (state.esInstantbox){
-    datos.partner = 'instantbox';
-    datos.fase    = state.ib.fase || 'mono';
+    datos.partner       = 'instantbox';
+    datos.tramoPedido   = state.ib.tramoPedido || '';
+    datos.adicionalesIB = recogerAdicionalesIB();
   }
 
   if (esFallida){
@@ -2322,21 +2267,6 @@ function recolectarDatos(esFallida){
     return datos;
   }
 
-  // v3.18.0: cierre InstantBox — tramo del pedido (o autorizado), adicionales
-  // con autorización de oficina, metros reales. Tarifa cerrada: nada más.
-  if (state.esInstantbox){
-    datos.tramoIb = state.ib.tramo;
-    datos.metrosFinales = parseFloat(document.getElementById('ibMetros').value) || 0;
-    datos.metrosUtp = datos.metrosFinales;
-    datos.cambioTramoAutorizado = !!state.ib.cambioAutorizado;
-    datos.confirmadoWhatsapp = !!document.getElementById('ibWhatsapp').checked;
-    datos.adicionalesIB = {};
-    IB_ADICIONALES.forEach(a => {
-      const el = document.getElementById('ibAdic_' + a.id);
-      if (el && el.checked) datos.adicionalesIB[a.id] = true;
-    });
-    return datos;   // sin línea/sección/canalizaciones/protecciones/hitos
-  }
 
   // Datos línea
   datos.tipoLinea  = state.data.tipoLinea;
