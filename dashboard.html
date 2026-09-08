@@ -636,7 +636,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260905-2030";
+const DASHBOARD_BUILD = "20260908-1200";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -2063,8 +2063,10 @@ function renderPartners(data) {
     disponibles.map(x => '<option value="' + x + '">' + x + '</option>').join('');
   sel.value = disponibles.indexOf(deseado) >= 0 ? deseado : 'todos';
   currentPartner = sel.value;
-  // Con un único partner (solo ESMOVE) el selector no aporta nada
-  sel.style.display = disponibles.length > 1 ? '' : 'none';
+  // v3.19.6 (build 20260908): el selector se ve SIEMPRE que el backend mande
+  // el bloque partners — también con InstantBox a 0 €. Antes se ocultaba
+  // hasta tener dos partners con datos y parecía que el filtro no existía.
+  sel.style.display = '';
 
   const totalFact = p.resumen.reduce((s, r) => s + (Number(r.facturado) || 0), 0);
   const filtrado  = currentPartner !== 'todos';
