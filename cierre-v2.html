@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.0 (06/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.1 (09/09/2026)
+     v3.19.1 — INSTANTBOX SIN FOTOS NI VÍDEO (César 09/09/2026): esa
+     documentación se sube por el ENLACE DE INSTANTBOX, así que las pantallas
+     2 (vídeo) y 3 (fotos) salen del flujo, igual que ya se hace con ESBRAIN.
+     Recorrido IB: 1 → 4 → 5 → 6 → 7 → 8 → 11 → 12 (8 pasos). El envío marca
+     soloDatos:true y va sin archivos → el backend lo procesa por el camino
+     de solo datos, sin crear carpetas en Drive. Aviso en la pantalla 1 para
+     que nadie busque dónde subirlas.
      v3.19.0 — INSTANTBOX CON EL MISMO RECORRIDO QUE ESMOVE (César 06/09):
      fuera la pantalla propia de tramo/adicionales. El técnico rellena las
      pantallas de siempre (tipo, vídeo, fotos, línea, medidas, canalizaciones,
@@ -1292,8 +1299,12 @@ const IB_ADICIONALES = [
   { id:'ibCajaEmpalmeSigma',        key:'cajaEmpalmeBornasSigma',   label:'Caja de empalme con bornas Sigma adic.' }
 ];
 
-// Recorrido IB: se salta 9 (acta) y 10 (hitos HW)
-const IB_PASOS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12];
+// Recorrido IB (v3.19.1): se saltan 2 (vídeo), 3 (fotos), 9 (acta) y 10
+// (hitos HW). Fotos, vídeo y firma se suben por el ENLACE DE INSTANTBOX
+// (decisión César 09/09/2026), igual que ESBRAIN los sube en su plataforma:
+// duplicarlos aquí sería trabajo doble para el técnico y Drive vacío.
+// El envío va como "solo datos" → el backend no crea carpetas en Drive.
+const IB_PASOS = [1, 4, 5, 6, 7, 8, 11, 12];
 
 function setupInstantbox(vivienda){
   // Tema visual grafito + badge (solo en este flujo)
@@ -1310,6 +1321,13 @@ function setupInstantbox(vivienda){
   if (warn) warn.innerHTML = 'Estos trabajos requieren <strong>autorización previa de oficina</strong>.';
 
   renderIbAdicionales();
+
+  // v3.19.1: dejar claro en la primera pantalla que las fotos y el vídeo
+  // NO se suben aquí, para que nadie las busque ni las duplique.
+  const sub1 = document.querySelector('[data-screen="1"] .subtitle');
+  if (sub1) sub1.innerHTML = 'Confirma los datos y elige el tipo de instalación<br>' +
+    '<span style="color:var(--accent); font-weight:600">📷 Fotos, vídeo y firma se suben ' +
+    'por el enlace de InstantBox, no aquí</span>';
 
   // Tipo de vivienda capturado del pedido, preseleccionado y editable
   if (vivienda === 'comunitaria' || vivienda === 'unifamiliar'){
@@ -1455,13 +1473,10 @@ function nextScreen(){
 
   // v3.19.0 — INSTANTBOX: mismo recorrido que ESMOVE saltando 9 y 10
   if (state.esInstantbox && typeof state.currentScreen === 'number'){
+    // v3.19.1: sin pantallas de archivos → sin subidas en background ni
+    // gates de espera (no hay nada que subir desde aquí).
     const idxIB = IB_PASOS.indexOf(state.currentScreen);
     if (idxIB >= 0 && idxIB < IB_PASOS.length - 1){
-      if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
-        const errV = validarTamanoVideos();
-        if (errV){ alert('⚠️ ' + errV); return; }
-        iniciarSubidaVideosBackground();
-      }
       showScreen(IB_PASOS[idxIB + 1]); return;
     }
   }
@@ -1498,6 +1513,9 @@ function prevScreen(){
 }
 
 function validateScreen(num){
+  // v3.19.1: en InstantBox las pantallas de archivos no existen; si algún
+  // resto de flujo las evaluara, se dan por válidas (nada que exigir).
+  if (state.esInstantbox && (num === 2 || num === 3 || num === 9 || num === 10)) return true;
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
@@ -2260,6 +2278,15 @@ function recolectarDatos(esFallida){
     datos.partner       = 'instantbox';
     datos.tramoPedido   = state.ib.tramoPedido || '';
     datos.adicionalesIB = recogerAdicionalesIB();
+    // v3.19.1: SOLO DATOS — fotos, vídeo y acta van por el enlace de
+    // InstantBox. Mismo tratamiento que ESBRAIN: el backend procesa sin
+    // crear carpetas ni esperar archivos.
+    datos.soloDatos = true;
+    datos.fotos = [];
+    datos.fotosRef = [];
+    datos.fotosTmpId = null;
+    datos.videos = [];
+    datos.actaPdf = null;
   }
 
   if (esFallida){
