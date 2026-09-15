@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.1 (09/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.2 (15/09/2026)
+     v3.19.2 — AVISO DE CIERRE DUPLICADO: al abrir el wizard se consulta al
+     backend (action=existeCierre) si ese Nº de instalación ya está en el
+     Registro. Si lo está, avisa con fecha y equipo del cierre anterior y
+     deja decidir; si el técnico cancela, se cierra la pantalla. Segundo
+     recordatorio justo antes de enviar. ADVIERTE, no bloquea: repetir un
+     cierre a veces es legítimo (fallida que luego se completa, corrección).
+     Si la consulta falla, no avisa — la red nunca impide un cierre.
+     Requiere backend v3.20.4+.
      v3.19.1 — INSTANTBOX SIN FOTOS NI VÍDEO (César 09/09/2026): esa
      documentación se sube por el ENLACE DE INSTANTBOX, así que las pantallas
      2 (vídeo) y 3 (fotos) salen del flujo, igual que ya se hace con ESBRAIN.
@@ -203,6 +211,10 @@ body.ib-theme .partner-tag{
   padding:5px 10px; border-radius:6px;
 }
 .partner-tag{display:none}
+/* v3.19.2 — aviso de cierre duplicado */
+.dup-tag{display:none; align-items:center; gap:6px; background:var(--danger, #dc2626);
+  color:#fff; font-size:11px; font-weight:700; letter-spacing:.4px;
+  padding:5px 10px; border-radius:6px}
 *{box-sizing:border-box; margin:0; padding:0}
 html{-webkit-text-size-adjust:100%}
 body{
@@ -629,6 +641,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <span class="logo-text">BÚFALA<span>tech</span></span>
   </div>
   <span class="partner-tag" id="partnerTag">INSTANTBOX</span>
+  <span class="dup-tag" id="dupTag">⚠️ YA TIENE CIERRE</span>
   <span class="super-tag" id="superTag">⭐ MODO ADMIN</span>
 </header>
 
@@ -1150,6 +1163,7 @@ const state = {
   checklist: Array(9).fill(false),
   data: {tipoLinea:null, fase:null, seccion:null},
   cita: {},            // datos del calendario (URL params)
+  cierrePrevio: null,  // v3.19.2: datos del cierre ya existente, si lo hay
   esInstantbox: false, // v3.19.0: flujo INSTANTBOX (&partner=instantbox)
   ib: { tramoPedido: '' },   // trazabilidad; el precio va por metros reales
   isSuper: false,
@@ -1236,6 +1250,9 @@ function parseUrlParams(){
   // link es de captura v1.6+). Pantallas: 1 (tipo) → ib (tramo+adicionales)
   // → 2 (vídeo) → 3 (fotos, nomenclatura ESMOVE) → enviar. Tarifa CERRADA
   // por tramo: sin línea/sección/canalizaciones/protecciones/hitos/acta.
+  // v3.19.2: aviso si esta instalación ya se cerró (no bloquea, advierte)
+  if (state.cita.numInst) comprobarCierreDuplicado(state.cita.numInst);
+
   state.esInstantbox = (p.get('partner') === 'instantbox');
   if (state.esInstantbox){
     // El tramo del pedido viaja SOLO como trazabilidad: el precio lo decide
@@ -1264,6 +1281,49 @@ function parseUrlParams(){
         d.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
     } catch(e){ document.getElementById('dataHora').textContent = state.cita.fecha; }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v3.19.2 — AVISO DE CIERRE DUPLICADO
+// ───────────────────────────────────────────────────────────────
+// Antes de que el técnico rellene nada, se pregunta al backend si ese Nº de
+// instalación ya está en el Registro. Si lo está, se avisa con los datos del
+// cierre anterior (fecha, equipo) y se le deja decidir: cerrar de nuevo es
+// legítimo a veces (una fallida que luego se completa, un cierre corregido),
+// así que esto ADVIERTE, no bloquea. Si la consulta falla, no se avisa: una
+// caída de red nunca debe impedir un cierre.
+// ═══════════════════════════════════════════════════════════════
+function comprobarCierreDuplicado(numInst){
+  if (!numInst) return;
+  const url = WEB_APP_URL + '?action=existeCierre&numInst=' + encodeURIComponent(numInst);
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      if (!d || !d.existe) return;
+      state.cierrePrevio = d;
+      const tag = document.getElementById('dupTag');
+      if (tag) tag.style.display = 'inline-flex';
+      const quePaso = d.fallida ? 'una VISITA FALLIDA' : 'un cierre';
+      const seguir = confirm(
+        '⚠️ ESTA INSTALACIÓN YA TIENE CIERRE\n\n' +
+        'Nº ' + numInst + (d.cliente ? '  ·  ' + d.cliente : '') + '\n' +
+        'Ya se registró ' + quePaso + ' el ' + (d.fecha || '¿?') +
+        (d.equipo ? ' por ' + d.equipo : '') + '.\n\n' +
+        'Si continúas se creará un SEGUNDO registro y habrá que corregirlo\n' +
+        'a mano en el Registro y en las pre-facturas.\n\n' +
+        '¿Seguro que quieres continuar?');
+      if (!seguir) {
+        document.body.innerHTML =
+          '<div style="padding:40px 24px; text-align:center; font-family:inherit">' +
+          '<div style="font-size:48px; margin-bottom:16px">🛑</div>' +
+          '<h2 style="margin-bottom:10px">Cierre cancelado</h2>' +
+          '<p style="color:#666; line-height:1.5">La instalación <b>' + numInst +
+          '</b> ya tenía cierre del ' + (d.fecha || '') + '.<br>' +
+          'Puedes cerrar esta pestaña.<br><br>' +
+          'Si crees que es un error, avisa a oficina.</p></div>';
+      }
+    })
+    .catch(() => {});   // sin red: no se avisa, nunca se bloquea
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2499,6 +2559,16 @@ async function submitIntervencion(){
 }
 
 async function submitClosure(esFallida){
+  // v3.19.2: segundo aviso justo antes de enviar, por si el técnico siguió
+  // adelante y ya no lo recuerda.
+  if (state.cierrePrevio && !state._dupConfirmado){
+    const d = state.cierrePrevio;
+    if (!confirm('⚠️ Recuerda: ' + (state.cita.numInst || 'esta instalación') +
+                 ' ya tenía cierre del ' + (d.fecha || '¿?') +
+                 (d.equipo ? ' (' + d.equipo + ')' : '') +
+                 '.\n\n¿Envías igualmente un segundo cierre?')) return;
+    state._dupConfirmado = true;
+  }
   // Validar vídeos antes
   const errVideo = validarTamanoVideos();
   if (errVideo){
