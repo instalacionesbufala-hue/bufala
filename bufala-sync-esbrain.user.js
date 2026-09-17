@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.1.0
+// @version      2.2.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.1.0';
+  var VER = '2.2.0';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -194,11 +194,48 @@
 
   // ─────────────────────── envío ───────────────────────
   // GM_xmlhttpRequest evita cualquier problema de origen cruzado con Google.
-  function envia(inst, fallos, completa, omitidas) {
+  // v2.2.0 — El ping previo NO es opcional: Apps Script redirige internamente
+  // a googleusercontent.com y, sin una peticion previa que resuelva esa
+  // redireccion, el POST responde 404 (paso con el marcador v1.3.0 y ha vuelto
+  // a pasar aqui el 17/09/2026). Se hace por el mismo canal que el envio.
+  function ping() {
+    return new Promise(function (res) {
+      GM_xmlhttpRequest({
+        method: 'GET', url: W + '?action=ping', timeout: 20000,
+        onload: function (r) { var j = null; try { j = JSON.parse(r.responseText); } catch (e) {} res(j); },
+        onerror: function () { res(null); },
+        ontimeout: function () { res(null); }
+      });
+    });
+  }
+
+  // v2.2.0 — Ante un fallo NO se espera al siguiente ciclo de 15 minutos: si
+  // el primer envio del dia falla, esperar un cuarto de hora puede significar
+  // no arrancar nunca (aviso de César). Se reintenta a los 45 s, luego a los
+  // 2 min y luego a los 5, y solo despues se deja para el ciclo normal.
+  var ESPERAS_REINTENTO = [45000, 120000, 300000];
+
+  function envia(inst, fallos, completa, omitidas, intento) {
+    intento = intento || 0;
     return new Promise(function (resolve) {
       var cuerpo = 'payload=' + encodeURIComponent(JSON.stringify({
         accion: 'esbrainSync', bmVersion: 'US' + VER, instalaciones: inst
       }));
+      function reintenta(motivo) {
+        if (intento < ESPERAS_REINTENTO.length) {
+          var ms = ESPERAS_REINTENTO[intento];
+          pinta('<div style="color:#fca5a5">' + motivo + '</div>' +
+                '<div style="font-size:11px;opacity:.85">Reintento ' + (intento + 1) + ' de ' +
+                ESPERAS_REINTENTO.length + ' en ' + Math.round(ms / 1000) + ' s…</div>');
+          setTimeout(function () { envia(inst, fallos, completa, omitidas, intento + 1); }, ms);
+        } else {
+          pinta('<div style="color:#fca5a5">' + motivo + '</div>' +
+                '<div style="font-size:11px;opacity:.85">Agotados los reintentos. ' +
+                'Se volverá a intentar en el próximo ciclo (' + MINUTOS + ' min) ' +
+                'o pulsa «Sincronizar ya».</div>');
+        }
+      }
+
       GM_xmlhttpRequest({
         method: 'POST',
         url: W,
@@ -221,20 +258,12 @@
                 (omitidas ? ' (' + omitidas + ' completadas omitidas aquí)' : '')) +
               ' · siguiente en ' + MINUTOS + ' min</div>');
           } else {
-            pinta('<div style="color:#fca5a5">Respuesta inesperada (HTTP ' + resp.status + ')</div>' +
-                  '<div style="font-size:11px;opacity:.8">Se reintentará en ' + MINUTOS + ' min.</div>');
+            reintenta('Respuesta inesperada (HTTP ' + resp.status + ')');
           }
           resolve();
         },
-        onerror: function () {
-          pinta('<div style="color:#fca5a5">No se pudo contactar con el sistema Búfala.</div>' +
-                '<div style="font-size:11px;opacity:.8">Se reintentará en ' + MINUTOS + ' min.</div>');
-          resolve();
-        },
-        ontimeout: function () {
-          pinta('<div style="color:#fca5a5">Tiempo agotado al enviar.</div>');
-          resolve();
-        }
+        onerror: function () { reintenta('No se pudo contactar con el sistema Búfala.'); resolve(); },
+        ontimeout: function () { reintenta('Tiempo agotado al enviar.'); resolve(); }
       });
     });
   }
@@ -252,8 +281,12 @@
   function arranca() {
     if (corriendo) return;
     corriendo = true;
-    pinta('<div>Esperando la lista…</div>');
-    esperaLista().then(function (ids) {
+    pinta('<div>Comprobando el sistema Búfala…</div>');
+    ping().then(function (pj) {
+      var v = (pj && (pj.version || (pj.meta && pj.meta.version))) || '';
+      pinta('<div>' + (v ? 'Backend ' + v : '⚠️ Backend sin confirmar') + ' · esperando la lista…</div>');
+      return esperaLista();
+    }).then(function (ids) {
       if (!ids.length) {
         pinta('<div style="color:#fbbf24">No se ha encontrado ninguna instalación.</div>');
         corriendo = false;
