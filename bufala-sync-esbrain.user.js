@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.0.0
+// @version      2.1.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -9,6 +9,8 @@
 // @connect      script.google.com
 // @connect      script.googleusercontent.com
 // @run-at       document-idle
+// @updateURL    https://instalacionesbufala-hue.github.io/bufala/bufala-sync-esbrain.user.js
+// @downloadURL  https://instalacionesbufala-hue.github.io/bufala/bufala-sync-esbrain.user.js
 // ==/UserScript==
 
 /*
@@ -28,13 +30,27 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.0.0';
+  var VER = '2.1.0';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
 
-  var CLAVE_ULT = 'bufala_sync_ultima';
-  var CLAVE_ON  = 'bufala_sync_activo';
+  // ── v2.1.0 · DOS RITMOS (idea de César, 17/09/2026) ──
+  // Leer las 134 fichas cada cuarto de hora es tiempo tirado: 112 están
+  // COMPLETADAS y no van a cambiar. El estado ya se ve en la propia lista,
+  // así que en las pasadas normales solo se piden las fichas de las que
+  // siguen VIVAS (asignada, en curso, reagendada) y una vez cada 12 h se hace
+  // una pasada COMPLETA que refresca estados y permite detectar retiradas.
+  //
+  // Es seguro porque el backend (v3.16.7+) solo juzga como retiradas las filas
+  // que estuvieran en los estados que trae el payload: si solo mandamos
+  // asignadas, una completada que no aparece ni se toca.
+  var HORAS_PASADA_COMPLETA = 12;
+  var RE_COMPLETADA = /completad/i;
+
+  var CLAVE_ULT  = 'bufala_sync_ultima';
+  var CLAVE_ON   = 'bufala_sync_activo';
+  var CLAVE_FULL = 'bufala_sync_ultima_completa';
 
   // Solo trabaja en la pantalla del listado
   if (location.pathname.indexOf('/partner/instalaciones') !== 0) return;
@@ -55,7 +71,9 @@
       ';color:#fff;border:0;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer">' +
       (activo() ? 'Desactivar' : 'Activar') + '</button>' +
       '<button id="bfYa" style="background:#374151;color:#fff;border:0;border-radius:8px;' +
-      'padding:7px 10px;cursor:pointer">Sincronizar ya</button></div>';
+      'padding:7px 10px;cursor:pointer">Sincronizar ya</button>' +
+      '<button id="bfFull" title="Lee también las completadas" style="background:#374151;color:#fff;' +
+      'border:0;border-radius:8px;padding:7px 10px;cursor:pointer">Completa</button></div>';
     var b = document.getElementById('bfOnOff');
     if (b) b.onclick = function () {
       localStorage.setItem(CLAVE_ON, activo() ? 'no' : 'si');
@@ -64,20 +82,44 @@
     };
     var y = document.getElementById('bfYa');
     if (y) y.onclick = function () { arranca(); };
+    var f = document.getElementById('bfFull');
+    if (f) f.onclick = function () { forzarCompleta = true; arranca(); };
   }
   if (document.body) document.body.appendChild(caja);
 
   // ─────────────────── lectura del listado ───────────────────
   var RE = /instalaciones\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
-  function idsEnDom() {
-    var ids = [];
+  // Devuelve [{id, completada}] leyendo el estado de la propia tarjeta.
+  function fichasEnDom() {
+    var out = [], vistos = {};
     var enlaces = document.querySelectorAll('a[href*="/instalaciones/"]');
     for (var i = 0; i < enlaces.length; i++) {
       var m = RE.exec(enlaces[i].getAttribute('href') || '');
-      if (m && ids.indexOf(m[1].toLowerCase()) < 0) ids.push(m[1].toLowerCase());
+      if (!m) continue;
+      var id = m[1].toLowerCase();
+      if (vistos[id]) continue;
+      vistos[id] = true;
+      // La tarjeta trae la etiqueta de estado («Completada», «Asignada»…).
+      // Si no se reconoce, se trata como VIVA: ante la duda se lee la ficha,
+      // que es perder un segundo, nunca un dato.
+      var txt = '';
+      try {
+        var cont = enlaces[i].closest('li, article, div[class*="card"], div') || enlaces[i];
+        txt = (cont.textContent || '').slice(0, 400);
+      } catch (e) { txt = enlaces[i].textContent || ''; }
+      out.push({ id: id, completada: RE_COMPLETADA.test(txt) });
     }
-    return ids;
+    return out;
+  }
+
+  function idsEnDom() {
+    return fichasEnDom().map(function (f) { return f.id; });
+  }
+
+  function tocaCompleta() {
+    var ult = parseInt(localStorage.getItem(CLAVE_FULL) || '0', 10);
+    return !ult || (Date.now() - ult) > HORAS_PASADA_COMPLETA * 3600000;
   }
 
   // La lista se pinta después de cargar: se espera a que deje de crecer.
@@ -152,7 +194,7 @@
 
   // ─────────────────────── envío ───────────────────────
   // GM_xmlhttpRequest evita cualquier problema de origen cruzado con Google.
-  function envia(inst, fallos) {
+  function envia(inst, fallos, completa, omitidas) {
     return new Promise(function (resolve) {
       var cuerpo = 'payload=' + encodeURIComponent(JSON.stringify({
         accion: 'esbrainSync', bmVersion: 'US' + VER, instalaciones: inst
@@ -175,6 +217,8 @@
               (r.reagendados ? '<div style="color:#fbbf24">Reagendadas: ' + r.reagendados + '</div>' : '') +
               (fallos ? '<div style="color:#fbbf24">Fichas no leídas: ' + fallos + '</div>' : '') +
               '<div style="opacity:.6;margin-top:6px">' + new Date().toLocaleTimeString() +
+              (completa ? ' · pasada completa' : ' · rápida' +
+                (omitidas ? ' (' + omitidas + ' completadas omitidas aquí)' : '')) +
               ' · siguiente en ' + MINUTOS + ' min</div>');
           } else {
             pinta('<div style="color:#fca5a5">Respuesta inesperada (HTTP ' + resp.status + ')</div>' +
@@ -204,6 +248,7 @@
   }
 
   var corriendo = false;
+  var forzarCompleta = false;
   function arranca() {
     if (corriendo) return;
     corriendo = true;
@@ -214,10 +259,31 @@
         corriendo = false;
         return;
       }
-      pinta('<div>' + ids.length + ' instalaciones. Leyendo fichas…</div>');
-      return leeFichas(ids).then(function (r) {
-        return envia(r.inst, r.fallos);
-      }).then(function () { corriendo = false; });
+      var todas = fichasEnDom();
+      var completa = forzarCompleta || tocaCompleta();
+      forzarCompleta = false;
+      var aLeer = completa ? todas : todas.filter(function (f) { return !f.completada; });
+      var omitidas = todas.length - aLeer.length;
+
+      if (!aLeer.length) {
+        pinta('<div>Nada que actualizar: las ' + todas.length + ' instalaciones están completadas.</div>' +
+              '<div style="opacity:.6;margin-top:6px">' + new Date().toLocaleTimeString() + '</div>');
+        corriendo = false;
+        return;
+      }
+
+      pinta('<div>' + (completa ? '🔄 Pasada COMPLETA' : '⚡ Pasada rápida') + ': ' +
+            aLeer.length + ' de ' + todas.length +
+            (omitidas ? ' <span style="opacity:.7">(' + omitidas + ' completadas se dejan para la pasada de cada ' +
+              HORAS_PASADA_COMPLETA + ' h)</span>' : '') +
+            '. Leyendo fichas…</div>');
+
+      return leeFichas(aLeer.map(function (f) { return f.id; })).then(function (r) {
+        return envia(r.inst, r.fallos, completa, omitidas);
+      }).then(function () {
+        if (completa) localStorage.setItem(CLAVE_FULL, String(Date.now()));
+        corriendo = false;
+      });
     }).catch(function (e) {
       pinta('<div style="color:#fca5a5">Error: ' + (e && e.message ? e.message : e) + '</div>');
       corriendo = false;
