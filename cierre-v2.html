@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.2 (15/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.3 (18/09/2026)
+     v3.19.3 — INSTANTBOX VUELVE A PEDIR FOTOS Y VÍDEO (César 18/09/2026):
+     se guardan en Drive (Instant Box/año/mes/cliente) para control propio y
+     evidencia, además de lo que recoja su plataforma. Recorrido IB:
+     1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 11 → 12 (siguen fuera el acta y los
+     hitos HW). El envío deja de marcarse como «solo datos», así que el
+     backend crea las carpetas y sube los archivos. Requiere backend v3.20.6+.
      v3.19.2 — AVISO DE CIERRE DUPLICADO: al abrir el wizard se consulta al
      backend (action=existeCierre) si ese Nº de instalación ya está en el
      Registro. Si lo está, avisa con fecha y equipo del cierre anterior y
@@ -1359,12 +1365,13 @@ const IB_ADICIONALES = [
   { id:'ibCajaEmpalmeSigma',        key:'cajaEmpalmeBornasSigma',   label:'Caja de empalme con bornas Sigma adic.' }
 ];
 
-// Recorrido IB (v3.19.1): se saltan 2 (vídeo), 3 (fotos), 9 (acta) y 10
-// (hitos HW). Fotos, vídeo y firma se suben por el ENLACE DE INSTANTBOX
-// (decisión César 09/09/2026), igual que ESBRAIN los sube en su plataforma:
-// duplicarlos aquí sería trabajo doble para el técnico y Drive vacío.
-// El envío va como "solo datos" → el backend no crea carpetas en Drive.
-const IB_PASOS = [1, 4, 5, 6, 7, 8, 11, 12];
+// Recorrido IB (v3.19.3): vuelven VÍDEO (2) y FOTOS (3) — decisión César
+// 18/09/2026. Aunque InstantBox recoja su documentación en su plataforma,
+// Búfala guarda copia propia en Drive (Instant Box/año/mes/cliente) para
+// llevar su control y tener evidencia si algún día hay una reclamación.
+// Siguen fuera el ACTA (9), porque la firma va por su plataforma, y los
+// HITOS HW (10), que no existen en tarifa cerrada.
+const IB_PASOS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12];
 
 function setupInstantbox(vivienda){
   // Tema visual grafito + badge (solo en este flujo)
@@ -1382,12 +1389,12 @@ function setupInstantbox(vivienda){
 
   renderIbAdicionales();
 
-  // v3.19.1: dejar claro en la primera pantalla que las fotos y el vídeo
-  // NO se suben aquí, para que nadie las busque ni las duplique.
+  // v3.19.3: las fotos y el vídeo vuelven a pedirse aquí y se guardan en la
+  // carpeta de InstantBox del Drive, además de lo que suba la plataforma.
   const sub1 = document.querySelector('[data-screen="1"] .subtitle');
   if (sub1) sub1.innerHTML = 'Confirma los datos y elige el tipo de instalación<br>' +
-    '<span style="color:var(--accent); font-weight:600">📷 Fotos, vídeo y firma se suben ' +
-    'por el enlace de InstantBox, no aquí</span>';
+    '<span style="color:var(--accent); font-weight:600">📷 Las fotos y el vídeo se guardan ' +
+    'también en el Drive de Búfala</span>';
 
   // Tipo de vivienda capturado del pedido, preseleccionado y editable
   if (vivienda === 'comunitaria' || vivienda === 'unifamiliar'){
@@ -1533,10 +1540,15 @@ function nextScreen(){
 
   // v3.19.0 — INSTANTBOX: mismo recorrido que ESMOVE saltando 9 y 10
   if (state.esInstantbox && typeof state.currentScreen === 'number'){
-    // v3.19.1: sin pantallas de archivos → sin subidas en background ni
-    // gates de espera (no hay nada que subir desde aquí).
     const idxIB = IB_PASOS.indexOf(state.currentScreen);
     if (idxIB >= 0 && idxIB < IB_PASOS.length - 1){
+      // v3.19.3: el vídeo vuelve a subirse en background al salir de la 2,
+      // igual que en ESMOVE (lo más pesado primero, mientras se avanza).
+      if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
+        const errV = validarTamanoVideos();
+        if (errV){ alert('⚠️ ' + errV); return; }
+        iniciarSubidaVideosBackground();
+      }
       showScreen(IB_PASOS[idxIB + 1]); return;
     }
   }
@@ -1573,9 +1585,9 @@ function prevScreen(){
 }
 
 function validateScreen(num){
-  // v3.19.1: en InstantBox las pantallas de archivos no existen; si algún
-  // resto de flujo las evaluara, se dan por válidas (nada que exigir).
-  if (state.esInstantbox && (num === 2 || num === 3 || num === 9 || num === 10)) return true;
+  // v3.19.3: en InstantBox el acta (9) y los hitos (10) siguen sin aplicar;
+  // el vídeo (2) y las fotos (3) se validan igual que en ESMOVE.
+  if (state.esInstantbox && (num === 9 || num === 10)) return true;
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
@@ -2338,15 +2350,6 @@ function recolectarDatos(esFallida){
     datos.partner       = 'instantbox';
     datos.tramoPedido   = state.ib.tramoPedido || '';
     datos.adicionalesIB = recogerAdicionalesIB();
-    // v3.19.1: SOLO DATOS — fotos, vídeo y acta van por el enlace de
-    // InstantBox. Mismo tratamiento que ESBRAIN: el backend procesa sin
-    // crear carpetas ni esperar archivos.
-    datos.soloDatos = true;
-    datos.fotos = [];
-    datos.fotosRef = [];
-    datos.fotosTmpId = null;
-    datos.videos = [];
-    datos.actaPdf = null;
   }
 
   if (esFallida){
