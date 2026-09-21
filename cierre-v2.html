@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.3 (18/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.4 (18/09/2026)
+     v3.19.4 — INSTANTBOX: UN SOLO CIERRE POR INSTALACIÓN (César 18/09/2026).
+     Con InstantBox no existen las visitas fallidas, así que cerrar dos veces
+     es siempre un error (pasó el 18/09). Si la instalación ya tiene cierre,
+     el wizard lo corta en seco nada más abrirse, sin opción de continuar. El
+     modo administrador sí puede, por si hay que rehacerlo. En ESMOVE se
+     mantiene el aviso de siempre, que permite seguir: allí repetir cierre a
+     veces es legítimo (una fallida que luego se completa).
      v3.19.3 — INSTANTBOX VUELVE A PEDIR FOTOS Y VÍDEO (César 18/09/2026):
      se guardan en Drive (Instant Box/año/mes/cliente) para control propio y
      evidencia, además de lo que recoja su plataforma. Recorrido IB:
@@ -1307,6 +1314,27 @@ function comprobarCierreDuplicado(numInst){
     .then(d => {
       if (!d || !d.existe) return;
       state.cierrePrevio = d;
+
+      // v3.19.4 — InstantBox: PROHIBIDO cerrar dos veces (César 18/09/2026).
+      // Con InstantBox no hay visitas fallidas, así que un segundo cierre es
+      // siempre un error. Aquí se corta en seco, sin opción de continuar; el
+      // modo administrador (con contraseña) sí puede, por si hay que rehacer
+      // uno de verdad. El backend lo rechaza también, por si alguien se
+      // saltara esta pantalla.
+      if (state.esInstantbox && !state.isSuper){
+        document.body.innerHTML =
+          '<div style="padding:44px 24px; text-align:center; font-family:inherit; max-width:520px; margin:0 auto">' +
+          '<div style="font-size:52px; margin-bottom:18px">⛔</div>' +
+          '<h2 style="margin-bottom:12px">Esta instalación ya está cerrada</h2>' +
+          '<p style="color:#555; line-height:1.6">' +
+          '<b>' + numInst + '</b>' + (d.cliente ? ' · ' + d.cliente : '') + '<br>' +
+          'Cerrada el <b>' + (d.fecha || '?') + '</b>' + (d.equipo ? ' por <b>' + d.equipo + '</b>' : '') + '.' +
+          '</p><p style="color:#555; line-height:1.6; margin-top:14px">' +
+          'En InstantBox no hay visitas fallidas, así que una instalación solo se cierra una vez.<br>' +
+          'Si de verdad hay que rehacer este cierre, <b>avisa a oficina</b>.' +
+          '</p><p style="color:#888; font-size:13px; margin-top:22px">Puedes cerrar esta pestaña.</p></div>';
+        return;
+      }
       const tag = document.getElementById('dupTag');
       if (tag) tag.style.display = 'inline-flex';
       const quePaso = d.fallida ? 'una VISITA FALLIDA' : 'un cierre';
