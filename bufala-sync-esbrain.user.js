@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.2.0
+// @version      2.3.1
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.2.0';
+  var VER = '2.3.1';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -47,6 +47,17 @@
   // asignadas, una completada que no aparece ni se toca.
   var HORAS_PASADA_COMPLETA = 12;
   var RE_COMPLETADA = /completad/i;
+
+  // ── v2.3.0 · LA LISTA DE LO QUE SE VE (23/09/2026) ──
+  // El 23/09 ESMOVE retiró una instalación del día siguiente y el sistema no
+  // se enteró: el backend solo sabe qué existe en ESBRAIN por las fichas que
+  // le mandamos, y en la pasada rápida no van las completadas. No podía
+  // distinguir «ya no está» de «no me la han mandado», así que exigía faltar
+  // en dos sincronizaciones seguidas antes de decir nada.
+  // Ahora cada envío lleva TODOS los identificadores que hay en la página,
+  // se lea su ficha o no. Con esa lista, lo que no aparece está retirado de
+  // verdad y se marca a la primera. Cuesta un puñado de bytes.
+  var visiblesUlt = [];
 
   var CLAVE_ULT  = 'bufala_sync_ultima';
   var CLAVE_ON   = 'bufala_sync_activo';
@@ -215,11 +226,43 @@
   // 2 min y luego a los 5, y solo despues se deja para el ciclo normal.
   var ESPERAS_REINTENTO = [45000, 120000, 300000];
 
+  // v2.3.0 — Aviso en el propio banner de las instalaciones que ya no están
+  // en ESBRAIN, con lo que falta para darlas por retiradas. Lo manda el
+  // backend en `ausentes`; si no viene (backend antiguo), no se pinta nada.
+  function avisoAusentes(r) {
+    var lista = (r && r.ausentes) || [];
+    if (!lista.length) return '';
+    var filas = lista.map(function (a) {
+      var quien = (a.cliente || '?') + ' — ' + (a.fecha || '');
+      var cola;
+      if (a.fase === 'confirmada') {
+        cola = a.borrado ? 'retirada confirmada · evento borrado'
+                         : 'retirada confirmada · el evento está en ' +
+                           (a.calendario || 'un calendario de brigada') + ', NO se ha tocado';
+      } else if (a.fase === 'aviso') {
+        cola = 'se confirma en ' + (a.minutosParaConfirmar != null ? a.minutosParaConfirmar : '?') + ' min' +
+               (a.conBrigada ? ' · está en ' + (a.calendario || 'un calendario de brigada') +
+                               ': no se borrará sola' : ' · se borrará del calendario principal');
+      } else {
+        cola = 'se reintenta en ' + MINUTOS + ' min (falta' +
+               (a.faltan === 1 ? '' : 'n') + ' ' + (a.faltan != null ? a.faltan : 1) + ' comprobación' +
+               (a.faltan === 1 ? '' : 'es') + ')';
+      }
+      return '<div style="margin-top:2px">· ' + quien + ' <span style="opacity:.85">(' + cola + ')</span></div>';
+    }).join('');
+    return '<div style="background:#7c2d12;border-left:3px solid #fbbf24;padding:6px 8px;' +
+           'border-radius:6px;margin-bottom:6px;font-size:12px">' +
+           '<b>⚠️ ' + lista.length + (lista.length === 1 ? ' instalación que ya no aparece' :
+                                       ' instalaciones que ya no aparecen') +
+           ' en ESBRAIN</b>' + filas + '</div>';
+  }
+
   function envia(inst, fallos, completa, omitidas, intento) {
     intento = intento || 0;
     return new Promise(function (resolve) {
       var cuerpo = 'payload=' + encodeURIComponent(JSON.stringify({
-        accion: 'esbrainSync', bmVersion: 'US' + VER, instalaciones: inst
+        accion: 'esbrainSync', bmVersion: 'US' + VER, instalaciones: inst,
+        idsVisibles: visiblesUlt          // v2.3.0: todo lo que se ve en la página
       }));
       function reintenta(motivo) {
         if (intento < ESPERAS_REINTENTO.length) {
@@ -248,7 +291,8 @@
           if (r && r.accion === 'esbrainSync') {
             localStorage.setItem(CLAVE_ULT, String(Date.now()));
             var om = r.omitidasCompletadas ? ' · ' + r.omitidasCompletadas + ' completadas omitidas' : '';
-            pinta('<div>✅ ' + inst.length + ' fichas enviadas</div>' +
+            pinta(avisoAusentes(r) +
+              '<div>✅ ' + inst.length + ' fichas enviadas</div>' +
               '<div style="margin-top:4px">Nuevas: <b>' + (r.creados || 0) + '</b> · Actualizadas: <b>' +
               (r.actualizados || 0) + '</b> · Sin cambios: ' + (r.sinCambios || 0) + om + '</div>' +
               (r.reagendados ? '<div style="color:#fbbf24">Reagendadas: ' + r.reagendados + '</div>' : '') +
@@ -293,6 +337,7 @@
         return;
       }
       var todas = fichasEnDom();
+      visiblesUlt = todas.map(function (f) { return f.id; });   // v2.3.0
       var completa = forzarCompleta || tocaCompleta();
       forzarCompleta = false;
       var aLeer = completa ? todas : todas.filter(function (f) { return !f.completada; });
