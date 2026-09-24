@@ -145,6 +145,13 @@
   .btn-theme:hover { background: rgba(255,255,255,0.25); }
 
   /* ── KPI CARDS ── */
+  /* v20260925: pestañas Operaciones / Dirección General */
+  .vista-tabs { display:flex; gap:8px; margin: 0 0 18px; flex-wrap: wrap; }
+  .vista-tab { border: var(--card-border); background: var(--card-bg); color: var(--text-1);
+    padding: 9px 18px; border-radius: 999px; font-weight: 600; cursor: pointer; font-size: 14px;
+    box-shadow: var(--card-shadow); }
+  .vista-tab.activa { background: #2D6A4F; color: #fff; border-color: #2D6A4F; }
+  .dg-nota { font-size: 12px; color: var(--text-2); margin: -8px 0 18px; }
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -496,6 +503,63 @@
     <div id="errorArea"></div>
     <div id="dashContent" style="display:none">
 
+      <!-- v20260925: dos vistas -->
+      <div class="vista-tabs">
+        <button class="vista-tab" id="tabOperaciones" onclick="setVista('operaciones')">Operaciones</button>
+        <button class="vista-tab" id="tabDireccion" onclick="setVista('direccion')">Dirección General</button>
+      </div>
+
+      <div id="vistaDireccion" style="display:none">
+        <div class="dg-nota" id="dgNota"></div>
+        <div class="kpi-grid" id="dgKpis"></div>
+        <div class="tabla-card">
+          <div class="chart-title">Rentabilidad por equipo</div>
+          <div class="chart-subtitle">Ingresos menos costes directos del equipo, con los días trabajados · SAT aparte · Estructura como overhead</div>
+          <div class="tabla-wrap">
+            <table>
+              <thead><tr>
+                <th class="col-brigada">Equipo</th><th>Ingresos</th><th>Costes directos</th><th>Margen</th><th>% Margen</th>
+                <th>Finalizadas</th><th>Fallidas</th><th>SAT</th><th>Metros/día</th><th>Tiempo medio inst.</th><th>Llegada → inicio</th><th>Aprovechamiento</th>
+              </tr></thead>
+              <tbody id="dgTablaBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="tabla-card">
+          <div class="chart-title">Instalaciones por semana</div>
+          <div class="chart-subtitle">Conformes, fallidas y no conformes (calidad documental)</div>
+          <div class="tabla-wrap">
+            <table>
+              <thead><tr><th class="col-brigada">Semana</th><th>Conformes</th><th>Fallidas</th><th>No conformes</th><th>% sin devoluciones</th></tr></thead>
+              <tbody id="dgSemanasBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="tabla-card">
+          <div class="chart-title">Evolución de la rentabilidad</div>
+          <div class="chart-subtitle">Últimos seis meses · empresa</div>
+          <div class="tabla-wrap">
+            <table>
+              <thead><tr><th class="col-brigada">Mes</th><th>Ingresos</th><th>Margen equipos</th><th>% Margen</th><th>Estructura</th><th>Margen final</th><th>Tiempo medio inst.</th></tr></thead>
+              <tbody id="dgEvolucionBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="vistaOperaciones">
+
+      <div class="tabla-card" id="opAusenciasCard" style="display:none">
+        <div class="chart-title">Coste de ausencias y coste total por brigada</div>
+        <div class="chart-subtitle">El margen de brigada se mide con los días trabajados; aquí, lo que cuestan las ausencias (vacaciones, bajas, permisos) y el resultado si se cargan</div>
+        <div class="tabla-wrap">
+          <table>
+            <thead><tr><th class="col-brigada">Brigada</th><th>Coste directo</th><th>Coste ausencias</th><th>Coste total</th><th>Margen (días trabajados)</th><th>Margen con ausencias</th><th>Días-técnico de ausencia</th></tr></thead>
+            <tbody id="opAusenciasBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- KPI CARDS -->
       <div class="kpi-grid" id="kpiGrid"></div>
 
@@ -620,6 +684,8 @@
         </div>
       </div>
 
+      </div><!-- /vistaOperaciones -->
+
     </div>
   </div>
 
@@ -636,7 +702,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260908-1200";
+const DASHBOARD_BUILD = "20260925-1200";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1135,6 +1201,9 @@ function renderDashboard(data) {
   seguro('tablaEconomica', () => renderTablaEconomica(data.tablaBrigadas || []));
   window._ultimoPayload = data;                       // v3.19.0
   seguro('partners', () => renderPartners(data));
+  seguro('direccion', () => renderDireccion(data));             // v20260925
+  seguro('ausenciasOperaciones', () => renderAusenciasOperaciones(data.direccion));
+  seguro('vista', () => setVista(leerVista()));
 
   if (fallos.length > 0) {
     seguro('avisoFallos', () => {
@@ -1973,6 +2042,105 @@ function renderChart_NoConformidades(nuevo, cal) {
 // ═══════════════════════════════════════════════════════════════
 // TABLAS BRIGADAS
 // ═══════════════════════════════════════════════════════════════
+// ═══ v20260925 — DOS VISTAS: Operaciones / Dirección General ═══
+function leerVista() {
+  try { return localStorage.getItem('bufala_vista') || 'operaciones'; } catch (e) { return 'operaciones'; }
+}
+function setVista(v) {
+  const dir = v === 'direccion';
+  const a = document.getElementById('vistaDireccion'), b = document.getElementById('vistaOperaciones');
+  if (a) a.style.display = dir ? '' : 'none';
+  if (b) b.style.display = dir ? 'none' : '';
+  const ta = document.getElementById('tabDireccion'), tb = document.getElementById('tabOperaciones');
+  if (ta) ta.classList.toggle('activa', dir);
+  if (tb) tb.classList.toggle('activa', !dir);
+  try { localStorage.setItem('bufala_vista', dir ? 'direccion' : 'operaciones'); } catch (e) {}
+}
+function _minH(m) {
+  m = Math.round(Number(m) || 0);
+  if (!m) return '—';
+  return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min';
+}
+function _pct(v) { return (Number(v) || 0).toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %'; }
+function _kpiCard(label, valor, sub, peligro) {
+  return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-value' + (peligro ? ' danger' : '') + '">' +
+         valor + '</div><div class="kpi-sub">' + (sub || '') + '</div></div>';
+}
+function renderDireccion(data) {
+  const d = data.direccion || {};
+  const filas = d.filas || [];
+  const nota = document.getElementById('dgNota');
+  if (!d.disponible) {
+    nota.textContent = 'Aún no hay datos de rentabilidad para ' + ((data.meta && data.meta.mesLabel) || 'este mes') + ' (se miden por equipo desde mayo de 2026).';
+    document.getElementById('dgKpis').innerHTML = ''; document.getElementById('dgTablaBody').innerHTML = '';
+  } else {
+    nota.textContent = ((data.meta && data.meta.mesLabel) || '') + ' · rentabilidad con los días trabajados (las ausencias no cargan el margen del equipo) · costes reales desde mayo de 2026';
+    const t = filas.find(f => f.brigada === 'TOTAL') || {};
+    const eq = filas.filter(f => f.brigada !== 'TOTAL');
+    const mejor = eq.slice().sort((x, y) => y.margenPct - x.margenPct)[0];
+    document.getElementById('dgKpis').innerHTML =
+      _kpiCard('Rentabilidad de los equipos', fmtEur.format(t.margen || 0), _pct(t.margenPct) + ' sobre ' + fmtEur.format(t.ingresos || 0) + (mejor ? ' · mejor: ' + mejor.brigada + ' (' + _pct(mejor.margenPct) + ')' : ''), (t.margen || 0) < 0) +
+      _kpiCard('Metros instalados / día', (t.metrosDia || 0).toLocaleString('es-ES') + ' m', 'por equipo y día trabajado · ' + (t.metros || 0).toLocaleString('es-ES') + ' m en el mes') +
+      _kpiCard('Instalaciones finalizadas', String(t.realizadas || 0), (t.fallidas || 0) + ' fallidas · ' + (t.sat || 0) + ' intervenciones SAT (aparte)') +
+      _kpiCard('Tiempo medio por instalación', _minH(t.tiempoInstMin), t.nTiempos ? 'de inicio a fin · ' + t.nTiempos + ' instalaciones medidas · llegada → inicio ' + _minH(t.llegadaMin) : 'se llena con las horas de ESBRAIN') +
+      _kpiCard('Aprovechamiento de jornada', _pct(t.ocupacionPct), 'salidas sobre capacidad de los días trabajados') +
+      _kpiCard('Margen final de empresa', fmtEur.format(t.margenFinal || 0), 'después de estructura (' + fmtEur.format(t.estructura || 0) + ')', (t.margenFinal || 0) < 0);
+    const tb = document.getElementById('dgTablaBody'); tb.innerHTML = '';
+    filas.forEach(f => {
+      const tr = document.createElement('tr');
+      const tot = f.brigada === 'TOTAL';
+      tr.innerHTML = '<td class="col-brigada"><strong>' + (tot ? 'Total' : f.brigada) + '</strong></td>' +
+        '<td>' + fmtEur.format(f.ingresos) + '</td><td>' + fmtEur.format(f.costeDirecto) + '</td>' +
+        '<td>' + badge(fmtEur.format(f.margen), f.margen >= 0 ? 'verde' : 'rojo') + '</td><td>' + _pct(f.margenPct) + '</td>' +
+        '<td>' + f.realizadas + '</td><td>' + f.fallidas + '</td><td>' + f.sat + '</td>' +
+        '<td>' + (f.metrosDia || 0).toLocaleString('es-ES') + ' m</td><td>' + _minH(f.tiempoInstMin) + '</td><td>' + _minH(f.llegadaMin) + '</td>' +
+        '<td>' + _pct(f.ocupacionPct) + '</td>';
+      if (tot) tr.style.fontWeight = '600';
+      tb.appendChild(tr);
+    });
+  }
+  // Semanas (calidad)
+  const cs = (data.graficos && data.graficos.calidadSemanal) || {};
+  const sb = document.getElementById('dgSemanasBody'); sb.innerHTML = '';
+  (cs.labels || []).forEach((lab, i) => {
+    const c = (cs.conformes || [])[i] || 0, fa = (cs.fallidas || [])[i] || 0, nc = (cs.noConformes || [])[i] || 0;
+    const tot = c + nc;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="col-brigada">' + lab + '</td><td>' + c + '</td><td>' + fa + '</td><td>' + nc + '</td><td>' +
+      (tot ? badge(_pct(c / tot * 100), nc ? 'rojo' : 'verde') : '—') + '</td>';
+    sb.appendChild(tr);
+  });
+  // Evolución
+  const eb = document.getElementById('dgEvolucionBody'); eb.innerHTML = '';
+  (d.evolucion || []).forEach(e => {
+    const t = e.total;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="col-brigada">' + e.mes.split('-').reverse().join('/') + '</td><td>' + fmtEur.format(t.ingresos) + '</td><td>' +
+      badge(fmtEur.format(t.margen), t.margen >= 0 ? 'verde' : 'rojo') + '</td><td>' + _pct(t.margenPct) + '</td><td>' + fmtEur.format(t.estructura) +
+      '</td><td>' + badge(fmtEur.format(t.margenFinal), t.margenFinal >= 0 ? 'verde' : 'rojo') + '</td><td>' + _minH(t.tiempoInstMin) + '</td>';
+    eb.appendChild(tr);
+  });
+}
+function renderAusenciasOperaciones(d) {
+  const card = document.getElementById('opAusenciasCard');
+  if (!card) return;
+  const filas = (d && d.filas) || [];
+  if (!filas.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const tb = document.getElementById('opAusenciasBody'); tb.innerHTML = '';
+  filas.forEach(f => {
+    const tot = f.brigada === 'TOTAL';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="col-brigada"><strong>' + (tot ? 'Total' : f.brigada) + '</strong></td>' +
+      '<td>' + fmtEur.format(f.costeDirecto) + '</td><td>' + fmtEur.format(f.costeAusencias) + '</td><td>' + fmtEur.format(f.costeTotal) + '</td>' +
+      '<td>' + badge(fmtEur.format(f.margen), f.margen >= 0 ? 'verde' : 'rojo') + '</td>' +
+      '<td>' + badge(fmtEur.format(f.margenConAusencias), f.margenConAusencias >= 0 ? 'verde' : 'rojo') + '</td>' +
+      '<td>' + (f.diasTecAusencias || 0) + '</td>';
+    if (tot) tr.style.fontWeight = '600';
+    tb.appendChild(tr);
+  });
+}
+
 function badge(texto, sem) {
   return '<span class="badge ' + (sem || 'neutro') + '">' + texto + '</span>';
 }
