@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.3.1
+// @version      2.4.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.3.1';
+  var VER = '2.4.0';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -183,6 +183,10 @@
       instalacion_desc: d.instalacion_desc || '',
       requiere_preinstalacion_suministro: d.requiere_preinstalacion_suministro === true,
       equipo: (d.equipo && d.equipo.nombre) ? { nombre: d.equipo.nombre } : null,
+      // v2.4.0: horas reales (check-in, inicio y fin) para el tiempo medio por instalación
+      timestamp_llegada: d.timestamp_llegada || d.checkin_timestamp || '',
+      timestamp_inicio: d.timestamp_inicio || '',
+      timestamp_completada: d.timestamp_completada || '',
       notas: notas(d)
     };
   }
