@@ -7,6 +7,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600&display=swap" rel="stylesheet">
 <title>BÚFALA TECH — Dashboard KPIs</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -453,6 +455,31 @@
   .bonus-cell-value { font-size: 18px; font-weight: 700; color: var(--badge-verde-tx); font-variant-numeric: tabular-nums; }
   .bonus-cell.cero .bonus-cell-value { color: var(--text-3); }
   .bonus-cell.total .bonus-cell-value { color: white; font-size: 20px; }
+
+  /* ═══ v20260925-1800 — ESTILO DEL PANEL («Bento aurora») en el tema claro ═══
+     Mismo lenguaje visual que el panel de administración: fondo claro con luces
+     de color, tarjetas de vidrio muy redondeadas, Manrope/Sora y cabecera oscura
+     protagonista. Solo cambian variables y radios; el tema oscuro no se toca. */
+  :root, html[data-theme="light"] {
+    --bg: #EEF1F8;
+    --bg-image:
+      radial-gradient(38rem 30rem at 8% -6%, rgba(124,108,246,.30), transparent 70%),
+      radial-gradient(34rem 28rem at 96% 18%, rgba(240,96,154,.18), transparent 70%),
+      radial-gradient(40rem 32rem at 60% 110%, rgba(18,179,160,.22), transparent 70%);
+    --text: #121631; --text-2: #626887; --text-3: #8E93AE;
+    --card-bg: rgba(255,255,255,.72);
+    --card-border: 1px solid rgba(24,32,72,.09);
+    --card-shadow: 0 1px 0 rgba(18,22,49,.03), 0 14px 34px -20px rgba(18,22,49,.28);
+    --card-blur: blur(18px) saturate(150%);
+    --header-grad: linear-gradient(135deg, #141A3A 0%, #1E2656 100%);
+    --table-head-bg: #F3F5FB; --table-head-bd: rgba(24,32,72,.09); --row-bd: rgba(24,32,72,.06); --total-bg: #F3F5FB;
+    --input-bd: rgba(24,32,72,.16);
+  }
+  body { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .header h1, .chart-title, .kpi-value, .vista-tab { font-family: "Sora", "Manrope", system-ui, sans-serif; letter-spacing: -.02em; }
+  .header { border-radius: 22px; }
+  .kpi-card, .chart-card, .tabla-card, .bonus-card { border-radius: 20px; }
+  html[data-theme="light"] .vista-tab.activa, :root:not([data-theme="dark"]) .vista-tab.activa { background: #3B5BF0; border-color: #3B5BF0; }
 </style>
 </head>
 <body>
@@ -702,7 +729,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260925-1200";
+const DASHBOARD_BUILD = "20260925-1800";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
