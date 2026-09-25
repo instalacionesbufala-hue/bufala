@@ -740,7 +740,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260926-1500";
+const DASHBOARD_BUILD = "20260926-1700";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -2123,8 +2123,9 @@ function renderDireccion(data) {
       _kpiCard('Instalaciones finalizadas', String(t.realizadas || 0), (t.fallidas || 0) + ' fallidas · ' + (t.sat || 0) + ' intervenciones SAT (aparte)') +
       _kpiCard('Tiempo medio por instalación', _minH(t.tiempoInstMin), t.nTiempos ? 'de inicio a fin · ' + t.nTiempos + ' instalaciones medidas · llegada → inicio ' + _minH(t.llegadaMin) : 'se llena con las horas de ESBRAIN') +
       _kpiCard('Rendimiento', _pct(t.rendimientoPct), (t.serviciosEquivalentes || 0) + ' servicios equivalentes / ' + Math.round(t.capacidad || 0) +
-               ' de capacidad · 2 por equipo y día (1 si falta un técnico) · instalación = 1 + 1 por cada 70 m · fallida = 1') +
-      _kpiCard('Aprovechamiento de jornada', _pct(t.ocupacionPct), 'salidas sobre capacidad de los días trabajados') +
+               ' de capacidad · 2 por equipo y día (1 si falta un técnico) · instalación = 1 + 1 por cada 70 m (máx. 3) · fallida = 1') +
+      _kpiCard('Aprovechamiento de jornada', _pct(t.aprovechamientoPct), 'tiempo instalando (' + _minH(t.minutosInstalando) + ') sobre jornada de 7 h 42 min por día de brigada (' +
+               _minH(t.minutosJornada) + ') · el resto: abastecimiento y desplazamientos') +
       _kpiCard('Margen final de empresa', fmtEur.format(t.margenFinal || 0), 'después de estructura (' + fmtEur.format(t.estructura || 0) + ')', (t.margenFinal || 0) < 0);
     const tb = document.getElementById('dgTablaBody'); tb.innerHTML = '';
     filas.forEach(f => {
@@ -2135,7 +2136,7 @@ function renderDireccion(data) {
         '<td>' + badge(fmtEur.format(f.margen), f.margen >= 0 ? 'verde' : 'rojo') + '</td><td>' + _pct(f.margenPct) + '</td>' +
         '<td>' + f.realizadas + '</td><td>' + f.fallidas + '</td><td>' + f.sat + '</td>' +
         '<td>' + (f.metrosDia || 0).toLocaleString('es-ES') + ' m</td><td>' + _minH(f.tiempoInstMin) + '</td><td>' + _minH(f.llegadaMin) + '</td>' +
-        '<td>' + _pct(f.ocupacionPct) + '</td>' +
+        '<td>' + (f.minutosJornada ? _pct(f.aprovechamientoPct) : '—') + '</td>' +
         '<td>' + (f.capacidad ? badge(_pct(f.rendimientoPct), f.rendimientoPct >= 90 ? 'verde' : (f.rendimientoPct >= 70 ? 'amber' : 'rojo')) +
                  '<div style="font-size:11px;color:var(--text-3)">' + (f.serviciosEquivalentes || 0) + ' / ' + Math.round(f.capacidad) + '</div>' : '—') + '</td>';
       if (tot) tr.style.fontWeight = '600';
