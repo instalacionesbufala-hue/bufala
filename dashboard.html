@@ -740,7 +740,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260926-1700";
+const DASHBOARD_BUILD = "20260926-1900";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -2123,7 +2123,7 @@ function renderDireccion(data) {
       _kpiCard('Instalaciones finalizadas', String(t.realizadas || 0), (t.fallidas || 0) + ' fallidas · ' + (t.sat || 0) + ' intervenciones SAT (aparte)') +
       _kpiCard('Tiempo medio por instalación', _minH(t.tiempoInstMin), t.nTiempos ? 'de inicio a fin · ' + t.nTiempos + ' instalaciones medidas · llegada → inicio ' + _minH(t.llegadaMin) : 'se llena con las horas de ESBRAIN') +
       _kpiCard('Rendimiento', _pct(t.rendimientoPct), (t.serviciosEquivalentes || 0) + ' servicios equivalentes / ' + Math.round(t.capacidad || 0) +
-               ' de capacidad · 2 por equipo y día (1 si falta un técnico) · instalación = 1 + 1 por cada 70 m (máx. 3) · fallida = 1') +
+               ' de capacidad · por equipo y día: sus servicios/día (2, o los de 📐 Parámetros unidades), 1 menos por técnico ausente · instalación = 1, 2 desde 70 m, 3 desde 120 m · fallida = 1') +
       _kpiCard('Aprovechamiento de jornada', _pct(t.aprovechamientoPct), 'tiempo instalando (' + _minH(t.minutosInstalando) + ') sobre jornada de 7 h 42 min por día de brigada (' +
                _minH(t.minutosJornada) + ') · el resto: abastecimiento y desplazamientos') +
       _kpiCard('Margen final de empresa', fmtEur.format(t.margenFinal || 0), 'después de estructura (' + fmtEur.format(t.estructura || 0) + ')', (t.margenFinal || 0) < 0);
@@ -2144,8 +2144,16 @@ function renderDireccion(data) {
     });
   }
   // Semanas (calidad)
-  const cs = (data.graficos && data.graficos.calidadSemanal) || {};
   const sb = document.getElementById('dgSemanasBody'); sb.innerHTML = '';
+  // v20260926-1900: las semanas vienen del backend (direccion.semanas)
+  (d.semanas || []).forEach(w => {
+    const nc = w.noConformes || 0, c = Math.max(0, (w.instalaciones || 0) - nc), tot = w.instalaciones || 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="col-brigada">' + w.semana + '</td><td>' + c + '</td><td>' + (w.fallidas || 0) + '</td><td>' + nc + '</td><td>' +
+      (tot ? badge(_pct(c / tot * 100), nc ? 'rojo' : 'verde') : '—') + '</td>';
+    sb.appendChild(tr);
+  });
+  const cs = (d.semanas && d.semanas.length) ? {} : ((data.graficos && data.graficos.calidadSemanal) || {});
   (cs.labels || []).forEach((lab, i) => {
     const c = (cs.conformes || [])[i] || 0, fa = (cs.fallidas || [])[i] || 0, nc = (cs.noConformes || [])[i] || 0;
     const tot = c + nc;
