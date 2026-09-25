@@ -154,6 +154,16 @@
     box-shadow: var(--card-shadow); }
   .vista-tab.activa { background: #2D6A4F; color: #fff; border-color: #2D6A4F; }
   .dg-nota { font-size: 12px; color: var(--text-2); margin: -8px 0 18px; }
+  /* v20260926-2100: iconos de ayuda con ventana flotante */
+  .ayuda { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; margin-left:5px;
+    border-radius:50%; font: 700 10px/1 "Sora", system-ui, sans-serif; font-style: italic; cursor: help; position: relative;
+    background: rgba(59,91,240,.12); color:#3B5BF0; vertical-align: middle; text-transform: none; letter-spacing: 0; }
+  .ayuda:hover::after, .ayuda:focus::after { content: attr(data-ayuda); position:absolute; z-index:50; left:50%; top:calc(100% + 8px);
+    transform:translateX(-50%); width:max-content; max-width:280px; white-space:normal; text-align:left;
+    background:#141A3A; color:#fff; padding:9px 11px; border-radius:10px; font: 500 12px/1.45 "Manrope", system-ui, sans-serif;
+    font-style: normal; box-shadow: 0 10px 24px -8px rgba(0,0,0,.35); }
+  .ayuda:hover::before, .ayuda:focus::before { content:''; position:absolute; left:50%; top:calc(100% + 3px); transform:translateX(-50%);
+    border:5px solid transparent; border-bottom-color:#141A3A; z-index:51; }
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -556,8 +566,8 @@
           <div class="tabla-wrap">
             <table>
               <thead><tr>
-                <th class="col-brigada">Equipo</th><th>Ingresos</th><th>Costes directos</th><th>Margen</th><th>% Margen</th>
-                <th>Finalizadas</th><th>Fallidas</th><th>SAT</th><th>Metros/día</th><th>Tiempo medio inst.</th><th>Llegada → inicio</th><th>Aprovechamiento</th><th>Rendimiento</th>
+                <th class="col-brigada">Equipo<span class="ayuda" tabindex="0" data-ayuda="Brigada. SAT va aparte y no computa en el margen de Búfala.">i</span></th><th>Ingresos<span class="ayuda" tabindex="0" data-ayuda="Base facturada en Holded (presupuestos aprobados) del mes, por equipo.">i</span></th><th>Costes directos<span class="ayuda" tabindex="0" data-ayuda="Coste directo del equipo con los días trabajados: nóminas, vehículo, combustible, material de los cierres y compras imputadas al equipo. Las ausencias van aparte.">i</span></th><th>Margen<span class="ayuda" tabindex="0" data-ayuda="Ingresos − costes directos.">i</span></th><th>% Margen<span class="ayuda" tabindex="0" data-ayuda="Margen ÷ ingresos.">i</span></th>
+                <th>Finalizadas<span class="ayuda" tabindex="0" data-ayuda="Instalaciones realizadas, una a una, sin fallidas ni intervenciones SAT.">i</span></th><th>Fallidas<span class="ayuda" tabindex="0" data-ayuda="Visitas en las que no se pudo instalar. No cuentan como instalación, sí como servicio.">i</span></th><th>SAT<span class="ayuda" tabindex="0" data-ayuda="Intervenciones del servicio técnico (nº que empieza por INT-). Van aparte.">i</span></th><th>Metros/día<span class="ayuda" tabindex="0" data-ayuda="Metros instalados ÷ días-brigada del mes.">i</span></th><th>Tiempo medio inst.<span class="ayuda" tabindex="0" data-ayuda="Media, por instalación, desde el check-in del técnico en ESBRAIN hasta que se da por finalizada. Solo instalaciones con horas registradas.">i</span></th><th>Llegada → inicio<span class="ayuda" tabindex="0" data-ayuda="Media de minutos entre el check-in y «Iniciar instalación» en ESBRAIN.">i</span></th><th>Aprovechamiento<span class="ayuda" tabindex="0" data-ayuda="Tiempo instalando (tiempo medio × instalaciones realizadas, también las que no tienen horas, como InstantBox) ÷ jornada disponible. Jornada = 7 h 42 min por día de brigada, o la de 📐 Parámetros unidades. El resto es abastecimiento y desplazamientos.">i</span></th><th>Rendimiento<span class="ayuda" tabindex="0" data-ayuda="Servicios equivalentes ÷ capacidad. Instalación = 1, 2 desde 70 m, 3 desde 120 m. Fallida = 1. Capacidad de cada día = mín(servicios/día de la unidad, técnicos presentes).">i</span></th>
               </tr></thead>
               <tbody id="dgTablaBody"></tbody>
             </table>
@@ -568,7 +578,7 @@
           <div class="chart-subtitle">Conformes, fallidas y no conformes (calidad documental)</div>
           <div class="tabla-wrap">
             <table>
-              <thead><tr><th class="col-brigada">Semana</th><th>Conformes</th><th>Fallidas</th><th>No conformes</th><th>% sin devoluciones</th></tr></thead>
+              <thead><tr><th class="col-brigada">Semana<span class="ayuda" tabindex="0" data-ayuda="Semana natural ISO (de lunes a domingo).">i</span></th><th>Conformes<span class="ayuda" tabindex="0" data-ayuda="Instalaciones realizadas marcadas CONFORME en el cierre.">i</span></th><th>Fallidas<span class="ayuda" tabindex="0" data-ayuda="Visitas en las que no se pudo instalar. No cuentan como instalación, sí como servicio.">i</span></th><th>No conformes<span class="ayuda" tabindex="0" data-ayuda="Instalaciones realizadas sin CONFORME.">i</span></th><th>% sin devoluciones<span class="ayuda" tabindex="0" data-ayuda="Conformes ÷ instalaciones realizadas de la semana.">i</span></th></tr></thead>
               <tbody id="dgSemanasBody"></tbody>
             </table>
           </div>
@@ -578,7 +588,7 @@
           <div class="chart-subtitle">Últimos seis meses · empresa</div>
           <div class="tabla-wrap">
             <table>
-              <thead><tr><th class="col-brigada">Mes</th><th>Ingresos</th><th>Margen equipos</th><th>% Margen</th><th>Estructura</th><th>Margen final</th><th>Tiempo medio inst.</th></tr></thead>
+              <thead><tr><th class="col-brigada">Mes</th><th>Ingresos<span class="ayuda" tabindex="0" data-ayuda="Base facturada en Holded (presupuestos aprobados) del mes, por equipo.">i</span></th><th>Margen equipos<span class="ayuda" tabindex="0" data-ayuda="Ingresos − costes directos.">i</span></th><th>% Margen<span class="ayuda" tabindex="0" data-ayuda="Margen ÷ ingresos.">i</span></th><th>Estructura<span class="ayuda" tabindex="0" data-ayuda="Todo lo que no se imputa a los técnicos: Gerencia, T-Cross, nave, gestoría, seguros, herramienta sin equipo y el coste de las ausencias.">i</span></th><th>Margen final<span class="ayuda" tabindex="0" data-ayuda="Margen de los equipos − estructura.">i</span></th><th>Tiempo medio inst.<span class="ayuda" tabindex="0" data-ayuda="Media, por instalación, desde el check-in del técnico en ESBRAIN hasta que se da por finalizada. Solo instalaciones con horas registradas.">i</span></th></tr></thead>
               <tbody id="dgEvolucionBody"></tbody>
             </table>
           </div>
@@ -592,7 +602,7 @@
         <div class="chart-subtitle">El margen de brigada se mide con los días trabajados; aquí, lo que cuestan las ausencias (vacaciones, bajas, permisos) y el resultado si se cargan</div>
         <div class="tabla-wrap">
           <table>
-            <thead><tr><th class="col-brigada">Brigada</th><th>Coste directo</th><th>Coste ausencias</th><th>Coste total</th><th>Margen (días trabajados)</th><th>Margen con ausencias</th><th>Días-técnico de ausencia</th></tr></thead>
+            <thead><tr><th class="col-brigada">Brigada</th><th>Coste directo<span class="ayuda" tabindex="0" data-ayuda="Coste directo de la brigada con los días trabajados.">i</span></th><th>Coste ausencias<span class="ayuda" tabindex="0" data-ayuda="Nómina de los días de ausencia (vacaciones, bajas, permisos) de los técnicos de la brigada.">i</span></th><th>Coste total<span class="ayuda" tabindex="0" data-ayuda="Coste directo + coste de ausencias.">i</span></th><th>Margen (días trabajados)<span class="ayuda" tabindex="0" data-ayuda="Margen medido con los días trabajados.">i</span></th><th>Margen con ausencias<span class="ayuda" tabindex="0" data-ayuda="Margen si se le cargan las ausencias a la brigada.">i</span></th><th>Días-técnico de ausencia<span class="ayuda" tabindex="0" data-ayuda="Días-técnico de ausencia en el mes.">i</span></th></tr></thead>
             <tbody id="opAusenciasBody"></tbody>
           </table>
         </div>
@@ -740,7 +750,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260926-1900";
+const DASHBOARD_BUILD = "20260926-2100";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -2101,7 +2111,18 @@ function _minH(m) {
   return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min';
 }
 function _pct(v) { return (Number(v) || 0).toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %'; }
+function _ayuda(t) { return '<span class="ayuda" tabindex="0" data-ayuda="' + String(t).replace(/"/g, '&quot;') + '">i</span>'; }
+const AYUDA_KPI = {
+  'Rentabilidad de los equipos': 'Ingresos − costes directos de los equipos, con los días trabajados. Las ausencias y la estructura van aparte.',
+  'Metros instalados / día': 'Metros instalados ÷ días-brigada del mes.',
+  'Instalaciones finalizadas': 'Instalaciones realizadas, sin fallidas ni SAT, que se enseñan aparte.',
+  'Tiempo medio por instalación': 'Desde el check-in del técnico en ESBRAIN hasta que se da por finalizada. Media de las instalaciones con horas registradas.',
+  'Rendimiento': 'Servicios equivalentes ÷ capacidad. Instalación = 1, 2 desde 70 m, 3 desde 120 m. Fallida = 1. Capacidad de cada día = mín(servicios/día de la unidad, técnicos presentes).',
+  'Aprovechamiento de jornada': 'Tiempo instalando ÷ jornada disponible (7 h 42 min por día de brigada, o la de la unidad). El resto es abastecimiento de material y desplazamientos.',
+  'Margen final de empresa': 'Margen de los equipos − estructura (Gerencia, nave, vehículos sin equipo, gestoría, seguros, herramienta y ausencias).'
+};
 function _kpiCard(label, valor, sub, peligro) {
+  if (AYUDA_KPI[label]) label = label + _ayuda(AYUDA_KPI[label]);
   return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-value' + (peligro ? ' danger' : '') + '">' +
          valor + '</div><div class="kpi-sub">' + (sub || '') + '</div></div>';
 }
@@ -2121,7 +2142,7 @@ function renderDireccion(data) {
       _kpiCard('Rentabilidad de los equipos', fmtEur.format(t.margen || 0), _pct(t.margenPct) + ' sobre ' + fmtEur.format(t.ingresos || 0) + (mejor ? ' · mejor: ' + mejor.brigada + ' (' + _pct(mejor.margenPct) + ')' : ''), (t.margen || 0) < 0) +
       _kpiCard('Metros instalados / día', (t.metrosDia || 0).toLocaleString('es-ES') + ' m', 'por equipo y día trabajado · ' + (t.metros || 0).toLocaleString('es-ES') + ' m en el mes') +
       _kpiCard('Instalaciones finalizadas', String(t.realizadas || 0), (t.fallidas || 0) + ' fallidas · ' + (t.sat || 0) + ' intervenciones SAT (aparte)') +
-      _kpiCard('Tiempo medio por instalación', _minH(t.tiempoInstMin), t.nTiempos ? 'de inicio a fin · ' + t.nTiempos + ' instalaciones medidas · llegada → inicio ' + _minH(t.llegadaMin) : 'se llena con las horas de ESBRAIN') +
+      _kpiCard('Tiempo medio por instalación', _minH(t.tiempoInstMin), t.nTiempos ? 'del check-in al fin · ' + t.nTiempos + ' instalaciones medidas · llegada → inicio ' + _minH(t.llegadaMin) : 'se llena con las horas de ESBRAIN') +
       _kpiCard('Rendimiento', _pct(t.rendimientoPct), (t.serviciosEquivalentes || 0) + ' servicios equivalentes / ' + Math.round(t.capacidad || 0) +
                ' de capacidad · por equipo y día: sus servicios/día (2, o los de 📐 Parámetros unidades), 1 menos por técnico ausente · instalación = 1, 2 desde 70 m, 3 desde 120 m · fallida = 1') +
       _kpiCard('Aprovechamiento de jornada', _pct(t.aprovechamientoPct), 'tiempo instalando (' + _minH(t.minutosInstalando) + ') sobre jornada de 7 h 42 min por día de brigada (' +
