@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.4.1
+// @version      2.5.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.4.1';
+  var VER = '2.5.0';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -187,6 +187,12 @@
       timestamp_llegada: d.timestamp_llegada || d.checkin_timestamp || '',
       timestamp_inicio: d.timestamp_inicio || '',
       timestamp_completada: d.timestamp_completada || '',
+      // v2.5.0: reagendaciones, bloqueos y cancelaciones del historial (para el Informe Semanal)
+      eventos: (d.historial || []).filter(function (h) {
+        return /^(REPROGRAMADA|BLOQUEO_TECNICO|INSTALACION_CANCELADA|DESASIGNACION)$/.test(h.tipo_evento || '');
+      }).map(function (h) {
+        return { id: h.id, tipo: h.tipo_evento, descripcion: String(h.descripcion || '').slice(0, 400), fecha: h.created_at || '' };
+      }),
       notas: notas(d)
     };
   }
