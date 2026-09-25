@@ -537,6 +537,17 @@
       </div>
 
       <div id="vistaDireccion" style="display:none">
+        <div class="tabla-card" id="dgInformeCard">
+          <div class="chart-title">Informe Semanal de Operaciones</div>
+          <div class="chart-subtitle">Formato obligatorio §5.11.1 · entrega cada lunes antes de las 18:00 · Markdown con las 9 secciones + CSV de las secciones 2, 3 y 4 · se guarda copia en Drive («Informes Dirección»)</div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px">
+            <label style="font-size:13px; color:var(--text-2)">Semana
+              <input type="week" id="dgSemana" style="margin-left:6px; padding:7px 10px; border-radius:10px; border:1px solid var(--input-bd, #ccc); font:inherit">
+            </label>
+            <button class="vista-tab activa" id="dgBtnInforme" onclick="descargarInformeSemanal()">Descargar informe</button>
+            <span id="dgInformeEstado" style="font-size:12px; color:var(--text-2)"></span>
+          </div>
+        </div>
         <div class="dg-nota" id="dgNota"></div>
         <div class="kpi-grid" id="dgKpis"></div>
         <div class="tabla-card">
@@ -729,7 +740,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260925-1800";
+const DASHBOARD_BUILD = "20260926-1000";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 const PASSWORD = "Bufala-Verde-1979!400";
 const STORAGE_KEY = "bufala_dashboard_auth_v1";
@@ -1231,6 +1242,7 @@ function renderDashboard(data) {
   seguro('direccion', () => renderDireccion(data));             // v20260925
   seguro('ausenciasOperaciones', () => renderAusenciasOperaciones(data.direccion));
   seguro('vista', () => setVista(leerVista()));
+  seguro('semanaInforme', () => _initSemanaInforme_());          // v20260926
 
   if (fallos.length > 0) {
     seguro('avisoFallos', () => {
@@ -2148,6 +2160,44 @@ function renderDireccion(data) {
     eb.appendChild(tr);
   });
 }
+// v20260926 — Informe Semanal de Operaciones (§5.11.1)
+function _semanaISOInput_(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const dia = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - dia + 3);
+  const ene4 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const sem = 1 + Math.round(((d - ene4) / 86400000 - 3 + ((ene4.getUTCDay() + 6) % 7)) / 7);
+  return d.getUTCFullYear() + '-W' + String(sem).padStart(2, '0');
+}
+function _bajarFichero_(nombre, texto, tipo) {
+  const url = URL.createObjectURL(new Blob([texto], { type: tipo + ';charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+async function descargarInformeSemanal() {
+  const inp = document.getElementById('dgSemana'), est = document.getElementById('dgInformeEstado');
+  const btn = document.getElementById('dgBtnInforme');
+  const v = (inp && inp.value) || '';
+  const m = v.match(/^(\d{4})-W(\d{2})$/);
+  if (!m) { est.textContent = 'Elige una semana.'; return; }
+  btn.disabled = true; est.textContent = 'Generando…';
+  try {
+    const r = await fetch(ENDPOINT + '?action=informeSemanal&guardar=1&semana=' + m[1] + '-S' + m[2]);
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'sin respuesta');
+    _bajarFichero_(d.nombre + '.md', d.md, 'text/markdown');
+    setTimeout(() => _bajarFichero_(d.nombre + '.csv', '\ufeff' + d.csv, 'text/csv'), 400);
+    est.textContent = '✅ ' + d.nombre + ' · del ' + d.desde.split('-').reverse().join('/') + ' al ' + d.hasta.split('-').reverse().join('/') +
+      (d.guardado ? ' · copia en Drive' : '') + ' · completa los «dato manual» antes de enviarlo';
+  } catch (e) {
+    est.textContent = '⚠️ No se ha podido generar: ' + e.message;
+  } finally { btn.disabled = false; }
+}
+function _initSemanaInforme_() {
+  const inp = document.getElementById('dgSemana');
+  if (inp && !inp.value) { const h = new Date(); inp.value = _semanaISOInput_(new Date(h.getFullYear(), h.getMonth(), h.getDate() - 7)); }
+}
+
 function renderAusenciasOperaciones(d) {
   const card = document.getElementById('opAusenciasCard');
   if (!card) return;
