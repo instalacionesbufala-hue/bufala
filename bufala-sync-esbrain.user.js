@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.4.0
+// @version      2.4.1
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.4.0';
+  var VER = '2.4.1';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -344,7 +344,13 @@
       visiblesUlt = todas.map(function (f) { return f.id; });   // v2.3.0
       var completa = forzarCompleta || tocaCompleta();
       forzarCompleta = false;
-      var aLeer = completa ? todas : todas.filter(function (f) { return !f.completada; });
+      // v2.4.1: la pasada rápida lee también las que ACABAN de completarse (en
+      // la pasada anterior seguían vivas), para que sus horas reales (llegada,
+      // inicio, fin) lleguen ya y no a las 12 h.
+      var vivasAntes = {};
+      try { (JSON.parse(localStorage.getItem('bf_vivas') || '[]') || []).forEach(function (id) { vivasAntes[id] = true; }); } catch (eV) {}
+      var aLeer = completa ? todas : todas.filter(function (f) { return !f.completada || vivasAntes[f.id]; });
+      try { localStorage.setItem('bf_vivas', JSON.stringify(todas.filter(function (f) { return !f.completada; }).map(function (f) { return f.id; }))); } catch (eS) {}
       var omitidas = todas.length - aLeer.length;
 
       if (!aLeer.length) {
