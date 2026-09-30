@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.5.0
+// @version      2.6.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -30,7 +30,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.5.0';
+  var VER = '2.6.0';
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -163,6 +163,25 @@
     if (typeof d.nota_interna === 'string' && d.nota_interna.trim()) p.push('Nota interna: ' + d.nota_interna);
     return p.join('\n');
   }
+  // v2.6.0 · «QUÉ HAY QUE INSTALAR» (30/09/2026). ESBRAIN publica en la ficha
+  // que_instalar.grupos[] con las líneas del presupuesto agrupadas
+  // (Instalación · Complementos y extras · Trabajos en obra). Se reenvía
+  // limpia; null si la ficha no la trae, para que el backend no la compare.
+  function queInstalar(d) {
+    var g = d && d.que_instalar && d.que_instalar.grupos;
+    if (!Array.isArray(g)) return null;
+    return g.map(function (x) {
+      return {
+        clave: String((x && x.clave) || ''),
+        titulo: String((x && x.titulo) || ''),
+        lineas: ((x && x.lineas) || []).map(function (l) {
+          return { nombre: String((l && l.nombre) || '').trim(),
+                   cantidad: (l && l.cantidad != null) ? l.cantidad : '',
+                   manual: !!(l && l.manual === true) };
+        }).filter(function (l) { return l.nombre; })
+      };
+    });
+  }
   function mapea(d) {
     return {
       uuid: d.id || d.uuid,
@@ -182,6 +201,10 @@
       metros_presupuestados: (d.metros_presupuestados == null ? '' : d.metros_presupuestados),
       instalacion_desc: d.instalacion_desc || '',
       requiere_preinstalacion_suministro: d.requiere_preinstalacion_suministro === true,
+      // v2.6.0: el backend los esperaba desde su v3.16.13 y nunca le llegaban
+      tiene_material_especial: d.tiene_material_especial === true,
+      material_especial_detalle: (typeof d.material_especial_detalle === 'string') ? d.material_especial_detalle : '',
+      que_instalar: queInstalar(d),
       equipo: (d.equipo && d.equipo.nombre) ? { nombre: d.equipo.nombre } : null,
       // v2.4.0: horas reales (check-in, inicio y fin) para el tiempo medio por instalación
       timestamp_llegada: d.timestamp_llegada || d.checkin_timestamp || '',
