@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.4 (18/09/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.19.5 (30/09/2026)
+     v3.19.5 — CABLE DE DATOS F/UTP (César 30/09/2026). Pantalla 5 con selector
+     U/UTP · F/UTP. Policharger en el hardware de la cita → F/UTP sin RJ45 (0).
+     V2C o cargador del cliente → U/UTP + 2 RJ45. Payload: cableDatos. Solo
+     cambia el coste de material; la pre-factura no cambia.
      v3.19.4 — INSTANTBOX: UN SOLO CIERRE POR INSTALACIÓN (César 18/09/2026).
      Con InstantBox no existen las visitas fallidas, así que cerrar dos veces
      es siempre un error (pasó el 18/09). Si la instalación ya tiene cierre,
@@ -796,15 +800,26 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
   </div>
 
   <div class="field">
-    <label class="label">Metros de cable UTP
+    <label class="label">Tipo de cable de datos
+      <button type="button" class="info-btn" onclick="toggleTip(event,'cableDatos')">i</button>
+    </label>
+    <div class="tooltip" id="tip-cableDatos">U/UTP para cargadores V2C y cuando el cargador lo pone el cliente (con 2 RJ45). F/UTP apantallado para Policharger, sin conectores RJ45. Viene marcado según el cargador de la cita.</div>
+    <div class="pills" id="pillsCableDatos">
+      <div class="pill" id="pillCableUtp" onclick="selectCableDatos('UTP')">U/UTP</div>
+      <div class="pill" id="pillCableFtp" onclick="selectCableDatos('FTP')">F/UTP (Policharger)</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label"><span id="lblMetrosUtp">Metros de cable U/UTP</span>
       <button type="button" class="info-btn" onclick="toggleTip(event,'utp')">i</button>
     </label>
-    <div class="tooltip" id="tip-utp">Cable de datos UTP cat.5e o superior para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
+    <div class="tooltip" id="tip-utp">Cable de datos (U/UTP o F/UTP) para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
     <input type="number" class="input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()">
     <div class="hint">Se autorrellena con los metros de línea (editable)</div>
   </div>
 
-  <div class="field">
+  <div class="field" id="campoRj45">
     <label class="label">Conectores RJ45
       <button type="button" class="info-btn" onclick="toggleTip(event,'rj45')">i</button>
     </label>
@@ -1174,7 +1189,7 @@ const state = {
   citaDesmontaje: false, // true si la cita (param hardware o ?desmontaje=1) indica desmontaje
   fotosTmpId: null, // v3.13.0: id de la carpeta temporal para fotos/acta en background
   checklist: Array(9).fill(false),
-  data: {tipoLinea:null, fase:null, seccion:null},
+  data: {tipoLinea:null, fase:null, seccion:null, cableDatos:'UTP'},
   cita: {},            // datos del calendario (URL params)
   cierrePrevio: null,  // v3.19.2: datos del cierre ya existente, si lo hay
   esInstantbox: false, // v3.19.0: flujo INSTANTBOX (&partner=instantbox)
@@ -1284,6 +1299,8 @@ function parseUrlParams(){
   document.getElementById('dataDireccion').textContent = state.cita.direccion || '—';
   document.getElementById('dataEquipo').textContent    = state.cita.equipo    || '—';
   document.getElementById('dataHardware').textContent  = state.cita.hardware  || '—';
+  // Cable de datos según el cargador de la cita: Policharger → F/UTP sin RJ45.
+  selectCableDatos((p.get('cable') === 'FTP' || /POLICHARGER/i.test(state.cita.hardware || '')) ? 'FTP' : 'UTP');
   document.getElementById('dataNumInst').textContent   = state.cita.numInst   || '—';
 
   if (state.cita.fecha){
@@ -1823,6 +1840,22 @@ function autoUtp(){
   if (!utp.dataset.touched) utp.value = m;
 }
 function markUtpTouched(){ document.getElementById('metrosUtp').dataset.touched = '1'; }
+// Cable de datos: U/UTP (V2C o cargador del cliente, con RJ45) o F/UTP (Policharger, sin RJ45).
+function selectCableDatos(tipo){
+  tipo = (tipo === 'FTP') ? 'FTP' : 'UTP';
+  state.data.cableDatos = tipo;
+  const pu = document.getElementById('pillCableUtp'), pf = document.getElementById('pillCableFtp');
+  if (pu) pu.classList.toggle('selected', tipo === 'UTP');
+  if (pf) pf.classList.toggle('selected', tipo === 'FTP');
+  const lbl = document.getElementById('lblMetrosUtp');
+  if (lbl) lbl.textContent = tipo === 'FTP' ? 'Metros de cable F/UTP' : 'Metros de cable U/UTP';
+  const campo = document.getElementById('campoRj45'), rj = document.getElementById('rj45');
+  if (campo) campo.style.display = tipo === 'FTP' ? 'none' : '';
+  if (rj){
+    if (tipo === 'FTP') rj.value = 0;
+    else if (!(parseInt(rj.value, 10) > 0)) rj.value = 2;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // FOTOS
@@ -2392,7 +2425,8 @@ function recolectarDatos(esFallida){
   datos.seccion    = state.data.seccion;
   datos.metrosLinea = num('metrosLinea');
   datos.metrosUtp  = num('metrosUtp');
-  datos.rj45       = num('rj45');
+  datos.cableDatos = state.data.cableDatos === 'FTP' ? 'FTP' : 'UTP';   // F/UTP solo cambia el coste, no la factura
+  datos.rj45       = datos.cableDatos === 'FTP' ? 0 : num('rj45');
 
   // Bornas
   datos.bornasMono = num('bornasMono');
