@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.6.0
+// @version      2.7.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
 // @connect      script.google.com
 // @connect      script.googleusercontent.com
 // @run-at       document-idle
@@ -30,7 +33,21 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.6.0';
+  var VER = '2.7.0';
+  // v2.7.0 · CLAVE DE SINCRONIZACIÓN. El backend solo acepta envíos con la clave
+  // que César fija en el editor (guardarClaveEsbrain). Se escribe UNA vez aquí y
+  // queda guardada en Tampermonkey, fuera de este fichero (que es público).
+  var CLAVE_SYNC = 'bufala_clave_sync';
+  var pedidaEnEstaCarga = false;
+  function claveSync(forzar) {
+    var k = GM_getValue(CLAVE_SYNC, '');
+    if ((!k || forzar) && !pedidaEnEstaCarga) {
+      pedidaEnEstaCarga = true;
+      var nueva = window.prompt('Búfala · clave de sincronización de ESBRAIN\n(la que fijaste en el editor con guardarClaveEsbrain).\nSolo se pide una vez:');
+      if (nueva) { k = nueva.trim(); GM_setValue(CLAVE_SYNC, k); }
+    }
+    return k || '';
+  }
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
@@ -295,6 +312,7 @@
     return new Promise(function (resolve) {
       var cuerpo = 'payload=' + encodeURIComponent(JSON.stringify({
         accion: 'esbrainSync', bmVersion: 'US' + VER, instalaciones: inst,
+        claveSync: claveSync(false),      // v2.7.0
         idsVisibles: visiblesUlt          // v2.3.0: todo lo que se ve en la página
       }));
       function reintenta(motivo) {
@@ -321,6 +339,12 @@
         onload: function (resp) {
           var r = null;
           try { r = JSON.parse(resp.responseText); } catch (e) {}
+          if (r && r.codigo === 'clave') {                                   // v2.7.0
+            GM_deleteValue(CLAVE_SYNC); pedidaEnEstaCarga = false;
+            pinta('<div style="color:#fca5a5">🔑 ' + (r.error || 'Clave de sincronización incorrecta.') + '</div>' +
+                  '<div style="font-size:11px;opacity:.85">Pulsa «Sincronizar ya» y escríbela de nuevo.</div>');
+            resolve(); return;
+          }
           if (r && r.accion === 'esbrainSync') {
             localStorage.setItem(CLAVE_ULT, String(Date.now()));
             var om = r.omitidasCompletadas ? ' · ' + r.omitidasCompletadas + ' completadas omitidas' : '';
