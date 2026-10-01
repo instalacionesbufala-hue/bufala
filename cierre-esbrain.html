@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.2.0 (30/09/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.3.0 (01/10/2026)
+     v1.3.0: MODO ADMIN CONTRA EL SERVIDOR. La contraseña ya no está en este
+     fichero (es público): la comprueba el backend (superLogin) y devuelve un
+     pase firmado de 90 días, que es lo único que se guarda. El cierre lo lleva
+     (superToken); si el servidor lo rechaza, se borra y se pide de nuevo.
      v1.2.0: CABLE DE DATOS F/UTP. Pantalla 5 con selector U/UTP · F/UTP. Si el
      cargador de la cita es Policharger (o el enlace trae cable=FTP) sale F/UTP
      marcado, sin RJ45 (se envían 0). V2C o cargador del cliente: U/UTP + 2 RJ45.
@@ -1032,7 +1036,9 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 // CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-const SUPER_PASSWORD = 'Bufalo-Verde-1979!400';
+// Modo admin: la contraseña la comprueba el servidor y devuelve un PASE firmado
+// de 90 días. Aquí solo se guarda el pase, nunca la contraseña.
+const SUPER_PASE_KEY = 'bufala_super_v4';
 const ES_ESBRAIN = true;   // v1.0.0: wizard SOLO DATOS del flujo ESBRAIN (sin vídeo/fotos/acta)
 const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3'];   // v1.1.0: guarda de brigada
 const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
@@ -1146,8 +1152,9 @@ const state = {
 // MODO SUPER (localStorage por dispositivo)
 // ═══════════════════════════════════════════════════════════════
 function checkSuperOnLoad(){
-  // 1. Si hay localStorage marcado, activar
-  if (localStorage.getItem('bufala_super_v3') === SUPER_PASSWORD){
+  // 1. Si hay un pase vigente en este dispositivo, activar
+  try { localStorage.removeItem('bufala_super_v3'); } catch (e) {}   // formato antiguo
+  if (superPase()){
     activateSuperMode();
     return;
   }
@@ -1168,15 +1175,30 @@ function closeSuperModal(){
   document.getElementById('superPassInput').value = '';
 }
 
-function checkSuperPassword(){
-  const input = document.getElementById('superPassInput').value;
-  if (input === SUPER_PASSWORD){
-    localStorage.setItem('bufala_super_v3', SUPER_PASSWORD);
+// Pase del modo admin guardado en este dispositivo (o '' si no hay o caducó).
+function superPase(){
+  try {
+    const s = JSON.parse(localStorage.getItem(SUPER_PASE_KEY) || 'null');
+    if (s && s.token && Date.parse(s.caduca) > Date.now()) return s.token;
+  } catch (e) {}
+  return '';
+}
+async function checkSuperPassword(){
+  const inp = document.getElementById('superPassInput');
+  const clave = inp.value;
+  if (!clave) return;
+  try {
+    const form = new URLSearchParams();
+    form.set('payload', JSON.stringify({ accion: 'superLogin', clave: clave }));
+    const res = await fetch(WEB_APP_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const r = await res.json();
+    if (!r.ok || !r.token) throw new Error(r.error || 'Contraseña incorrecta');
+    localStorage.setItem(SUPER_PASE_KEY, JSON.stringify({ token: r.token, caduca: r.caduca }));
     activateSuperMode();
     closeSuperModal();
-  } else {
-    alert('Contraseña incorrecta');
-    document.getElementById('superPassInput').value = '';
+  } catch (e) {
+    alert((e && e.message) ? e.message : 'No se pudo comprobar la contraseña. Revisa la conexión.');
+    inp.value = '';
   }
 }
 
@@ -2159,6 +2181,7 @@ function recolectarDatos(esFallida){
     tipoInst:  state.type,
     despFallido: esFallida,
     modoSuper: state.isSuper,
+    superToken: state.isSuper ? superPase() : '',   // v1.3.0
     // v1.0.0 ESBRAIN: el backend (v3.15.0+) procesa estos cierres por el
     // camino "solo datos" (sin carpetas Drive) y etiqueta el Registro.
     origenEsbrain: true,
@@ -3098,8 +3121,11 @@ function postCierre(datos){
         resolve(r);
       } else if (r && r.ok === false){
         const det = (r.errores && r.errores.length) ? r.errores.join(' · ') : 'error desconocido';
-        reject(new Error('El sistema ha rechazado el cierre: ' + det +
-                         '\nEl cierre NO está guardado. Reintenta y, si se repite, avisa a César.'));
+        const err = new Error('El sistema ha rechazado el cierre: ' + det +
+                         '\nEl cierre NO está guardado. Reintenta y, si se repite, avisa a César.');
+        // Pase del modo admin caducado o no válido: se borra y no se reintenta solo.
+        if (r.codigo === 'super'){ try { localStorage.removeItem(SUPER_PASE_KEY); } catch (e) {} err.noReintentar = true; }
+        reject(err);
       } else {
         reject(new Error('El sistema ha respondido algo inesperado (HTTP ' + xhr.status +
                          ', no es la confirmación del backend). El cierre NO está guardado. ' +
@@ -3126,7 +3152,7 @@ function postCierre(datos){
         unaPeticion().then(
           (r)   => { clearInterval(tickerEnvio); resolve(r); },
           (err) => {
-            if (intento < MAX_INTENTOS){
+            if (intento < MAX_INTENTOS && !(err && err.noReintentar)){
               console.warn('postCierre intento ' + intento + ' fallido, reintentando:', err && err.message);
               probar();
             } else {
