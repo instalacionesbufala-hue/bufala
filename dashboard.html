@@ -750,7 +750,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20261001-1400";
+const DASHBOARD_BUILD = "20261001-1830";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 // build 20261001-1400 · ACCESO CONTRA EL SERVIDOR. La contraseña ya no está en
 // este fichero (es público): la comprueba el backend, que devuelve una sesión
@@ -1027,10 +1027,20 @@ async function tryLogin() {
   if (btn) btn.disabled = true;
   err.textContent = 'Comprobando…';
   try {
-    const form = new URLSearchParams();
-    form.set('payload', JSON.stringify({ accion: 'dashboardLogin', clave: clave }));
-    const res = await fetch(ENDPOINT, { method: 'POST', body: form, redirect: 'follow' });
-    const r = await res.json();
+    // build 20261001-1830: Apps Script atiende de una en una; si está ocupado
+    // devuelve una página de error que el navegador no puede leer («Failed to
+    // fetch»). Se reintenta hasta 3 veces antes de dar el fallo.
+    let r = null, ultimoFallo = null;
+    for (let i = 0; i < 3 && !r; i++) {
+      if (i > 0) { err.textContent = 'El servidor está ocupado, reintentando (' + (i + 1) + '/3)…'; await new Promise(z => setTimeout(z, 2500 * i)); }
+      try {
+        const form = new URLSearchParams();
+        form.set('payload', JSON.stringify({ accion: 'dashboardLogin', clave: clave }));
+        const res = await fetch(ENDPOINT, { method: 'POST', body: form, redirect: 'follow' });
+        r = await res.json();
+      } catch (eRed) { ultimoFallo = eRed; }
+    }
+    if (!r) throw new Error('No se ha podido contactar con el servidor. Comprueba la conexión y vuelve a intentarlo en un minuto.');
     if (!r.ok || !r.token) throw new Error(r.error || 'Contraseña incorrecta.');
     localStorage.setItem(SESION_KEY, JSON.stringify({ token: r.token, caduca: r.caduca }));
     err.textContent = '';
