@@ -750,10 +750,13 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20260926-2100";
+const DASHBOARD_BUILD = "20261001-1400";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
-const PASSWORD = "Bufala-Verde-1979!400";
-const STORAGE_KEY = "bufala_dashboard_auth_v1";
+// build 20261001-1400 · ACCESO CONTRA EL SERVIDOR. La contraseña ya no está en
+// este fichero (es público): la comprueba el backend, que devuelve una sesión
+// firmada de 30 días. Aquí solo se guarda esa sesión, nunca la contraseña.
+const STORAGE_KEY = "bufala_dashboard_auth_v1";            // formato antiguo: se borra al cargar
+const SESION_KEY  = "bufala_dashboard_sesion_v2";
 const THEME_KEY = "bufala_dashboard_theme_v1";
 
 // ── build 20260807-1500 · CACHÉ LOCAL (localStorage) ──────────────
@@ -984,33 +987,68 @@ function chartTheme() {
 // ═══════════════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════════════
+// Sesión guardada { token, caduca } o null si no hay o ya caducó.
+function sesionActual() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESION_KEY) || 'null');
+    if (s && s.token && Date.parse(s.caduca) > Date.now()) return s;
+  } catch (e) {}
+  return null;
+}
+function tokenSesion() { const s = sesionActual(); return s ? s.token : ''; }
+function mostrarLogin(msg) {
+  document.getElementById('dashboardContainer').style.display = 'none';
+  document.getElementById('loginOverlay').style.display = '';
+  document.getElementById('loginErr').textContent = msg || '';
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('passwordInput').focus();
+}
+// El servidor dice que la sesión ya no vale (caducada o clave cambiada).
+function sesionCaducada() {
+  try { localStorage.removeItem(SESION_KEY); lsLimpiarTodo(); } catch (e) {}
+  mostrarLogin('Tu sesión ha caducado. Vuelve a introducir la contraseña.');
+}
 function checkLogin() {
-  const token = localStorage.getItem(STORAGE_KEY);
-  if (token === btoa(PASSWORD)) {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}   // formato antiguo
+  if (sesionActual()) {
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('dashboardContainer').style.display = 'block';
     initDashboard();
   } else {
+    try { lsLimpiarTodo(); } catch (e) {}                         // sin sesión, ningún dato guardado
     document.getElementById('passwordInput').focus();
   }
 }
-function tryLogin() {
-  const pwd = document.getElementById('passwordInput').value;
-  if (pwd === PASSWORD) {
-    localStorage.setItem(STORAGE_KEY, btoa(PASSWORD));
-    document.getElementById('loginErr').textContent = '';
+async function tryLogin() {
+  const inp = document.getElementById('passwordInput'), err = document.getElementById('loginErr');
+  const btn = document.querySelector('.login-btn');
+  const clave = inp.value;
+  if (!clave) { err.textContent = 'Escribe la contraseña.'; return; }
+  if (btn) btn.disabled = true;
+  err.textContent = 'Comprobando…';
+  try {
+    const form = new URLSearchParams();
+    form.set('payload', JSON.stringify({ accion: 'dashboardLogin', clave: clave }));
+    const res = await fetch(ENDPOINT, { method: 'POST', body: form, redirect: 'follow' });
+    const r = await res.json();
+    if (!r.ok || !r.token) throw new Error(r.error || 'Contraseña incorrecta.');
+    localStorage.setItem(SESION_KEY, JSON.stringify({ token: r.token, caduca: r.caduca }));
+    err.textContent = '';
+    inp.value = '';
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('dashboardContainer').style.display = 'block';
     initDashboard();
-  } else {
-    document.getElementById('loginErr').textContent = '❌ Contraseña incorrecta';
-    document.getElementById('passwordInput').value = '';
-    document.getElementById('passwordInput').focus();
+  } catch (e) {
+    err.textContent = '❌ ' + (e && e.message ? e.message : 'No se pudo comprobar la contraseña.');
+    inp.value = '';
+    inp.focus();
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
-  localStorage.removeItem(STORAGE_KEY);
+  try { localStorage.removeItem(SESION_KEY); localStorage.removeItem(STORAGE_KEY); lsLimpiarTodo(); } catch (e) {}
   location.reload();
 }
 document.getElementById('passwordInput').addEventListener('keydown', (e) => {
@@ -1044,7 +1082,7 @@ function fmtValor(v, formato) {
 async function initDashboard() { aplicarIconoTema(); await loadDashboardData(); }
 
 function urlDashboard(mes, brigada, noCache) {
-  let url = ENDPOINT + '?action=dashboard';
+  let url = ENDPOINT + '?action=dashboard&token=' + encodeURIComponent(tokenSesion());
   if (mes) url += '&mes=' + encodeURIComponent(mes);
   if (brigada && brigada !== 'todas') url += '&brigada=' + encodeURIComponent(brigada);
   if (noCache) url += '&nocache=1';
@@ -1093,6 +1131,7 @@ async function loadDashboardData(noCache) {
     const res = await fetchConReintentos(urlDashboard(mes, brigada, noCache),
       (n, total) => setBannerCarga(mes, brigada, 'reintentando (' + n + '/' + total + ')…'));
     const data = await res.json();
+    if (data && data.codigo === 'sesion') { sesionCaducada(); return; }
     if (!data.ok) throw new Error(data.error || 'Respuesta sin datos');
 
     // Si el usuario cambió de filtro mientras llegaba, esta respuesta ya no vale.
@@ -2216,7 +2255,7 @@ async function descargarInformeSemanal() {
   if (!m) { est.textContent = 'Elige una semana.'; return; }
   btn.disabled = true; est.textContent = 'Generando…';
   try {
-    const r = await fetch(ENDPOINT + '?action=informeSemanal&guardar=1&semana=' + m[1] + '-S' + m[2]);
+    const r = await fetch(ENDPOINT + '?action=informeSemanal&guardar=1&semana=' + m[1] + '-S' + m[2] + '&token=' + encodeURIComponent(tokenSesion()));
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'sin respuesta');
     _bajarFichero_(d.nombre + '.md', d.md, 'text/markdown');
