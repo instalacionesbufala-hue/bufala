@@ -750,7 +750,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxe
 // DASHBOARD_BUILD: identificador de versión. Se incrementa en CADA entrega
 // para que los navegadores con la versión vieja detecten que hay una nueva
 // y se recarguen solos. Formato: AAAAMMDD-HHMM
-const DASHBOARD_BUILD = "20261001-1830";
+const DASHBOARD_BUILD = "20261002-1200";
 const VERSION_CHECK_MIN = 20;  // cada cuántos minutos se busca versión nueva
 // build 20261001-1400 · ACCESO CONTRA EL SERVIDOR. La contraseña ya no está en
 // este fichero (es público): la comprueba el backend, que devuelve una sesión
@@ -861,7 +861,14 @@ async function fetchConReintentos(url, onIntento) {
     }
     try {
       const res = await fetch(url, { method: 'GET' });
-      if (res.ok) return res;
+      if (res.ok) {
+        // build 20261002-1200: con el servidor ocupado, Google contesta a veces con
+        // su página de error y código 200. Si no es JSON, se reintenta.
+        const t = await res.text();
+        let j;
+        try { j = JSON.parse(t); } catch (eJ) { ultimoErr = new Error('El servidor está ocupado (respuesta no válida)'); continue; }
+        return { ok: true, status: res.status, json: async () => j };
+      }
       ultimoErr = new Error('HTTP ' + res.status);
       if (!FETCH_RETRY_STATUS[res.status]) break;   // 4xx no recuperable: no insistir
     } catch (e) {
