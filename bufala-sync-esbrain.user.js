@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.7.0
+// @version      2.7.1
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -33,7 +33,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.7.0';
+  var VER = '2.7.1';
   // v2.7.0 · CLAVE DE SINCRONIZACIÓN. El backend solo acepta envíos con la clave
   // que César fija en el editor (guardarClaveEsbrain). Se escribe UNA vez aquí y
   // queda guardada en Tampermonkey, fuera de este fichero (que es público).
@@ -48,6 +48,10 @@
     }
     return k || '';
   }
+  // v2.7.1: se pide al CARGAR la página (antes, al final de leer todas las fichas,
+  // unos 3 minutos después, y la ventana pasaba desapercibida si la pestaña
+  // estaba en segundo plano). Solo si aún no está guardada.
+  try { if (!GM_getValue(CLAVE_SYNC, '')) setTimeout(function () { claveSync(false); }, 1500); } catch (eK) {}
   var MINUTOS = 15;          // cada cuánto se recarga y sincroniza
   var ESPERA_LISTA = 25000;  // margen para que la lista termine de pintarse
   var PARALELO = 6;
