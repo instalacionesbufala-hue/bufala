@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.7.1
+// @version      2.8.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -33,7 +33,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.7.1';
+  var VER = '2.8.0';   // v2.8.0: potencia_contratada (kW) de cada ficha
   // v2.7.0 · CLAVE DE SINCRONIZACIÓN. El backend solo acepta envíos con la clave
   // que César fija en el editor (guardarClaveEsbrain). Se escribe UNA vez aquí y
   // queda guardada en Tampermonkey, fuera de este fichero (que es público).
@@ -220,6 +220,8 @@
       hardware_desc: d.hardware_desc || '',
       numero_serie_hardware: d.numero_serie_hardware || '',
       metros_presupuestados: (d.metros_presupuestados == null ? '' : d.metros_presupuestados),
+      // v2.8.0: potencia contratada (kW). Vacío si ESBRAIN no la trae: el backend lo marca «no informada».
+      potencia_contratada: (d.potencia_contratada == null ? '' : d.potencia_contratada),
       instalacion_desc: d.instalacion_desc || '',
       requiere_preinstalacion_suministro: d.requiere_preinstalacion_suministro === true,
       // v2.6.0: el backend los esperaba desde su v3.16.13 y nunca le llegaban
