@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.3.0 (01/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.4.0 (08/10/2026)
+     v1.4.0: MEDIDOR BIDIRECCIONAL EN INSTALACIONES SOLAR. Si la descripción de la
+     cita (parámetro desc) contiene «SOLAR» (sin distinguir mayúsculas ni tildes)
+     aparece, entre «Trabajos especiales» y el resumen, una pantalla propia
+     ('solar') con tres tarjetas grandes: Sí · Monofásico (por defecto), Sí ·
+     Trifásico y No se ha instalado. Aviso si la fase del cierre es trifásica. El
+     payload lleva descInstalacion (siempre) y medidorBidireccional ('mono' |
+     'trif' | 'no'; '' si no es SOLAR o es fallida). Material en custodia de
+     ESMOVE: sin coste ni pre-factura. Sin «SOLAR», el wizard no cambia.
      v1.3.0: MODO ADMIN CONTRA EL SERVIDOR. La contraseña ya no está en este
      fichero (es público): la comprueba el backend (superLogin) y devuelve un
      pase firmado de 90 días, que es lo único que se guarda. El cierre lo lleva
@@ -295,6 +303,15 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .type-btn-fail.selected{border-color:var(--danger); background:rgba(220,38,38,.08)}
 .type-icon{font-size:24px; line-height:1}
 .type-desc{font-size:12px; font-weight:400; color:var(--text-muted); margin-top:2px}
+/* v1.4.0 — medidor bidireccional (instalaciones SOLAR) */
+.solar-banner{display:flex; align-items:center; gap:12px; background:#fff7e0; border:2px solid #f59e0b; border-radius:12px; padding:14px 16px; margin-bottom:18px}
+.solar-banner .sb-icon{font-size:30px; line-height:1}
+.solar-banner .sb-tit{font-size:16px; font-weight:800; color:#92400e; letter-spacing:.3px}
+.solar-banner .sb-desc{font-size:12px; color:#78350f; margin-top:3px; word-break:break-word}
+.med-grid .type-btn{padding:20px 16px; font-size:17px}
+.med-grid .type-btn:not(.selected){opacity:.45}
+.med-grid .type-btn.selected{opacity:1}
+.med-aviso{display:none; margin-top:12px; font-size:13px; padding:10px 12px; border-radius:10px; background:rgba(217,119,6,.08); border:1px solid var(--warning); color:var(--warning)}
 
 .field{margin-bottom:16px}
 .label{display:flex; align-items:center; font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text)}
@@ -916,6 +933,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <div class="summary-row"><span>Equipo</span><span id="resumenEquipo">—</span></div>
     <div class="summary-row"><span>Tipo</span><span id="resumenTipo">—</span></div>
     <div class="summary-row"><span>Metros línea</span><span id="resumenMetros">— m</span></div>
+    <div class="summary-row" id="resumenMedidorRow" style="display:none"><span>Medidor bidireccional</span><span id="resumenMedidor">—</span></div>
   </div>
 
   <label class="label">Mensaje para WhatsApp</label>
@@ -923,6 +941,34 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <button type="button" class="btn-copy" onclick="copyWa()">Copiar</button>
     <span id="waText">INSTALACIÓN FINALIZADA – TODO OK – — – 0 METROS FINALES INSTALADOS</span>
   </div>
+</section>
+
+<!-- ═══ PANTALLA MEDIDOR BIDIRECCIONAL · solo instalaciones SOLAR · v1.4.0 ═══ -->
+<section class="screen" data-screen="solar">
+  <h1 class="title">Medidor bidireccional (instalación SOLAR)</h1>
+  <p class="subtitle">Material de ESMOVE en custodia: no lleva coste ni se factura</p>
+
+  <div class="solar-banner">
+    <span class="sb-icon">☀️</span>
+    <div><div class="sb-tit">INSTALACIÓN SOLAR</div><div class="sb-desc" id="solarDesc">—</div></div>
+  </div>
+
+  <label class="label">¿Se ha instalado medidor bidireccional?</label>
+  <div class="type-grid med-grid">
+    <button type="button" class="type-btn" id="medMono" onclick="selectMedidor('mono')">
+      <span class="type-icon">⚡</span>
+      <div>Sí · Monofásico<div class="type-desc">Medidor bidireccional monofásico instalado</div></div>
+    </button>
+    <button type="button" class="type-btn" id="medTrif" onclick="selectMedidor('trif')">
+      <span class="type-icon">⚡⚡⚡</span>
+      <div>Sí · Trifásico<div class="type-desc">Medidor bidireccional trifásico instalado</div></div>
+    </button>
+    <button type="button" class="type-btn" id="medNo" onclick="selectMedidor('no')">
+      <span class="type-icon">✖️</span>
+      <div>No se ha instalado<div class="type-desc">No se ha colocado medidor en esta instalación</div></div>
+    </button>
+  </div>
+  <div class="med-aviso" id="medAvisoTrif">⚠️ La instalación figura como trifásica: revisa si el medidor es trifásico.</div>
 </section>
 
 <!-- ═══ PANTALLA FALLIDA ═══ -->
@@ -1141,7 +1187,7 @@ const state = {
   citaDesmontaje: false, // true si la cita (param hardware o ?desmontaje=1) indica desmontaje
   fotosTmpId: null, // v3.13.0: id de la carpeta temporal para fotos/acta en background
   checklist: Array(9).fill(false),
-  data: {tipoLinea:null, fase:null, seccion:null, cableDatos:'UTP'},
+  data: {tipoLinea:null, fase:null, seccion:null, cableDatos:'UTP', medidorBidireccional:'mono'},   // v1.4.0: medidor
   cita: {},            // datos del calendario (URL params)
   isSuper: false,
   cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
@@ -1313,6 +1359,9 @@ function showScreen(num){
   target.classList.add('active');
   state.currentScreen = num;
 
+  if (num === 'solar'){                                                   // v1.4.0
+    document.getElementById('progressStep').textContent = 'Paso 8 de ' + state.totalScreens + ' · medidor';
+  }
   if (typeof num === 'number'){
     const pct = Math.round((num / state.totalScreens) * 100);
     document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
@@ -1338,6 +1387,7 @@ function showScreen(num){
 
   if (num === 7) applyBornasAuto();
   if (num === 12) updateSummary();
+  if (num === 'solar') pintarMedidor();                                  // v1.4.0
 
   // Ocultar indicador de subida en pantalla final o fallida
   if (num === 'done' || num === 'failed'){
@@ -1360,21 +1410,29 @@ function renderSteps(){
   bar.innerHTML = '';
   // En modo super se muestra menos
   const max = (ES_ESBRAIN || state.isSuper) ? 12 : state.totalScreens;
+  const cur = state.currentScreen === 'solar' ? 8.5 : state.currentScreen;   // v1.4.0: medidor entre la 8 y la 9
   for (let i=1; i<=max; i++){
     // Saltar pantallas en modo super: 2, 3, 9
     if ((ES_ESBRAIN || state.isSuper) && (i===2 || i===3 || i===9)) continue;
     const dot = document.createElement('div');
     dot.className = 'step-dot';
-    if (i === state.currentScreen) dot.classList.add('active');
-    else if (i < state.currentScreen) dot.classList.add('completed');
+    if (i === cur) dot.classList.add('active');
+    else if (i < cur) dot.classList.add('completed');
     dot.textContent = i;
-    dot.onclick = () => { if (i < state.currentScreen) showScreen(i); };
+    dot.onclick = () => { if (i < cur) showScreen(i); };
     bar.appendChild(dot);
   }
 }
 
 function nextScreen(){
   if (!validateScreen(state.currentScreen)) return;
+  // v1.4.0: medidor bidireccional (SOLAR) entre la 8 y la siguiente pantalla
+  if (state.currentScreen === 8 && esSolar()){ showScreen('solar'); return; }
+  if (state.currentScreen === 'solar'){
+    let n = 9;
+    if (ES_ESBRAIN || state.isSuper){ while (n === 2 || n === 3 || n === 9){ n++; } }
+    showScreen(n); return;
+  }
   if (state.currentScreen === 12){ submitClosure(false); return; }
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
 
@@ -1395,17 +1453,20 @@ function nextScreen(){
 
 function prevScreen(){
   if (state.currentScreen === 'failed'){ showScreen(1); return; }
+  if (state.currentScreen === 'solar'){ showScreen(8); return; }         // v1.4.0
   if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
     let prev = state.currentScreen - 1;
     if (ES_ESBRAIN || state.isSuper){
       while (prev === 2 || prev === 3 || prev === 9){ prev--; }
     }
+    if (state.currentScreen > 8 && prev <= 8 && esSolar()){ showScreen('solar'); return; }   // v1.4.0
     showScreen(prev);
   }
 }
 
 function validateScreen(num){
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
+  if (num === 'solar' && !state.data.medidorBidireccional){ showError('Indica si se ha instalado el medidor bidireccional'); return false; }   // v1.4.0
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
     if (!state.data.fase){ showError('Selecciona la fase'); return false; }
@@ -1493,6 +1554,20 @@ function elegirEquipo(nombre){
     const b = document.getElementById(id);
     if (b) b.classList.toggle('selected', b.textContent === nombre);
   });
+}
+
+// ═══ v1.4.0 — MEDIDOR BIDIRECCIONAL (solo instalaciones SOLAR) ═══
+function _normTxt(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
+function esSolar(){ return _normTxt(state.cita && state.cita.desc).indexOf('SOLAR') >= 0; }
+function selectMedidor(v){ state.data.medidorBidireccional = v; pintarMedidor(); }
+// Se repinta al mostrar la pantalla: selectType() quita «selected» a todas las .type-btn.
+function pintarMedidor(){
+  const v = state.data.medidorBidireccional || 'mono';
+  [['mono','medMono'],['trif','medTrif'],['no','medNo']].forEach(function(p){
+    const b = document.getElementById(p[1]); if (b) b.classList.toggle('selected', p[0] === v);
+  });
+  const d = document.getElementById('solarDesc'); if (d) d.textContent = state.cita.desc || '—';
+  const a = document.getElementById('medAvisoTrif'); if (a) a.style.display = (state.data.fase === 'trif') ? 'block' : 'none';
 }
 
 function selectType(t){
@@ -2002,6 +2077,13 @@ function updateSummary(){
   document.getElementById('resumenTipo').textContent = tipoMap[state.type] || '—';
   const metros = document.getElementById('metrosLinea').value || '0';
   document.getElementById('resumenMetros').textContent = metros + ' m';
+  // v1.4.0: medidor bidireccional (solo SOLAR)
+  const medRow = document.getElementById('resumenMedidorRow');
+  if (medRow){
+    const medTxt = { mono: 'Monofásico', trif: 'Trifásico', no: 'No instalado' };
+    medRow.style.display = esSolar() ? '' : 'none';
+    document.getElementById('resumenMedidor').textContent = medTxt[state.data.medidorBidireccional] || '—';
+  }
   document.getElementById('waText').textContent =
     'INSTALACIÓN FINALIZADA – TODO OK – ' + (state.cita.cliente || '—') + ' – ' + metros + ' METROS FINALES INSTALADOS';
 }
@@ -2179,6 +2261,9 @@ function recolectarDatos(esFallida){
     equipo:    EQUIPOS_VALIDOS.indexOf(state.cita.equipo) >= 0 ? state.cita.equipo : '—',   // v1.1.0
     hardware:  state.cita.hardware || '',
     tipoInst:  state.type,
+    // v1.4.0: descripción de la cita (siempre) y medidor bidireccional (solo SOLAR; '' si no o si es fallida)
+    descInstalacion: state.cita.desc || '',
+    medidorBidireccional: (!esFallida && esSolar()) ? (state.data.medidorBidireccional || 'mono') : '',
     despFallido: esFallida,
     modoSuper: state.isSuper,
     superToken: state.isSuper ? superPase() : '',   // v1.3.0
