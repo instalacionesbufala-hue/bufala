@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.19.6 (01/10/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.20.0 (14/10/2026)
+     v3.20.0 — CLIENTES DIRECTOS (&partner=directo; César 14/10/2026). Obras
+     que entran por la web o por contacto, sin partner, con el presupuesto en
+     Holded como precio cerrado. Mismo recorrido que InstantBox: 1 → 2 → 3 →
+     4 → 5 → 6 → 7 → 8 → 11 → 12 (fotos y vídeo sí; sin acta ni hitos HW).
+     Etiqueta «DIRECTO» en la cabecera con el verde Búfala. Fase, sección y
+     metros llegan PRECARGADOS del presupuesto (&fase, &seccion, &metros) y el
+     técnico los confirma o corrige: lo que manda es lo medido. Sin precios.
+     Payload: partner:'directo', holdedId, metrosPresupuesto,
+     seccionPresupuesto. Se permite repetir cierre (aviso, como en ESMOVE).
+     Requiere backend v3.20.87+.
      v3.19.6 — MODO ADMIN CONTRA EL SERVIDOR. La contraseña ya no está en este
      fichero: la comprueba el backend (superLogin) y devuelve un pase firmado de
      90 días, lo único que se guarda. El cierre lo lleva (superToken); si el
@@ -225,6 +235,11 @@
    seguridad (foto subida, "Todo subido", error), no color de marca. */
 body.ib-theme{
   --accent:#111827; --accent-hover:#000000; --accent-light:#f1f2f4;
+}
+body.cd-theme .partner-tag{   /* v3.20.0: cliente directo, verde Búfala */
+  display:inline-flex; align-items:center; gap:6px; background:var(--accent);
+  color:#fff; font-size:11px; font-weight:700; letter-spacing:.6px;
+  padding:5px 10px; border-radius:6px;
 }
 body.ib-theme .partner-tag{
   display:inline-flex; align-items:center; gap:6px; background:#111827;
@@ -1200,6 +1215,8 @@ const state = {
   cierrePrevio: null,  // v3.19.2: datos del cierre ya existente, si lo hay
   esInstantbox: false, // v3.19.0: flujo INSTANTBOX (&partner=instantbox)
   ib: { tramoPedido: '' },   // trazabilidad; el precio va por metros reales
+  esDirecto: false,    // v3.20.0: cliente directo (&partner=directo)
+  cd: { holdedId: '', metros: '', seccion: '', fase: '', fasePuesta: false, linPuesta: false },
   isSuper: false,
   cierreId: null,      // identifica los chunks de vídeo (se genera al arrancar la subida en background)
   videoBg: { token:0, promise:null, meta:null, sig:null, active:false, pct:0, phase:'', done:false, error:null }
@@ -1309,6 +1326,18 @@ function parseUrlParams(){
     // el backend con los metros reales medidos en obra.
     state.ib.tramoPedido = p.get('tramo') || '';
     setupInstantbox(p.get('vivienda') || '');
+  }
+
+  // v3.20.0: CLIENTE DIRECTO — mismo recorrido que InstantBox, precio cerrado
+  // en Holded (lo lee el backend). Del link llegan los datos del presupuesto
+  // para precargar fase, sección y metros.
+  state.esDirecto = !state.esInstantbox && (p.get('partner') === 'directo');
+  if (state.esDirecto){
+    state.cd.holdedId = p.get('holded')  || '';
+    state.cd.metros   = p.get('metros')  || '';
+    state.cd.seccion  = p.get('seccion') || '';
+    state.cd.fase     = p.get('fase')    || '';
+    setupDirecto();
   }
 
   // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
@@ -1469,6 +1498,56 @@ function setupInstantbox(vivienda){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// v3.20.0 — CLIENTE DIRECTO (&partner=directo)
+// ───────────────────────────────────────────────────────────────
+// Obra sin partner, con presupuesto propio en Holded (precio cerrado). El
+// recorrido es el de InstantBox (sin acta ni hitos HW) y la pre-factura la
+// construye el backend con la última versión del presupuesto al cerrar.
+// Aquí solo se precargan fase, sección y metros del presupuesto, una vez,
+// al entrar en las pantallas 4 y 5: el técnico los confirma o corrige.
+// ═══════════════════════════════════════════════════════════════
+function recorridoCerrado(){ return state.esInstantbox || state.esDirecto; }
+
+function setupDirecto(){
+  document.body.classList.add('cd-theme');
+  const tag = document.getElementById('partnerTag');
+  if (tag){ tag.textContent = 'DIRECTO'; tag.style.display = 'inline-flex'; }
+  const titulo = document.querySelector('[data-screen="1"] .title');
+  if (titulo) titulo.textContent = 'Cierre de obra — Cliente directo';
+  const sub = document.getElementById('trabajosSubtitle');
+  if (sub) sub.textContent = 'Solo con autorización previa de oficina';
+  const warn = document.getElementById('trabajosWarnText');
+  if (warn) warn.innerHTML = 'Estos trabajos requieren <strong>autorización previa de oficina</strong>.';
+  const sub1 = document.querySelector('[data-screen="1"] .subtitle');
+  if (sub1) sub1.innerHTML = 'Confirma los datos y elige el tipo de instalación<br>' +
+    '<span style="color:var(--accent); font-weight:600">🏠 Cliente directo · revisa la fase, la sección y los metros: vienen del presupuesto</span>';
+}
+
+function precargarDirecto(num){
+  if (num === 4 && !state.cd.fasePuesta){
+    state.cd.fasePuesta = true;
+    if ((state.cd.fase === 'mono' || state.cd.fase === 'trif') && !state.data.fase){
+      const el = [...document.querySelectorAll('[data-screen="4"] .pill')]
+        .find(x => (x.getAttribute('onclick') || '').indexOf("selectFase('" + state.cd.fase + "'") >= 0);
+      if (el) selectFase(state.cd.fase, el);
+    }
+  }
+  if (num === 5 && !state.cd.linPuesta){
+    state.cd.linPuesta = true;
+    if (state.cd.seccion && !state.data.seccion){
+      const el = [...document.querySelectorAll('[data-screen="5"] .pill')]
+        .find(x => (x.getAttribute('onclick') || '').indexOf("'seccion','" + state.cd.seccion + "'") >= 0);
+      if (el) selectPill(el, 'seccion', state.cd.seccion);
+    }
+    const m = document.getElementById('metrosLinea');
+    if (m && !m.value && parseFloat(state.cd.metros) > 0){
+      m.value = String(parseFloat(state.cd.metros));
+      try { autoUtp(); } catch (e) {}
+    }
+  }
+}
+
 function renderIbAdicionales(){
   const wrap = document.getElementById('ibAdicionalesWrap');
   const card = document.getElementById('ibAdicionalesCard');
@@ -1531,8 +1610,9 @@ function showScreen(num){
 
   target.classList.add('active');
   state.currentScreen = num;
+  if (state.esDirecto && (num === 4 || num === 5)) precargarDirecto(num);   // v3.20.0
 
-  if (state.esInstantbox && typeof num === 'number' && IB_PASOS.indexOf(num) >= 0){
+  if (recorridoCerrado() && typeof num === 'number' && IB_PASOS.indexOf(num) >= 0){
     // v3.19.0: progreso del recorrido IB (10 pasos: sin acta ni hitos HW)
     const pasoIB = IB_PASOS.indexOf(num) + 1, totIB = IB_PASOS.length;
     const pctIB = Math.round(pasoIB / totIB * 100);
@@ -1580,7 +1660,7 @@ function showScreen(num){
 function renderSteps(){
   const bar = document.getElementById('stepsBar');
   if (state.currentScreen === 'failed' || state.currentScreen === 'done' ||
-      state.esInstantbox){   // v3.18.0: IB usa su propio contador (4 pasos)
+      recorridoCerrado()){   // v3.18.0: IB usa su propio contador (v3.20.0: y cliente directo)
     bar.style.display = 'none'; return;
   }
   bar.style.display = 'flex';
@@ -1606,7 +1686,8 @@ function nextScreen(){
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
 
   // v3.19.0 — INSTANTBOX: mismo recorrido que ESMOVE saltando 9 y 10
-  if (state.esInstantbox && typeof state.currentScreen === 'number'){
+  // (v3.20.0: el cliente directo sigue el mismo recorrido)
+  if (recorridoCerrado() && typeof state.currentScreen === 'number'){
     const idxIB = IB_PASOS.indexOf(state.currentScreen);
     if (idxIB >= 0 && idxIB < IB_PASOS.length - 1){
       // v3.19.3: el vídeo vuelve a subirse en background al salir de la 2,
@@ -1637,8 +1718,8 @@ function nextScreen(){
 
 function prevScreen(){
   if (state.currentScreen === 'failed'){ showScreen(1); return; }
-  // v3.19.0 — INSTANTBOX: retroceso por el mismo recorrido
-  if (state.esInstantbox && typeof state.currentScreen === 'number'){
+  // v3.19.0 — INSTANTBOX: retroceso por el mismo recorrido (v3.20.0: y directo)
+  if (recorridoCerrado() && typeof state.currentScreen === 'number'){
     const idxIB = IB_PASOS.indexOf(state.currentScreen);
     if (idxIB > 0){ showScreen(IB_PASOS[idxIB - 1]); return; }
   }
@@ -1654,7 +1735,7 @@ function prevScreen(){
 function validateScreen(num){
   // v3.19.3: en InstantBox el acta (9) y los hitos (10) siguen sin aplicar;
   // el vídeo (2) y las fotos (3) se validan igual que en ESMOVE.
-  if (state.esInstantbox && (num === 9 || num === 10)) return true;
+  if (recorridoCerrado() && (num === 9 || num === 10)) return true;
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
@@ -1747,6 +1828,10 @@ function selectType(t){
     state.desmontajeHw = false;   // en fallida el desmontaje no aplica (desaparece)
     syncDesmontajeHito();
     // v3.18.0: InstantBox no retribuye las visitas fallidas — avisar
+    if (state.esDirecto){   // v3.20.0
+      const ft = document.getElementById('failInfoText');
+      if (ft) ft.innerHTML = 'Se registrará la visita como fallida (cliente directo): quedará en el Registro para control interno.';
+    }
     if (state.esInstantbox){
       const ft = document.getElementById('failInfoText');
       if (ft) ft.innerHTML = 'Se registrará la visita como fallida. <b>InstantBox no retribuye las visitas fallidas</b> (0 €): quedará en el Registro para control interno.';
@@ -2434,6 +2519,15 @@ function recolectarDatos(esFallida){
     datos.partner       = 'instantbox';
     datos.tramoPedido   = state.ib.tramoPedido || '';
     datos.adicionalesIB = recogerAdicionalesIB();
+  }
+
+  // v3.20.0: CLIENTE DIRECTO — partner siempre (también en fallida); la
+  // pre-factura la construye el backend con el presupuesto de Holded.
+  if (state.esDirecto){
+    datos.partner            = 'directo';
+    datos.holdedId           = state.cd.holdedId || '';
+    datos.metrosPresupuesto  = parseFloat(state.cd.metros) || 0;
+    datos.seccionPresupuesto = state.cd.seccion || '';
   }
 
   if (esFallida){
