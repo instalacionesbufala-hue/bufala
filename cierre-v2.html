@@ -1,5 +1,22 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.20.0 (14/10/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.21.0 (22/10/2026)
+     v3.21.0 — CIERRE RÁPIDO (fase 2; César 22/10/2026). Mismo diseño y lógica
+     que cierre-esbrain v1.5.1 para InstantBox, clientes directos y el resto:
+     colores corporativos, tarjetas grandes, botones − / + y botones de
+     navegación al final de la página.
+     · Fuera el ACTA en todos los recorridos (ya no se pide nunca). En
+       InstantBox y directos, tampoco los hitos HW. VÍDEO y FOTOS se mantienen
+       y siguen siendo obligatorios.
+     · «Línea eléctrica» = antes 4 + 5 y «Materiales y cargador» = antes 6 + 7.
+       Metros precargados en dorado: los del presupuesto (directo, &metros) o
+       el máximo del tramo del pedido (InstantBox, &tramo 21-40 → 40). Sección
+       automática por metros (≤40 → 6 · 40-85 → 10 · >85 → 16), salvo en
+       directo, donde manda la del presupuesto. Fase del pedido (&fase).
+     · Fuera la pantalla de ítems adicionales de InstantBox: el importe sale
+       de la última ficha firmada (backend v3.20.89+); el técnico no elige ítems.
+     · Cargador con «Sí, este / No, otro» (lista del almacén). Dueño por
+       defecto: InstantBox en InstantBox, Búfala en directos, ESMOVE en el resto.
+     · Campos de siempre sin cambios + cargadorSku/Dueno/Protecciones/Fuente.
      v3.20.0 — CLIENTES DIRECTOS (&partner=directo; César 14/10/2026). Obras
      que entran por la web o por contacto, sin partner, con el presupuesto en
      Holded como precio cerrado. Mismo recorrido que InstantBox: 1 → 2 → 3 →
@@ -668,6 +685,87 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 .modal-cancel{background:var(--bg); border:1px solid var(--border); color:var(--text)}
 .modal-confirm{background:var(--accent); color:white}
 </style>
+<style>
+/* v1.5.0 — cierre rápido */
+.type-btn{min-height:84px; font-size:18px}
+.type-icon{font-size:34px}
+.pres-gold{border:3px solid #c9a46e !important; background:#fffaf1 !important; font-weight:800; font-size:22px}
+.gold-hint{background:#f7ecd9; border:2px solid #c9a46e; border-radius:12px; padding:10px 12px; font-size:13px; color:#5a3b0a; margin-top:8px}
+.aviso-fase{background:#fdf3e2; border:2px solid #e0b25e; border-radius:12px; padding:10px 12px; font-size:13px; color:#5a3b0a; margin-top:10px}
+.mat-oculto{display:none !important}
+.chips-mat{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:8px 0}
+.chip-mat{border:2px solid #d9cdbd; background:#fff; border-radius:12px; padding:12px 8px; font-size:14px; font-weight:700; text-align:left; font-family:inherit; color:inherit}
+.btn-ver-todos{width:100%; border:2px dashed #b9ab98; background:transparent; border-radius:12px; padding:12px; font-size:14px; font-weight:700; font-family:inherit; color:#5c5650; margin-bottom:10px}
+.carg-card{border:2px solid #c9a46e; border-radius:14px; padding:12px; background:#fff}
+.carg-nombre{font-size:16px; font-weight:800}
+.carg-sub{font-size:12px; color:#6b6560; margin:2px 0 10px}
+.bornas-seguro{background:#fdf3e2; border-radius:10px; padding:8px 10px; font-size:12px; color:#5a3b0a; margin-top:6px}
+.sec-h-mat{font-size:12px; font-weight:800; letter-spacing:1px; color:#7a5f3a; margin:14px 0 6px}
+
+/* v1.5.0 — TEMA CORPORATIVO BÚFALA (grafito #2d2b29 · dorado #c9a46e · crema #f6f2ec) */
+:root{ --bg:#f6f2ec; --bg-card:#fff; --bg-elevated:#fff; --border:#e3d9cb; --text:#2d2b29; --text-muted:#5c5650;
+  --accent:#2d2b29; --accent-hover:#000; --accent-light:#f7ecd9; --success:#7a5f3a; }
+body{font-family:Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#f6f2ec; color:#2d2b29}
+.header{background:#2d2b29; border-bottom:0; color:#f6f2ec}
+.logo-img{filter:brightness(0) invert(1)}
+.logo-text{color:#f6f2ec}
+.steps{background:#2d2b29; border-bottom:0}
+.step-dot{background:#4a4643; color:#d9c3a0}
+.step-dot.active{background:#c9a46e; color:#2d2b29}
+.step-dot.completed{background:#7a5f3a; color:#f6f2ec}
+.progress-container{background:#2d2b29; border-bottom:0}
+.progress-info{color:#d9c3a0; font-weight:700; letter-spacing:.5px}
+.progress-bar{height:6px; background:#4a4643; border-radius:3px}
+.progress-fill{background:#c9a46e; border-radius:3px}
+.title{font-size:24px; font-weight:800; letter-spacing:-.3px; color:#2d2b29}
+.subtitle{color:#5c5650; margin-bottom:16px}
+.card{background:#fff; border:1px solid #e3d9cb; border-radius:14px}
+.label{font-size:13px; font-weight:800; letter-spacing:1px; color:#7a5f3a; text-transform:uppercase}
+.type-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+.type-btn{flex-direction:column; justify-content:center; text-align:center; gap:10px; min-height:150px; padding:18px 10px;
+  border:2px solid #d9cdbd; border-radius:18px; background:#fff; color:#2d2b29; font-size:17px; font-weight:800}
+.type-btn .type-icon{color:#7a5f3a}
+.type-btn .type-desc{font-size:12px; font-weight:600; color:#5c5650; margin-top:4px}
+.type-btn.selected{background:#2d2b29; border:3px solid #2d2b29; color:#f6f2ec}
+.type-btn.selected .type-icon{color:#c9a46e}
+.type-btn.selected .type-desc{color:#d9c3a0}
+.type-btn-fail{border:2px dashed #b4532a; background:#fbf1ec; color:#8a3b1c}
+.type-btn-fail .type-icon{color:#b4532a}
+.pills{display:grid; grid-template-columns:repeat(auto-fit,minmax(70px,1fr)); gap:10px}
+.pill{border:2px solid #d9cdbd; border-radius:16px; background:#fff; color:#2d2b29; padding:16px 8px; font-size:16px; font-weight:800; text-align:center}
+.pill.selected{background:#2d2b29; border:3px solid #2d2b29; color:#f6f2ec}
+.input{height:60px; border:2px solid #d9cdbd; border-radius:16px; background:#fff; font-size:20px; font-weight:800; text-align:center; color:#2d2b29}
+.hint{color:#5c5650}
+.stepper{display:flex; align-items:center; gap:8px; flex-shrink:0}
+.stepper .st-btn{width:44px; height:44px; border-radius:12px; border:2px solid #d9cdbd; background:#f6f2ec; font-size:22px; font-weight:800; color:#2d2b29; line-height:1}
+.stepper.grande{width:100%}
+.stepper.grande .st-btn{width:60px; height:60px; border-radius:16px; font-size:28px; background:#fff}
+.stepper .input{flex:1; min-width:0; width:auto}
+.material-input{width:60px; height:42px; border:2px solid #d9cdbd; border-radius:12px; text-align:center; font-size:18px; font-weight:800; color:#2d2b29; background:#fff}
+.metros-rapidos{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:8px}
+.metros-rapidos button{border:2px solid #d9cdbd; background:#fff; border-radius:12px; padding:10px 0; font-size:15px; font-weight:700; color:#2d2b29; font-family:inherit}
+[data-screen="6"] .card{background:transparent; border:0; padding:0; box-shadow:none}
+[data-screen="6"] .material-block{background:#fff; border:2px solid #2d2b29; border-radius:16px; padding:12px 14px; margin-bottom:10px}
+[data-screen="6"] .material-block:last-child{border-bottom:2px solid #2d2b29}
+[data-screen="6"] .material-name{font-size:16px; font-weight:800}
+[data-screen="6"] .material-row{gap:8px}
+[data-screen="6"] .material-name-wrap{flex:1; min-width:0}
+[data-screen="6"] .stepper .st-btn{width:40px; height:40px; font-size:20px}
+[data-screen="6"] .material-unit{font-size:12px; width:22px}
+html,body{overflow-x:hidden}
+[data-screen="6"] .material-sub{font-size:12px; color:#5c5650}
+[data-screen="6"] .bornas-section{background:#fff; border:2px solid #2d2b29; border-radius:16px; padding:12px 14px; margin-bottom:10px}
+[data-screen="6"] .bornas-section .material-block{border:0; padding:6px 0; margin:0}
+.section-h{font-size:12px; font-weight:800; letter-spacing:1px; color:#7a5f3a; margin:12px 0 6px}
+.nav-bar{position:static; background:transparent; border-top:0; box-shadow:none; max-width:560px; margin:0 auto; padding:8px 16px calc(24px + env(safe-area-inset-bottom, 0px))}   /* v1.5.0: al final de la página, no flotando */
+.main{padding-bottom:8px}
+.nav-btn{border-radius:16px; font-size:17px; font-weight:800; padding:16px 18px}
+.nav-btn-prev{background:#fff; border:2px solid #d9cdbd; color:#2d2b29}
+.nav-btn-next{background:#c9a46e; color:#2d2b29}
+.nav-btn-next:active{background:#b8956a}
+.nav-btn-send{background:#2d2b29; color:#f6f2ec}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
 </head>
 <body>
 
@@ -715,19 +813,19 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 
   <div class="type-grid">
     <button type="button" class="type-btn" onclick="selectType('comunitaria')" id="btnComunitaria">
-      <span class="type-icon">🏢</span>
+      <span class="type-icon"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M11 21v-3h2v3"></path></svg></span>
       <div>Comunitaria<div class="type-desc">Garaje comunitario o contadores comunitarios</div></div>
     </button>
     <button type="button" class="type-btn" onclick="selectType('unifamiliar')" id="btnUnifamiliar">
-      <span class="type-icon">🏠</span>
+      <span class="type-icon"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-5h4v5"></path></svg></span>
       <div>Unifamiliar<div class="type-desc">Vivienda particular con cuadro propio</div></div>
     </button>
     <button type="button" class="type-btn" onclick="selectType('nuevoSuministro')" id="btnNuevoSuministro">
-      <span class="type-icon">⚡</span>
+      <span class="type-icon"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L5 13h6l-1 9 8-11h-6z"></path></svg></span>
       <div>Nuevo suministro<div class="type-desc">Instalación con kit de preinstalación de contador nuevo</div></div>
     </button>
     <button type="button" class="type-btn type-btn-fail" onclick="selectType('fallida')" id="btnFallida">
-      <span class="type-icon">❌</span>
+      <span class="type-icon"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg></span>
       <div>Instalación fallida<div class="type-desc">No se ha podido realizar la instalación</div></div>
     </button>
   </div>
@@ -763,7 +861,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
 <!-- ═══ PANTALLA 4: TIPO LÍNEA + FASE ═══ -->
 <section class="screen" data-screen="4">
   <h1 class="title">Línea eléctrica</h1>
-  <p class="subtitle">Tipo de canalización y fase</p>
+  <p class="subtitle">Canalización, fase, sección y metros</p>
 
   <div class="field">
     <label class="label">Tipo de línea
@@ -790,12 +888,7 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
       <div id="bornasFaseMsgText"></div>
     </div>
   </div>
-</section>
-
-<!-- ═══ PANTALLA 5: SECCIÓN + METROS ═══ -->
-<section class="screen" data-screen="5">
-  <h1 class="title">Medidas</h1>
-  <p class="subtitle">Sección del cable y metros instalados</p>
+  <div class="aviso-fase" id="avisoFase" style="display:none"></div>
 
   <div class="field">
     <label class="label">Sección del cable
@@ -803,10 +896,10 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     </label>
     <div class="tooltip" id="tip-seccion">Sección del cable principal según potencia y distancia. Por defecto 6mm² para cargadores de 7,4 kW y distancias menores de 30m.</div>
     <div class="pills">
-      <div class="pill" onclick="selectPill(this,'seccion','6')">6 mm²</div>
-      <div class="pill" onclick="selectPill(this,'seccion','10')">10 mm²</div>
-      <div class="pill" onclick="selectPill(this,'seccion','16')">16 mm²</div>
-      <div class="pill" onclick="selectPill(this,'seccion','25')">25 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','6'); state.seccionManual=true">6 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','10'); state.seccionManual=true">10 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','16'); state.seccionManual=true">16 mm²</div>
+      <div class="pill" onclick="selectPill(this,'seccion','25'); state.seccionManual=true">25 mm²</div>
     </div>
   </div>
 
@@ -815,54 +908,28 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
       <button type="button" class="info-btn" onclick="toggleTip(event,'metros')">i</button>
     </label>
     <div class="tooltip" id="tip-metros">Metros lineales de cable instalado desde el cuadro hasta el punto de recarga.</div>
-    <input type="number" class="input" id="metrosLinea" placeholder="0" oninput="autoUtp()">
+    <input type="number" class="input" id="metrosLinea" placeholder="0" oninput="onMetrosLinea()">
+    <div class="hint" id="hintMetrosPres" style="display:none"></div>
   </div>
 
-  <div class="field">
-    <label class="label">Tipo de cable de datos
-      <button type="button" class="info-btn" onclick="toggleTip(event,'cableDatos')">i</button>
-    </label>
-    <div class="tooltip" id="tip-cableDatos">U/UTP para cargadores V2C y cuando el cargador lo pone el cliente (con 2 RJ45). F/UTP apantallado para Policharger, sin conectores RJ45. Viene marcado según el cargador de la cita.</div>
-    <div class="pills" id="pillsCableDatos">
-      <div class="pill" id="pillCableUtp" onclick="selectCableDatos('UTP')">U/UTP</div>
-      <div class="pill" id="pillCableFtp" onclick="selectCableDatos('FTP')">F/UTP (Policharger)</div>
-    </div>
-  </div>
+  <div class="hint" id="hintSeccionAuto">Sección automática por metros: hasta 40 m → 6 mm² · de 40 a 85 m → 10 mm² · más de 85 m → 16 mm². Puedes cambiarla.</div>
+</section>
 
-  <div class="field">
-    <label class="label"><span id="lblMetrosUtp">Metros de cable U/UTP</span>
-      <button type="button" class="info-btn" onclick="toggleTip(event,'utp')">i</button>
-    </label>
-    <div class="tooltip" id="tip-utp">Cable de datos (U/UTP o F/UTP) para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
-    <input type="number" class="input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()">
-    <div class="hint">Se autorrellena con los metros de línea (editable)</div>
-  </div>
-
-  <div class="field" id="campoRj45">
-    <label class="label">Conectores RJ45
-      <button type="button" class="info-btn" onclick="toggleTip(event,'rj45')">i</button>
-    </label>
-    <div class="tooltip" id="tip-rj45">Conectores para terminar el cable UTP. Por defecto 2 unidades.</div>
-    <input type="number" class="input" id="rj45" placeholder="2" value="2">
-    <div class="hint">Se autorrellena a 2 (editable)</div>
-  </div>
+<!-- ═══ PANTALLA 5: SECCIÓN + METROS ═══ -->
+<section class="screen" data-screen="5">
+  <!-- v3.21.0: contenido movido a las pantallas 4 y 6; esta pantalla se salta -->
 </section>
 
 <!-- ═══ PANTALLA 6: CANALIZACIONES ═══ -->
 <section class="screen" data-screen="6">
-  <h1 class="title">Canalizaciones especiales</h1>
-  <p class="subtitle">Rellena solo lo que has utilizado</p>
+  <h1 class="title">Materiales y cargador</h1>
+  <p class="subtitle">Ya está puesto lo habitual. Ajusta lo que cambie.</p>
+  <div class="sec-h-mat">LO HABITUAL · YA MARCADO</div>
   <div class="card" id="canalizacionesCard"></div>
-</section>
-
-<!-- ═══ PANTALLA 7: PROTECCIONES ═══ -->
-<section class="screen" data-screen="7">
-  <h1 class="title">Protecciones y extras</h1>
-  <p class="subtitle">Cajas, perforaciones, otros y magnetotérmicos</p>
-
   <div class="bornas-section" id="bornasSection" style="display:none">
     <div class="bornas-title">⭐ Bornas de centralización (Comunitaria)</div>
     <div class="bornas-auto-msg">Se autorrellena según la fase elegida — editable</div>
+    <div class="bornas-seguro"><b>¿Seguro que has instalado el kit de bornas?</b> Si no lo has puesto, déjalo a 0.</div>
 
     <div class="material-block">
       <div class="material-row">
@@ -893,7 +960,58 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     </div>
   </div>
 
+  <div class="field">
+    <label class="label">Tipo de cable de datos
+      <button type="button" class="info-btn" onclick="toggleTip(event,'cableDatos')">i</button>
+    </label>
+    <div class="tooltip" id="tip-cableDatos">U/UTP para cargadores V2C y cuando el cargador lo pone el cliente (con 2 RJ45). F/UTP apantallado para Policharger, sin conectores RJ45. Viene marcado según el cargador de la cita.</div>
+    <div class="pills" id="pillsCableDatos">
+      <div class="pill" id="pillCableUtp" onclick="selectCableDatos('UTP')">U/UTP</div>
+      <div class="pill" id="pillCableFtp" onclick="selectCableDatos('FTP')">F/UTP (Policharger)</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="label"><span id="lblMetrosUtp">Metros de cable U/UTP</span>
+      <button type="button" class="info-btn" onclick="toggleTip(event,'utp')">i</button>
+    </label>
+    <div class="tooltip" id="tip-utp">Cable de datos (U/UTP o F/UTP) para comunicación con la app. Suele coincidir con los metros de línea eléctrica.</div>
+    <input type="number" class="input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()">
+    <div class="hint">Se autorrellena con los metros de línea (editable)</div>
+  </div>
+
+  <div class="field" id="campoRj45">
+    <label class="label">Conectores RJ45
+      <button type="button" class="info-btn" onclick="toggleTip(event,'rj45')">i</button>
+    </label>
+    <div class="tooltip" id="tip-rj45">Conectores para terminar el cable UTP. Por defecto 2 unidades.</div>
+    <input type="number" class="input" id="rj45" placeholder="2" value="2">
+    <div class="hint">Se autorrellena a 2 (editable)</div>
+  </div>
+
+  <div class="sec-h-mat">CARGADOR INSTALADO</div>
+  <div class="carg-card" id="cargadorCard">
+    <div class="carg-nombre" id="cargNombre">—</div>
+    <div class="carg-sub" id="cargSub">El del pedido</div>
+    <div class="label" style="margin-bottom:6px">¿Es este el cargador que has instalado?</div>
+    <div class="pills">
+      <div class="pill" id="pillCargSi" onclick="cargadorConfirmar(true)">✓ Sí, este</div>
+      <div class="pill" id="pillCargNo" onclick="cargadorConfirmar(false)">No, otro</div>
+    </div>
+    <div id="cargOtroWrap" style="display:none; margin-top:10px">
+      <select class="input" id="cargSelect" onchange="cargadorElegir(this.value)"></select>
+      <div class="hint" id="cargListaMsg"></div>
+    </div>
+  </div>
+  <div class="sec-h-mat">¿HAS USADO ALGO MÁS? · TOCA PARA AÑADIR</div>
+  <div class="chips-mat" id="chipsMat"></div>
+  <button type="button" class="btn-ver-todos" id="btnVerTodos" onclick="verTodosMateriales()">Ver todos los materiales</button>
   <div class="card" id="proteccionesCard"></div>
+</section>
+
+<!-- ═══ PANTALLA 7: PROTECCIONES ═══ -->
+<section class="screen" data-screen="7">
+  <!-- v3.21.0: contenido movido a la pantalla 6; esta pantalla se salta -->
 </section>
 
 <!-- ═══ PANTALLA 8: TRABAJOS ESPECIALES ═══ -->
@@ -987,6 +1105,8 @@ input,textarea{font-family:inherit; -webkit-appearance:none; font-size:16px}
     <div class="summary-row"><span>Equipo</span><span id="resumenEquipo">—</span></div>
     <div class="summary-row"><span>Tipo</span><span id="resumenTipo">—</span></div>
     <div class="summary-row"><span>Metros línea</span><span id="resumenMetros">— m</span></div>
+    <div class="summary-row"><span>Línea</span><span id="resumenLinea">—</span></div>
+    <div class="summary-row"><span>Cargador</span><span id="resumenCargador">—</span></div>
   </div>
 
   <label class="label">Mensaje para WhatsApp</label>
@@ -1198,6 +1318,8 @@ const FOTOS = [
 const state = {
   currentScreen: 1,
   totalScreens: 12,
+  carg: { lista: null, duenos: [], respuesta: null, sku: '', dueno: '', nombre: '' },   // v3.21.0
+  seccionManual: false,
   type: null,
   videos: [],          // [{file: File, blob: Blob, name: string, uploaded: false, progress:0}]
   videosFallida: [],
@@ -1305,7 +1427,9 @@ function parseUrlParams(){
     equipo:     p.get('equipo')     || '',
     hardware:   p.get('hardware')   || '',
     fecha:      p.get('fecha')      || p.get('fechaIso') || '',
-    tipo:       p.get('tipo')       || ''
+    tipo:       p.get('tipo')       || '',
+    fase:       p.get('fase')       || '',      // v3.21.0: fase del pedido / presupuesto
+    metrosPres: ''                              // v3.21.0: se rellena abajo según el partner
   };
 
   // v3.16.0: flujo INTERVENCIÓN SAT — el link del calendario llega con
@@ -1339,6 +1463,14 @@ function parseUrlParams(){
     state.cd.fase     = p.get('fase')    || '';
     setupDirecto();
   }
+  // v3.21.0: metros por defecto (en dorado en la pantalla de línea). Directo: los
+  // del presupuesto. InstantBox: el máximo del tramo del pedido («21-40» → 40).
+  if (state.esDirecto) state.cita.metrosPres = state.cd.metros || '';
+  else if (state.esInstantbox){
+    const mt = String(state.ib.tramoPedido || '').match(/(\d+)\s*[-–a]\s*(\d+)/);
+    state.cita.metrosPres = mt ? mt[2] : '';
+  } else state.cita.metrosPres = p.get('metrosPres') || p.get('metros') || '';
+  if (state.esDirecto && state.cd.seccion) state.seccionManual = true;   // manda la del presupuesto
 
   // Detectar desmontaje desde la cita: si el campo hardware contiene "desmont"
   // (p.ej. "DESMONTAJE + HARDWARE MONTAJE Y CONEXIONADO") o si el calendario
@@ -1471,7 +1603,7 @@ const IB_PASOS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12];
 
 function setupInstantbox(vivienda){
   // Tema visual grafito + badge (solo en este flujo)
-  document.body.classList.add('ib-theme');
+  /* v3.21.0: tema corporativo común (antes ib-theme) */
   const tag = document.getElementById('partnerTag');
   if (tag) tag.style.display = 'inline-flex';
   const titulo = document.querySelector('[data-screen="1"] .title');
@@ -1483,7 +1615,7 @@ function setupInstantbox(vivienda){
   const warn = document.getElementById('trabajosWarnText');
   if (warn) warn.innerHTML = 'Estos trabajos requieren <strong>autorización previa de oficina</strong>.';
 
-  renderIbAdicionales();
+  // v3.21.0: sin pantalla de ítems adicionales (manda la ficha firmada)
 
   // v3.19.3: las fotos y el vídeo vuelven a pedirse aquí y se guardan en la
   // carpeta de InstantBox del Drive, además de lo que suba la plataforma.
@@ -1510,7 +1642,7 @@ function setupInstantbox(vivienda){
 function recorridoCerrado(){ return state.esInstantbox || state.esDirecto; }
 
 function setupDirecto(){
-  document.body.classList.add('cd-theme');
+  /* v3.21.0: tema corporativo común (antes cd-theme) */
   const tag = document.getElementById('partnerTag');
   if (tag){ tag.textContent = 'DIRECTO'; tag.style.display = 'inline-flex'; }
   const titulo = document.querySelector('[data-screen="1"] .title');
@@ -1536,7 +1668,7 @@ function precargarDirecto(num){
   if (num === 5 && !state.cd.linPuesta){
     state.cd.linPuesta = true;
     if (state.cd.seccion && !state.data.seccion){
-      const el = [...document.querySelectorAll('[data-screen="5"] .pill')]
+      const el = [...document.querySelectorAll('[data-screen="4"] .pill')]
         .find(x => (x.getAttribute('onclick') || '').indexOf("'seccion','" + state.cd.seccion + "'") >= 0);
       if (el) selectPill(el, 'seccion', state.cd.seccion);
     }
@@ -1600,6 +1732,18 @@ document.addEventListener('click', (e) => {
 // ═══════════════════════════════════════════════════════════════
 // NAVEGACIÓN ENTRE PANTALLAS
 // ═══════════════════════════════════════════════════════════════
+// v3.21.0: pantallas que no se enseñan. 5 y 7 unidas a 4 y 6; el acta (9) ya
+// no se pide nunca; hitos HW (10) fuera en InstantBox y directos; en modo
+// administrador, sin vídeo ni fotos (2 y 3), como antes.
+function saltada(n){
+  return n === 5 || n === 7 || n === 9 || (recorridoCerrado() && n === 10) ||
+         (state.isSuper && (n === 2 || n === 3));
+}
+function pasosVisibles(){
+  const out = [];
+  for (let i = 1; i <= 12; i++) if (!saltada(i)) out.push(i);
+  return out;
+}
 function showScreen(num){
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   let target;
@@ -1610,18 +1754,12 @@ function showScreen(num){
 
   target.classList.add('active');
   state.currentScreen = num;
-  if (state.esDirecto && (num === 4 || num === 5)) precargarDirecto(num);   // v3.20.0
+  if (state.esDirecto && num === 4){ precargarDirecto(4); precargarDirecto(5); }   // v3.21.0: todo en la 4
 
-  if (recorridoCerrado() && typeof num === 'number' && IB_PASOS.indexOf(num) >= 0){
-    // v3.19.0: progreso del recorrido IB (10 pasos: sin acta ni hitos HW)
-    const pasoIB = IB_PASOS.indexOf(num) + 1, totIB = IB_PASOS.length;
-    const pctIB = Math.round(pasoIB / totIB * 100);
-    document.getElementById('progressStep').textContent = 'Paso ' + pasoIB + ' de ' + totIB;
-    document.getElementById('progressPct').textContent = pctIB + '%';
-    document.getElementById('progressFill').style.width = pctIB + '%';
-  } else if (typeof num === 'number'){
-    const pct = Math.round((num / state.totalScreens) * 100);
-    document.getElementById('progressStep').textContent = 'Paso ' + num + ' de ' + state.totalScreens;
+  if (typeof num === 'number'){                                            // v3.21.0: pasos reales
+    const vis = pasosVisibles(), k = vis.indexOf(num) + 1, n = vis.length;
+    const pct = Math.round((k / n) * 100);
+    document.getElementById('progressStep').textContent = 'Paso ' + k + ' de ' + n;
     document.getElementById('progressPct').textContent = pct + '%';
     document.getElementById('progressFill').style.width = pct + '%';
   }
@@ -1642,7 +1780,8 @@ function showScreen(num){
 
   document.getElementById('validationMsg').classList.remove('active');
 
-  if (num === 7) applyBornasAuto();
+  if (num === 6){ applyBornasAuto(); prepararMateriales(); }             // v3.21.0 (antes 7)
+  if (num === 4) prepararLinea();                                         // v3.21.0
   if (num === 12) updateSummary();
 
   // Ocultar indicador de subida en pantalla final o fallida
@@ -1659,47 +1798,27 @@ function showScreen(num){
 
 function renderSteps(){
   const bar = document.getElementById('stepsBar');
-  if (state.currentScreen === 'failed' || state.currentScreen === 'done' ||
-      recorridoCerrado()){   // v3.18.0: IB usa su propio contador (v3.20.0: y cliente directo)
+  if (state.currentScreen === 'failed' || state.currentScreen === 'done'){
     bar.style.display = 'none'; return;
   }
   bar.style.display = 'flex';
   bar.innerHTML = '';
-  // En modo super se muestra menos
-  const max = state.isSuper ? 12 : state.totalScreens;
-  for (let i=1; i<=max; i++){
-    // Saltar pantallas en modo super: 2, 3, 9
-    if (state.isSuper && (i===2 || i===3 || i===9)) continue;
+  const vis = pasosVisibles(), kCur = vis.indexOf(state.currentScreen);   // v3.21.0
+  vis.forEach((i, k) => {
     const dot = document.createElement('div');
     dot.className = 'step-dot';
-    if (i === state.currentScreen) dot.classList.add('active');
-    else if (i < state.currentScreen) dot.classList.add('completed');
-    dot.textContent = i;
-    dot.onclick = () => { if (i < state.currentScreen) showScreen(i); };
+    if (k === kCur) dot.classList.add('active');
+    else if (k < kCur) dot.classList.add('completed');
+    dot.textContent = k + 1;
+    dot.onclick = () => { if (k < kCur) showScreen(i); };
     bar.appendChild(dot);
-  }
+  });
 }
 
 function nextScreen(){
   if (!validateScreen(state.currentScreen)) return;
   if (state.currentScreen === 12){ submitClosure(false); return; }
   if (state.currentScreen === 'failed'){ submitClosure(true); return; }
-
-  // v3.19.0 — INSTANTBOX: mismo recorrido que ESMOVE saltando 9 y 10
-  // (v3.20.0: el cliente directo sigue el mismo recorrido)
-  if (recorridoCerrado() && typeof state.currentScreen === 'number'){
-    const idxIB = IB_PASOS.indexOf(state.currentScreen);
-    if (idxIB >= 0 && idxIB < IB_PASOS.length - 1){
-      // v3.19.3: el vídeo vuelve a subirse en background al salir de la 2,
-      // igual que en ESMOVE (lo más pesado primero, mientras se avanza).
-      if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
-        const errV = validarTamanoVideos();
-        if (errV){ alert('⚠️ ' + errV); return; }
-        iniciarSubidaVideosBackground();
-      }
-      showScreen(IB_PASOS[idxIB + 1]); return;
-    }
-  }
 
   // v3.10.5: al salir de la pantalla de vídeo, valida tamaño y arranca la subida en background
   if (state.currentScreen === 2 && !state.isSuper && state.videos.length){
@@ -1709,25 +1828,15 @@ function nextScreen(){
   }
 
   let next = state.currentScreen + 1;
-  // Saltar pantallas en modo super
-  if (state.isSuper){
-    while (next === 2 || next === 3 || next === 9){ next++; }
-  }
+  while (next < 12 && saltada(next)){ next++; }                           // v3.21.0
   showScreen(next);
 }
 
 function prevScreen(){
   if (state.currentScreen === 'failed'){ showScreen(1); return; }
-  // v3.19.0 — INSTANTBOX: retroceso por el mismo recorrido (v3.20.0: y directo)
-  if (recorridoCerrado() && typeof state.currentScreen === 'number'){
-    const idxIB = IB_PASOS.indexOf(state.currentScreen);
-    if (idxIB > 0){ showScreen(IB_PASOS[idxIB - 1]); return; }
-  }
   if (typeof state.currentScreen === 'number' && state.currentScreen > 1){
     let prev = state.currentScreen - 1;
-    if (state.isSuper){
-      while (prev === 2 || prev === 3 || prev === 9){ prev--; }
-    }
+    while (prev > 1 && saltada(prev)){ prev--; }                           // v3.21.0
     showScreen(prev);
   }
 }
@@ -1735,11 +1844,21 @@ function prevScreen(){
 function validateScreen(num){
   // v3.19.3: en InstantBox el acta (9) y los hitos (10) siguen sin aplicar;
   // el vídeo (2) y las fotos (3) se validan igual que en ESMOVE.
-  if (recorridoCerrado() && (num === 9 || num === 10)) return true;
+  if (typeof num === 'number' && saltada(num)) return true;              // v3.21.0
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
   if (num === 4){
     if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
     if (!state.data.fase){ showError('Selecciona la fase'); return false; }
+    // v3.21.0: sección y metros están ahora en esta pantalla
+    if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
+    const m4 = parseFloat(document.getElementById('metrosLinea').value) || 0;
+    if (m4 <= 0){ showError('Indica los metros de línea'); return false; }
+  }
+  if (num === 6 && state.carg.respuesta === null){
+    showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
+  }
+  if (num === 6 && state.carg.respuesta === false && !state.carg.sku && (state.carg.lista || []).length){
+    showError('Elige en la lista el cargador que has instalado'); return false;
   }
   if (num === 5){
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
@@ -2213,12 +2332,14 @@ function getRequiredPhotosCount(){
 // PILLS
 // ═══════════════════════════════════════════════════════════════
 function selectPill(el, key, value){
+  if (key === 'tipoLinea') setTimeout(() => pvcPorDefecto(true), 0);   // v3.21.0
   el.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
   state.data[key] = value;
 }
 
 function selectFase(value, el){
+  setTimeout(avisoFase, 0);                                                // v3.21.0
   ['bornasMono', 'bornasTrif'].forEach(id => {
     const inp = document.getElementById(id);
     if (inp) delete inp.dataset.touched;
@@ -2229,7 +2350,7 @@ function selectFase(value, el){
   const msg = document.getElementById('bornasFaseMsg');
   const txt = document.getElementById('bornasFaseMsgText');
   if (state.type === 'comunitaria' && msg && txt){
-    txt.textContent = 'Se autorrellenará 1 kit de Bornas ' + (value === 'mono' ? 'MONO' : 'TRIF') + ' en la pantalla de Protecciones (editable).';
+    txt.textContent = 'Se autorrellenará 1 kit de Bornas ' + (value === 'mono' ? 'MONO' : 'TRIF') + ' en la pantalla de Materiales (editable).';
     msg.style.display = 'flex';
   } else if (msg){ msg.style.display = 'none'; }
 }
@@ -2332,6 +2453,12 @@ function updateSummary(){
   document.getElementById('resumenTipo').textContent = tipoMap[state.type] || '—';
   const metros = document.getElementById('metrosLinea').value || '0';
   document.getElementById('resumenMetros').textContent = metros + ' m';
+  // v3.21.0
+  const rl = document.getElementById('resumenLinea');
+  if (rl) rl.textContent = (state.data.tipoLinea === 'manguera' ? 'Manguera' : 'Tubo PVC') + ' · ' +
+                           (state.data.fase === 'trif' ? 'Trifásica' : 'Monofásica') + ' · ' + (state.data.seccion || '—') + ' mm²';
+  const rc = document.getElementById('resumenCargador');
+  if (rc) rc.textContent = (state.carg.nombre || state.cita.hardware || '—') + ' · ' + nombreDueno(state.carg.dueno || duenoPorDefecto());
   document.getElementById('waText').textContent =
     'INSTALACIÓN FINALIZADA – TODO OK – ' + (state.cita.cliente || '—') + ' – ' + metros + ' METROS FINALES INSTALADOS';
 }
@@ -2350,7 +2477,7 @@ function copyWa(){
 // RENDERIZAR MATERIALES (canalizaciones, protecciones, trabajos)
 // ═══════════════════════════════════════════════════════════════
 function renderMaterialItem(item){
-  if (item.section) return '<div class="section-h">' + item.section + '</div>';
+  if (item.section) return '<div class="section-h" data-sec="1">' + item.section + '</div>';
 
   // Trabajos especiales con toggle (andamio, elevadora, soterramiento)
   if (item.type === 'toggle' || item.type === 'toggle-presup' || item.type === 'toggle-metros'){
@@ -2397,7 +2524,7 @@ function renderMaterialItem(item){
   }
 
   // Render normal para otros materiales (con input numérico)
-  return '<div class="material-block">' +
+  return '<div class="material-block" data-mat="' + item.id + '">' +   // v3.21.0
     '<div class="material-row">' +
       '<div class="material-name-wrap">' +
         '<div class="material-name">' + item.name +
@@ -2566,6 +2693,16 @@ function recolectarDatos(esFallida){
       datos[t.id] = matNum(t.id);  // fallback
     }
   });
+
+  // v3.21.0: cargador indicado por el técnico (contrato del almacén). Solo si
+  // ha contestado; en fallida no se llega aquí.
+  if (state.carg.respuesta !== null){
+    datos.cargadorSku          = state.carg.sku || '';
+    datos.cargadorDueno        = state.carg.dueno || duenoPorDefecto();
+    datos.cargadorProtecciones = /PROTECCI/i.test((state.carg.nombre || '') + ' ' + (state.cita.hardware || ''));
+    datos.cargadorFuente       = 'lista';
+    if (state.carg.respuesta === false && state.carg.nombre) datos.cargadorNombre = state.carg.nombre;
+  }
 
   // Hitos
   datos.hitoMontaje = state.hitos.h1;
@@ -3540,11 +3677,248 @@ function nuevoCierre(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// v3.21.0 — CIERRE RÁPIDO: valores por defecto, materiales y cargador
+// ═══════════════════════════════════════════════════════════════
+function _normTxt(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
+function faseDelPedido(){
+  if (state.cita.fase === 'mono' || state.cita.fase === 'trif') return state.cita.fase;   // del pedido / presupuesto
+  const t = _normTxt(state.cita.hardware || '').toLowerCase();
+  if (t.indexOf('trifas') >= 0) return 'trif';
+  if (t.indexOf('monofas') >= 0) return 'mono';
+  return '';
+}
+function seccionPorMetros(m){ return m > 85 ? '16' : (m > 40 ? '10' : '6'); }
+function marcarPill(selectorOnclick, valor){
+  const el = [...document.querySelectorAll('.pill')].find(x => (x.getAttribute('onclick') || '').indexOf(selectorOnclick) >= 0);
+  return el || null;
+}
+function aplicarSeccionAuto(){
+  if (state.seccionManual) return;
+  const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
+  if (m <= 0) return;
+  const v = seccionPorMetros(m);
+  const el = marcarPill("'seccion','" + v + "'");
+  if (el) selectPill(el, 'seccion', v);
+}
+function onMetrosLinea(){
+  const inp = document.getElementById('metrosLinea');
+  inp.dataset.touched = '1';
+  inp.classList.remove('pres-gold');
+  autoUtp();
+  aplicarSeccionAuto();
+  pvcPorDefecto(true);
+}
+function avisoFase(){
+  const box = document.getElementById('avisoFase'); if (!box) return;
+  const fp = faseDelPedido(), f = state.data.fase;
+  if (fp && f && fp !== f){
+    box.innerHTML = '⚠️ El pedido dice <b>' + (fp === 'trif' ? 'TRIFÁSICO' : 'MONOFÁSICO') + '</b> y has marcado <b>' +
+                    (f === 'trif' ? 'trifásica' : 'monofásica') + '</b>. ¿Es correcto?';
+    box.style.display = 'block';
+  } else box.style.display = 'none';
+}
+function prepararLinea(){
+  if (state.lineaPreparada) return;
+  state.lineaPreparada = true;
+  if (!state.data.tipoLinea){ const el = marcarPill("'tipoLinea','tubo'"); if (el) selectPill(el, 'tipoLinea', 'tubo'); }
+  const fp = faseDelPedido();
+  if (fp && !state.data.fase){ const el = marcarPill("selectFase('" + fp + "'"); if (el) selectFase(fp, el); }
+  const inp = document.getElementById('metrosLinea');
+  const mp = parseFloat(String(state.cita.metrosPres || '').replace(',', '.')) || 0;
+  if (inp && !inp.value && mp > 0){
+    inp.value = String(mp);
+    inp.classList.add('pres-gold');
+    autoUtp();
+    const h = document.getElementById('hintMetrosPres');
+    if (h){ h.className = 'gold-hint'; h.innerHTML = '<b>Metros presupuestados al inicio: ' + mp + ' m.</b> ' + (state.esDirecto ? 'Vienen del presupuesto. ' : '') + 'Revísalos y pon los que has instalado de verdad.'; h.style.display = 'block'; }
+  }
+  aplicarSeccionAuto();
+  avisoFase();
+}
+// Tubo PVC 32: por defecto los metros de la línea (0 con manguera); corrugado 2 m.
+function pvcPorDefecto(forzar){
+  const pvc = document.getElementById('mat_pvc32'); if (!pvc || pvc.dataset.touched) return;
+  if (!forzar && pvc.value !== '') return;
+  const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
+  pvc.value = (state.data.tipoLinea === 'manguera') ? '0' : (m > 0 ? String(m) : '');
+}
+const MAT_HABITUALES = ['pvc32', 'corr32'];
+const MAT_RAPIDOS = [
+  { id: 'perfTab', txt: 'Perforación tabique' }, { id: 'perfForj', txt: 'Perforación forjado' },
+  { id: 'cajaReg', txt: 'Caja registro' },       { id: 'acero32', txt: 'Tubo acero 32 mm' },
+  { id: 'canaleta', txt: 'Canaleta' },          { id: 'mag32', txt: 'Magnetotérmico DPN 32A' }
+];
+function prepararMateriales(){
+  const corr = document.getElementById('mat_corr32');
+  if (!state.materialesPreparados){
+    state.materialesPreparados = true;
+    document.querySelectorAll('[data-mat] .material-input').forEach(i => i.addEventListener('input', () => { i.dataset.touched = '1'; }));
+    const cont = document.getElementById('chipsMat');
+    if (cont) cont.innerHTML = MAT_RAPIDOS.map(c => '<button type="button" class="chip-mat" id="chip_' + c.id + '" onclick="anadirMaterial(\'' + c.id + '\')">+ ' + c.txt + '</button>').join('');
+  }
+  pvcPorDefecto(false);
+  organizarMateriales();
+  pintarCargador();
+}
+function organizarMateriales(){
+  const todos = !!state.verTodosMat;
+  document.querySelectorAll('#canalizacionesCard [data-mat], #proteccionesCard [data-mat]').forEach(b => {
+    const id = b.getAttribute('data-mat'), inp = b.querySelector('.material-input');
+    const conValor = inp && parseFloat(inp.value) > 0;
+    const visible = todos || MAT_HABITUALES.indexOf(id) >= 0 || conValor || (state.matVisibles || {})[id];
+    b.classList.toggle('mat-oculto', !visible);
+  });
+  document.querySelectorAll('#canalizacionesCard [data-sec], #proteccionesCard [data-sec]').forEach(h => h.classList.toggle('mat-oculto', !todos));
+  const btn = document.getElementById('btnVerTodos'); if (btn) btn.textContent = todos ? 'Ver solo lo usado' : 'Ver todos los materiales';
+  MAT_RAPIDOS.forEach(c => { const ch = document.getElementById('chip_' + c.id); if (ch) ch.classList.toggle('mat-oculto', todos || !!(state.matVisibles || {})[c.id]); });
+}
+function anadirMaterial(id){
+  state.matVisibles = state.matVisibles || {};
+  state.matVisibles[id] = true;
+  organizarMateriales();
+  const inp = document.getElementById('mat_' + id);
+  if (inp){ if (!inp.value) inp.value = '1'; inp.dataset.touched = '1'; inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+function verTodosMateriales(){ state.verTodosMat = !state.verTodosMat; organizarMateriales(); }
+
+// Botones − / + alrededor de un campo numérico (dispara 'input' para que
+// sigan funcionando los autorrellenos y las marcas de «tocado»).
+function ponerStepper(inp, paso, grande){
+  if (!inp || inp.dataset.stepper) return;
+  inp.dataset.stepper = '1';
+  inp.setAttribute('inputmode', 'decimal');
+  const w = document.createElement('div');
+  w.className = 'stepper' + (grande ? ' grande' : '');
+  inp.parentNode.insertBefore(w, inp);
+  const mk = (txt, d) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'st-btn'; b.textContent = txt;
+    b.setAttribute('aria-label', d > 0 ? 'Sumar' : 'Restar');
+    b.onclick = () => {
+      const v = Math.max(0, (parseFloat(inp.value) || 0) + d);
+      inp.value = String(Math.round(v * 10) / 10);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    return b;
+  };
+  w.appendChild(mk('−', -paso)); w.appendChild(inp); w.appendChild(mk('+', paso));
+}
+function prepararControles(){
+  const ml = document.getElementById('metrosLinea');
+  ponerStepper(ml, 1, true);
+  if (ml && !document.getElementById('metrosRapidos')){
+    const r = document.createElement('div'); r.className = 'metros-rapidos'; r.id = 'metrosRapidos';
+    [20, 25, 30, 40].forEach(v => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = v;
+      b.onclick = () => { ml.value = String(v); ml.dispatchEvent(new Event('input', { bubbles: true })); };
+      r.appendChild(b);
+    });
+    ml.closest('.stepper').insertAdjacentElement('afterend', r);
+  }
+  ponerStepper(document.getElementById('metrosUtp'), 1, false);
+  ponerStepper(document.getElementById('rj45'), 1, false);
+  ponerStepper(document.getElementById('bornasMono'), 1, false);
+  ponerStepper(document.getElementById('bornasTrif'), 1, false);
+  document.querySelectorAll('#canalizacionesCard .material-input, #proteccionesCard .material-input').forEach(i => ponerStepper(i, 1, false));
+}
+
+
+// ── Cargador (lista del almacén vía backend: accion listarCargadores) ──
+function nombreDueno(id){
+  const d = (state.carg.duenos || []).find(x => x.dueno === id);
+  return d ? d.nombre : (id === 'ESMOVE' ? 'Esmove' : id === 'propio' ? 'Búfala' : id);
+}
+function _tokens(s){ return _normTxt(s).toUpperCase().split(/[^A-Z0-9]+/).filter(t => t.length >= 2); }
+function cargadorDelPedido(){
+  const lista = state.carg.lista || []; if (!lista.length) return null;
+  const tk = _tokens(state.cita.hardware);
+  let mejor = null, pMejor = 0;
+  lista.forEach(c => {
+    const tc = _tokens((c.nombre || '') + ' ' + (c.ref_proveedor || ''));
+    let p = tk.filter(t => tc.indexOf(t) >= 0).length;
+    if (p > 0 && (c.aBordo || 0) > 0) p += 0.5;          // a bordo de la furgoneta, primero
+    if (p > pMejor){ pMejor = p; mejor = c; }
+  });
+  return pMejor >= 2 ? mejor : null;
+}
+function duenoPorDefecto(){ return state.esInstantbox ? 'INSTANTBOX' : (state.esDirecto ? 'propio' : 'ESMOVE'); }
+function duenoDe(c){
+  if (c && Array.isArray(c.porDueno)){
+    // Primero el dueño del partner de la obra, si tiene ese cargador; si no, el
+    // único dueño que lo lleve a bordo de la furgoneta.
+    const mio = c.porDueno.find(d => d.dueno === duenoPorDefecto() && ((d.aBordo || 0) > 0 || (d.almacen || 0) > 0 || (d.enVehiculos || 0) > 0));
+    if (mio) return mio.dueno;
+    const ab = c.porDueno.filter(d => (d.aBordo || 0) > 0);
+    if (ab.length === 1) return ab[0].dueno;
+  }
+  return duenoPorDefecto();
+}
+async function cargarCargadores(){
+  try {
+    const form = new URLSearchParams();
+    form.set('payload', JSON.stringify({ accion: 'listarCargadores', equipo: state.cita.equipo || '' }));
+    const res = await fetch(WEB_APP_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const r = await res.json();
+    if (!r || !r.ok) throw new Error((r && r.error) || 'sin respuesta');
+    const lista = (r.cargadores || []).slice().sort((a, b) => (b.aBordo || 0) - (a.aBordo || 0));
+    state.carg.lista = lista; state.carg.duenos = r.duenos || [];
+  } catch (e) {
+    state.carg.lista = []; state.carg.error = String((e && e.message) || e);
+  }
+  pintarCargador();
+}
+function pintarCargador(){
+  const n = document.getElementById('cargNombre'); if (!n) return;
+  const delPedido = cargadorDelPedido();
+  if (state.carg.respuesta !== false){
+    n.textContent = (delPedido && delPedido.nombre) || state.cita.hardware || 'Cargador del pedido';
+  }
+  const sub = document.getElementById('cargSub');
+  if (sub) sub.textContent = (state.carg.respuesta === false ? 'Elegido por el técnico' : 'El del pedido') + ' · de ' + nombreDueno(state.carg.dueno || duenoPorDefecto());
+  document.getElementById('pillCargSi').classList.toggle('selected', state.carg.respuesta === true);
+  document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
+  const sel = document.getElementById('cargSelect'), msg = document.getElementById('cargListaMsg');
+  if (sel && state.carg.lista){
+    const ops = ['<option value="">— Elige el cargador instalado —</option>'].concat(
+      state.carg.lista.map(c => '<option value="' + String(c.sku).replace(/"/g, '&quot;') + '"' + (c.sku === state.carg.sku && state.carg.respuesta === false ? ' selected' : '') + '>' +
+        (c.nombre || c.sku) + ((c.aBordo || 0) > 0 ? ' · a bordo' : '') + '</option>'));
+    sel.innerHTML = ops.join('');
+  }
+  if (msg) msg.textContent = state.carg.lista === null ? 'Cargando la lista del almacén…' :
+    (state.carg.lista.length ? '' : '⚠️ No se ha podido cargar la lista del almacén. Puedes enviar el cierre igualmente; la oficina lo revisará.');
+}
+function cargadorConfirmar(si){
+  state.carg.respuesta = !!si;
+  const wrap = document.getElementById('cargOtroWrap');
+  if (si){
+    const c = cargadorDelPedido();
+    state.carg.sku = c ? c.sku : '';
+    state.carg.nombre = c ? c.nombre : (state.cita.hardware || '');
+    state.carg.dueno = c ? duenoDe(c) : duenoPorDefecto();
+    if (wrap) wrap.style.display = 'none';
+  } else {
+    state.carg.sku = ''; state.carg.nombre = '';
+    if (wrap) wrap.style.display = 'block';
+  }
+  pintarCargador();
+}
+function cargadorElegir(sku){
+  const c = (state.carg.lista || []).find(x => String(x.sku) === String(sku));
+  state.carg.sku = c ? c.sku : '';
+  state.carg.nombre = c ? (c.nombre || c.sku) : '';
+  state.carg.dueno = c ? duenoDe(c) : duenoPorDefecto();
+  if (c) document.getElementById('cargNombre').textContent = state.carg.nombre;
+  pintarCargador();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════════════
 parseUrlParams();
 checkSuperOnLoad();
 renderSteps();
+if (!state.esIntervencion) cargarCargadores();   // v3.21.0: en segundo plano, no bloquea
+prepararControles();                              // v3.21.0: botones − / +
 renderChecklist();
 if (state.esIntervencion){
   // v3.16.0: flujo INTERVENCIÓN SAT — directo a la pantalla única, sin pasos
