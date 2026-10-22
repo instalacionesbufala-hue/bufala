@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.6.0 (22/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.6.1 (22/10/2026)
+     v1.6.1: CARGADOR DEL PARTNER (César 22/10). Si el mismo modelo lo tienen
+     varios dueños, se descuenta siempre del partner de la obra (ESMOVE aquí) y
+     la tarjeta lo dice («se descuenta del stock de Esmove»). La pregunta pasa a
+     «¿Es este el modelo que has instalado?» y es obligatoria. Avisos si el
+     modelo no se reconoce o el partner no tiene stock. La lista solo trae
+     cargadores (fuera soportes y accesorios), primero los del partner.
      v1.6.0: ESTRUCTURA DEL DISEÑO APROBADO (lienzo del 21-22/10). La v1.5 solo
      aplicó los colores sobre las pantallas antiguas. Ahora: cabecera compacta
      («BÚFALA · CIERRE · Paso X de N» + barra dorada, sin círculos), datos de la
@@ -996,7 +1002,7 @@ html,body{overflow-x:hidden}
   <div class="sec-h-mat">CARGADOR INSTALADO · SE DESCUENTA DEL ALMACÉN</div>
   <div class="carg-card" id="cargadorCard">
     <div class="mc-head"><svg class="mat-ico" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2" width="12" height="16" rx="2"></rect><path d="M12 18v4M10 7l-1 4h3l-1 4"></path></svg><div><div class="carg-nombre" id="cargNombre">—</div><div class="carg-sub" id="cargSub">El del pedido de ESBRAIN</div></div></div>
-    <div class="label" style="margin-bottom:6px">¿Es este el cargador que has instalado?</div>
+    <div class="label" style="margin-bottom:6px">¿Es este el modelo que has instalado?</div>
     <div class="pills">
       <div class="pill" id="pillCargSi" onclick="cargadorConfirmar(true)">✓ Sí, este</div>
       <div class="pill" id="pillCargNo" onclick="cargadorConfirmar(false)">No, otro</div>
@@ -3764,24 +3770,45 @@ function nombreDueno(id){
   return d ? d.nombre : (id === 'ESMOVE' ? 'Esmove' : id === 'propio' ? 'Búfala' : id);
 }
 function _tokens(s){ return _normTxt(s).toUpperCase().split(/[^A-Z0-9]+/).filter(t => t.length >= 2); }
+function duenoPorDefecto(){ return (typeof state.esInstantbox !== 'undefined' && state.esInstantbox) ? 'INSTANTBOX' : ((typeof state.esDirecto !== 'undefined' && state.esDirecto) ? 'propio' : 'ESMOVE'); }
+// Stock que tiene un dueño de un cargador (almacén + furgonetas + a bordo).
+function stockDe(c, dueno){
+  const d = (c && Array.isArray(c.porDueno)) ? c.porDueno.find(x => x.dueno === dueno) : null;
+  return d ? { total: (d.almacen || 0) + (d.enVehiculos || 0), aBordo: d.aBordo || 0 } : { total: 0, aBordo: 0 };
+}
+// César 22/10: si el modelo lo tienen varios dueños, se descuenta SIEMPRE del
+// partner de la obra. Solo si el partner no tiene ese modelo se propone el
+// único dueño que lo lleve a bordo (y el aviso lo deja claro).
+function duenoDe(c){
+  const p = duenoPorDefecto();
+  if (!c || !Array.isArray(c.porDueno)) return p;
+  const sp = stockDe(c, p);
+  if (sp.total > 0 || sp.aBordo > 0) return p;
+  const ab = c.porDueno.filter(d => (d.aBordo || 0) > 0);
+  return ab.length === 1 ? ab[0].dueno : p;
+}
+// Texto de cada opción: si el partner de la obra tiene el modelo, «· Esmove (a
+// bordo)»; si no, «· sin stock de Esmove (lo tiene Búfala)».
+function etiquetaStock(c){
+  const p = duenoPorDefecto(), sp = stockDe(c, p);
+  if (sp.total > 0 || sp.aBordo > 0) return ' · ' + nombreDueno(p) + (sp.aBordo > 0 ? ' · a bordo' : '');
+  const otros = (c.porDueno || []).filter(d => ((d.almacen || 0) + (d.enVehiculos || 0) + (d.aBordo || 0)) > 0).map(d => nombreDueno(d.dueno));
+  return ' · sin stock de ' + nombreDueno(p) + (otros.length ? ' (lo tiene ' + otros.join(', ') + ')' : '');
+}
 function cargadorDelPedido(){
   const lista = state.carg.lista || []; if (!lista.length) return null;
-  const tk = _tokens(state.cita.hardware);
+  const tk = _tokens(state.cita.hardware), p = duenoPorDefecto();
   let mejor = null, pMejor = 0;
   lista.forEach(c => {
     const tc = _tokens((c.nombre || '') + ' ' + (c.ref_proveedor || ''));
-    let p = tk.filter(t => tc.indexOf(t) >= 0).length;
-    if (p > 0 && (c.aBordo || 0) > 0) p += 0.5;          // a bordo de la furgoneta, primero
-    if (p > pMejor){ pMejor = p; mejor = c; }
+    let pt = tk.filter(t => tc.indexOf(t) >= 0).length;
+    if (pt <= 0) return;
+    const sp = stockDe(c, p);
+    if (sp.total > 0 || sp.aBordo > 0) pt += 1;          // lo tiene el partner de la obra
+    if (sp.aBordo > 0) pt += 0.5;                        // y va en la furgoneta del equipo
+    if (pt > pMejor){ pMejor = pt; mejor = c; }
   });
   return pMejor >= 2 ? mejor : null;
-}
-function duenoDe(c){
-  if (c && Array.isArray(c.porDueno)){
-    const ab = c.porDueno.filter(d => (d.aBordo || 0) > 0);
-    if (ab.length === 1) return ab[0].dueno;
-  }
-  return 'ESMOVE';
 }
 async function cargarCargadores(){
   try {
@@ -3790,7 +3817,10 @@ async function cargarCargadores(){
     const res = await fetch(WEB_APP_URL, { method: 'POST', body: form, redirect: 'follow' });
     const r = await res.json();
     if (!r || !r.ok) throw new Error((r && r.error) || 'sin respuesta');
-    const lista = (r.cargadores || []).slice().sort((a, b) => (b.aBordo || 0) - (a.aBordo || 0));
+    const lista = (r.cargadores || []).filter(c => !/SOPORTE|ACCESORIO|PEANA|POSTE/i.test(c.nombre || ''));   // solo cargadores
+    state.carg.duenos = r.duenos || [];
+    const p = duenoPorDefecto(), clave = c => { const sp = stockDe(c, p); return (sp.total > 0 || sp.aBordo > 0 ? 2 : 0) + ((c.aBordo || 0) > 0 ? 1 : 0); };
+    lista.sort((a, b) => clave(b) - clave(a));
     state.carg.lista = lista; state.carg.duenos = r.duenos || [];
   } catch (e) {
     state.carg.lista = []; state.carg.error = String((e && e.message) || e);
@@ -3804,14 +3834,22 @@ function pintarCargador(){
     n.textContent = (delPedido && delPedido.nombre) || state.cita.hardware || 'Cargador del pedido';
   }
   const sub = document.getElementById('cargSub');
-  if (sub) sub.textContent = (state.carg.respuesta === false ? 'Elegido por el técnico' : 'El del pedido de ESBRAIN') + ' · de ' + nombreDueno(state.carg.dueno || 'ESMOVE');
+  const cAct = state.carg.respuesta === false ? (state.carg.lista || []).find(x => String(x.sku) === String(state.carg.sku)) : delPedido;
+  const dAct = state.carg.dueno || (cAct ? duenoDe(cAct) : duenoPorDefecto());
+  if (sub){
+    let t = (state.carg.respuesta === false ? 'Elegido por el técnico' : 'El del pedido') + ' · se descuenta del stock de ' + nombreDueno(dAct);
+    if (cAct && dAct !== duenoPorDefecto()) t += ' (' + nombreDueno(duenoPorDefecto()) + ' no tiene este modelo)';
+    if (cAct && dAct === duenoPorDefecto() && !(stockDe(cAct, dAct).total > 0 || stockDe(cAct, dAct).aBordo > 0)) t += ' · ⚠️ sin stock registrado de este modelo: avisa a la oficina';
+    if (!cAct && state.carg.lista && state.carg.lista.length && state.carg.respuesta !== false) t += ' · ⚠️ no se ha reconocido el modelo en el almacén: confírmalo o elige otro';
+    sub.textContent = t;
+  }
   document.getElementById('pillCargSi').classList.toggle('selected', state.carg.respuesta === true);
   document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
   const sel = document.getElementById('cargSelect'), msg = document.getElementById('cargListaMsg');
   if (sel && state.carg.lista){
     const ops = ['<option value="">— Elige el cargador instalado —</option>'].concat(
       state.carg.lista.map(c => '<option value="' + String(c.sku).replace(/"/g, '&quot;') + '"' + (c.sku === state.carg.sku && state.carg.respuesta === false ? ' selected' : '') + '>' +
-        (c.nombre || c.sku) + ((c.aBordo || 0) > 0 ? ' · a bordo' : '') + '</option>'));
+        (c.nombre || c.sku) + etiquetaStock(c) + '</option>'));
     sel.innerHTML = ops.join('');
   }
   if (msg) msg.textContent = state.carg.lista === null ? 'Cargando la lista del almacén…' :
