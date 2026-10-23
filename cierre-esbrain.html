@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.0 (23/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.1 (24/10/2026)
+     v1.7.1: ningún texto se sale de su recuadro: las opciones ajustan el
+     texto en varias líneas y crecen en alto, los tipos de cuadro van en dos
+     columnas iguales y las notas son un cuadro de texto de dos líneas.
      v1.7.0: MATERIAL PREVISTO, CUADRO Y DPN (César 23/10). En «Materiales y
      cargador»: material vinculado a la obra en el almacén (acción
      materialPrevisto, E-068) con «Sí, es este / No, es otro»; cuadro de
@@ -788,6 +791,17 @@ html,body{overflow-x:hidden}
 .rs-mini{font-size:14px; font-weight:700}
 .rs-cambiar{font-size:13px; font-weight:700; color:#7a5f3a; flex-shrink:0}
 #resumenViejo{display:none}
+
+/* v1.7.1 / v3.23.1 — los textos nunca se salen de su recuadro */
+.pill{white-space:normal; overflow-wrap:break-word; hyphens:auto; line-height:1.25; min-width:0; min-height:56px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; box-sizing:border-box}
+.pills.dos{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+.pills.cuatro{grid-template-columns:repeat(4,minmax(0,1fr)) !important; gap:8px}
+.chip-mat{white-space:normal; overflow-wrap:break-word; line-height:1.25; min-height:52px}
+.nota-campo{display:block; width:100%; box-sizing:border-box; margin-top:10px; min-height:64px; padding:10px 12px; border:2px solid #d9cdbd;
+  border-radius:12px; font-family:inherit; font-size:15px; font-weight:600; color:#2d2b29; background:#fff; resize:vertical}
+.carg-card, .mat-card, .material-block, .rs-bloque{overflow-wrap:break-word; min-width:0}
+.carg-nombre, .carg-sub, .mc-title, .mc-sub{overflow-wrap:break-word}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
 </head>
@@ -1307,7 +1321,7 @@ const PROTECCIONES = [
   {id:'preinst', name:'Pre-instalación nuevo suministro', unit:'kit', tip:'Kit para nuevo punto de suministro: portafusible, fusible, 1m de cable y etiqueta.'},
 
   {section:'⚡ Magnetotérmicos'},
-  {id:'mag1025', name:'DPN 10A-25A', unit:'ud', tip:'Magnetotérmico DPN de pequeño calibre (10-25A) según potencia.'},
+  {id:'mag1025', name:'DPN 10‑25 A', unit:'ud', tip:'Magnetotérmico DPN de pequeño calibre (10-25A) según potencia.'},
   {id:'mag32', name:'DPN 32A', unit:'ud', tip:'Magnetotérmico DPN 32A. Habitual en cargadores monofásicos hasta 7,4 kW.'},
   {id:'mag40', name:'DPN 40A', unit:'ud', tip:'Magnetotérmico DPN 40A. Para cargadores de alta potencia o trifásicos de 11 kW o superior.'}
 ];
@@ -3893,7 +3907,7 @@ function pintarPrevisto(){
     if (r.si === false){
       if (alt.length) h += '<select class="input" style="margin-top:10px" onchange="prevAlt(' + k + ',this.value)"><option value="">— Elige el que has puesto —</option>' +
         alt.map((a, j) => '<option value="' + j + '"' + (r.alt === j ? ' selected' : '') + '>' + _escP((a.nombre || a.sku) + (a.ref ? ' · ' + a.ref : '')) + '</option>').join('') + '</select>';
-      h += '<input class="input" style="margin-top:10px; text-align:left; font-size:15px; font-weight:600" placeholder="Describe qué has puesto" value="' + _escP(r.nota || '') + '" oninput="prevNota(' + k + ',this.value)">';
+      h += '<textarea class="nota-campo" rows="2" placeholder="Describe qué has puesto" oninput="prevNota(' + k + ',this.value)">' + _escP(r.nota || '') + '</textarea>';
     }
     h += '</div>';
   });
@@ -3908,8 +3922,8 @@ function pintarPrevisto(){
         '<div class="pill' + (C.si === false ? ' selected' : '') + '" onclick="cuadroResp(false)">No, es otro</div></div>';
     } else h += '<div class="carg-sub">El pedido no indica el tipo</div><div class="label" style="margin-bottom:6px">¿Qué cuadro has instalado?</div>';
     if (!C.tipoPedido || C.si === false){
-      h += '<div class="pills" style="margin-top:8px; grid-template-columns:repeat(2,minmax(0,1fr))">' + CUADRO_TIPOS.filter(t => t.id !== C.tipoPedido).map(t => '<div class="pill' + (C.tipo === t.id ? ' selected' : '') + '" style="font-size:14px" onclick="cuadroTipo(\'' + t.id + '\')">' + t.txt + '</div>').join('') + '</div>' +
-        '<input class="input" style="margin-top:10px; text-align:left; font-size:15px; font-weight:600" placeholder="Si no es ninguno, describe qué cuadro has puesto" value="' + _escP(C.nota || '') + '" oninput="cuadroNota(this.value)">';
+      h += '<div class="pills dos" style="margin-top:8px">' + CUADRO_TIPOS.filter(t => t.id !== C.tipoPedido).map(t => '<div class="pill' + (C.tipo === t.id ? ' selected' : '') + '" onclick="cuadroTipo(\'' + t.id + '\')">' + t.txt + '</div>').join('') + '</div>' +
+        '<textarea class="nota-campo" rows="2" placeholder="¿Ninguno? Describe el cuadro que has puesto" oninput="cuadroNota(this.value)">' + _escP(C.nota || '') + '</textarea>';
     }
     h += '</div>';
   }
@@ -3978,8 +3992,8 @@ function pintarDpn(){
   state.dpnAmp = (state.dpnAmp || []).slice(0, n);
   let h = '';
   for (let i = 0; i < n; i++){
-    h += '<div style="font-size:13px; font-weight:700; margin:6px 0 4px">DPN ' + (i + 1) + ': intensidad</div><div class="pills">' +
-      DPN_AMP.map(a => '<div class="pill' + (state.dpnAmp[i] === a ? ' selected' : '') + '" style="padding:10px 4px; font-size:15px" onclick="dpnAmp(' + i + ',' + a + ')">' + a + ' A</div>').join('') + '</div>';
+    h += '<div style="font-size:13px; font-weight:700; margin:6px 0 4px">DPN ' + (i + 1) + ': intensidad</div><div class="pills cuatro">' +
+      DPN_AMP.map(a => '<div class="pill' + (state.dpnAmp[i] === a ? ' selected' : '') + '" style="padding:10px 2px; font-size:15px; min-height:48px" onclick="dpnAmp(' + i + ',' + a + ')">' + a + ' A</div>').join('') + '</div>';
   }
   box.innerHTML = h;
 }
