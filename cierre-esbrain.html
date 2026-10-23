@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.2 (24/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.0 (24/10/2026)
+     v1.8.0: FIJACIÓN DEL TUBO (obligatoria). En «Materiales y cargador», junto
+     al tubo: «Fijación del tubo» con Clavos / Taco y tornillo / Ambos, sin
+     opción marcada. Solo aparece si hay metros de tubo fijado (pvc32 + acero32
+     + acero40 > 0) y no en visita fallida; si los metros vuelven a 0, la
+     elección se borra. Envío: fijacionTipo = 'clavo' | 'taco' | 'ambos' ('' si
+     no aplica). Sale en el resumen («Fijación: …»).
      v1.7.2: las consultas al backend (cargadores y material previsto) van una
      detrás de otra, nunca a la vez (Apps Script atiende de una en una y la
      segunda podía fallar), con un reintento. Si el técnico llega a Materiales
@@ -984,6 +990,15 @@ html,body{overflow-x:hidden}
   <p class="subtitle">Ya está puesto lo habitual. Ajusta lo que cambie.</p>
   <div class="sec-h-mat">LO HABITUAL · YA MARCADO</div>
   <div class="card" id="canalizacionesCard"></div>
+  <div class="carg-card" id="fijacionCard" style="display:none; margin-bottom:10px">
+    <div class="carg-nombre">Fijación del tubo</div>
+    <div class="carg-sub">Las grapas (clips) se cuentan siempre. Indica con qué has fijado las grapas.</div>
+    <div class="pills" id="fijacionPills" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+      <div class="pill" data-fij="clavo" onclick="elegirFijacion('clavo')">Clavos</div>
+      <div class="pill" data-fij="taco" onclick="elegirFijacion('taco')">Taco y tornillo</div>
+      <div class="pill" data-fij="ambos" onclick="elegirFijacion('ambos')">Ambos</div>
+    </div>
+  </div>
   <div class="bornas-section" id="bornasSection" style="display:none">
     <div class="bornas-title">⭐ Bornas de centralización (Comunitaria)</div>
     <div class="bornas-auto-msg">Se autorrellena según la fase elegida — editable</div>
@@ -1377,6 +1392,7 @@ const state = {
   totalScreens: 12,
   carg: { lista: null, duenos: [], respuesta: null, sku: '', dueno: 'ESMOVE', nombre: '' },   // v1.5.0
   seccionManual: false,
+  fijacion: '',                                                     // v1.8.0
   type: null,
   videos: [],          // [{file: File, blob: Blob, name: string, uploaded: false, progress:0}]
   videosFallida: [],
@@ -1684,6 +1700,7 @@ function validateScreen(num){
     if (m4 <= 0){ showError('Indica los metros de línea'); return false; }
   }
   if (num === 6 && state.prev && state.prev.cargando){ showError('Comprobando el material previsto de la obra… espera unos segundos y vuelve a pulsar Siguiente'); return false; }
+  if (num === 6){ actualizarFijacion(); if (fijacionVisible() && !state.fijacion){ showError('Indica con qué has fijado las grapas del tubo'); return false; } }
   if (num === 6){ const eP = validarPrevisto() || validarDpn(); if (eP){ showError(eP); return false; } }
   if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
     showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
@@ -2316,6 +2333,7 @@ function resumenBloques(){
   if (bm > 0) mats.push('Bornas MONO · ' + bm + ' kit');
   if (bt > 0) mats.push('Bornas TRIF · ' + bt + ' kit');
   const utp = parseFloat((document.getElementById('metrosUtp') || {}).value) || 0;
+  if (fijacionVisible() && state.fijacion) mats.push('Fijación: ' + FIJ_TXT[state.fijacion]);   // v1.8.0
   if (utp > 0) mats.push((state.data.cableDatos === 'FTP' ? 'F/UTP ' : 'U/UTP ') + utp + ' m' + (state.data.cableDatos === 'FTP' ? '' : ' · ' + ((document.getElementById('rj45') || {}).value || 0) + ' RJ45'));
   const carg = (state.carg.nombre || state.cita.hardware || '—') + ' · ' + nombreDueno(state.carg.dueno || (typeof duenoPorDefecto === 'function' ? duenoPorDefecto() : 'ESMOVE'));
   const bloque = (et, html, pant) => '<div class="rs-bloque" onclick="showScreen(' + pant + ')"><div><div class="rs-et">' + et + '</div>' + html + '</div><span class="rs-cambiar">Cambiar</span></div>';
@@ -2593,6 +2611,7 @@ function recolectarDatos(esFallida){
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
+  datos.fijacionTipo = fijacionVisible() ? (state.fijacion || '') : '';   // v1.8.0
 
   // Hitos
   datos.hitoMontaje = state.hitos.h1;
@@ -3660,6 +3679,7 @@ function pvcPorDefecto(forzar){
   if (!forzar && pvc.value !== '') return;
   const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
   pvc.value = (state.data.tipoLinea === 'manguera') ? '0' : (m > 0 ? String(m) : '');
+  actualizarFijacion();
 }
 const MAT_HABITUALES = ['pvc32', 'corr32'];
 const MAT_RAPIDOS = [
@@ -3688,7 +3708,7 @@ function prepararMateriales(){
       row.insertAdjacentHTML('afterbegin', '<svg class="mat-ico" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICO[k] + '</svg>'); };
     document.querySelectorAll('[data-mat] .material-row').forEach(r => ponIco(r, tipoIco(r.closest('[data-mat]').getAttribute('data-mat'))));
     ['bornasMono', 'bornasTrif'].forEach(id => { const i = document.getElementById(id); if (i) ponIco(i.closest('.material-row'), 'borna'); });
-    document.querySelectorAll('[data-mat] .material-input').forEach(i => i.addEventListener('input', () => { i.dataset.touched = '1'; if (i.id === 'mat_mag1025') pintarDpn(); }));
+    document.querySelectorAll('[data-mat] .material-input').forEach(i => i.addEventListener('input', () => { i.dataset.touched = '1'; if (i.id === 'mat_mag1025') pintarDpn(); actualizarFijacion(); }));
     const cont = document.getElementById('chipsMat');
     if (cont) cont.innerHTML = MAT_RAPIDOS.map(c => '<button type="button" class="chip-mat" id="chip_' + c.id + '" onclick="anadirMaterial(\'' + c.id + '\')">+ ' + c.txt + '</button>').join('');
   }
@@ -3696,6 +3716,7 @@ function prepararMateriales(){
   organizarMateriales();
   dpnSoloMono();
   pintarDpn();
+  actualizarFijacion();
   pintarCargador();
   pintarPrevisto();
 }
@@ -3718,6 +3739,21 @@ function anadirMaterial(id){
   const inp = document.getElementById('mat_' + id);
   if (inp){ if (!inp.value) inp.value = '1'; inp.dataset.touched = '1'; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
+
+// ── v1.8.0: fijación del tubo (obligatoria si hay metros de tubo fijado) ──
+const FIJ_TXT = { clavo: 'clavos', taco: 'taco y tornillo', ambos: 'ambos' };
+function metrosTuboFijado(){
+  return ['pvc32', 'acero32', 'acero40'].reduce((t, id) => t + (parseFloat((document.getElementById('mat_' + id) || {}).value) || 0), 0);
+}
+function fijacionVisible(){ return state.type !== 'fallida' && metrosTuboFijado() > 0; }
+function actualizarFijacion(){
+  const card = document.getElementById('fijacionCard'); if (!card) return;
+  const vis = fijacionVisible();
+  if (!vis) state.fijacion = '';                                   // metros a 0 → se borra la elección
+  card.style.display = vis ? '' : 'none';
+  card.querySelectorAll('[data-fij]').forEach(p => p.classList.toggle('selected', p.getAttribute('data-fij') === state.fijacion));
+}
+function elegirFijacion(v){ state.fijacion = v; actualizarFijacion(); }
 function verTodosMateriales(){ state.verTodosMat = !state.verTodosMat; organizarMateriales(); }
 
 // Botones − / + alrededor de un campo numérico (dispara 'input' para que
