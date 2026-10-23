@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.1 (24/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.2 (24/10/2026)
+     v1.7.2: las consultas al backend (cargadores y material previsto) van una
+     detrás de otra, nunca a la vez (Apps Script atiende de una en una y la
+     segunda podía fallar), con un reintento. Si el técnico llega a Materiales
+     antes de la respuesta, se le pide esperar unos segundos.
      v1.7.1: ningún texto se sale de su recuadro: las opciones ajustan el
      texto en varias líneas y crecen en alto, los tipos de cuadro van en dos
      columnas iguales y las notas son un cuadro de texto de dos líneas.
@@ -1679,6 +1683,7 @@ function validateScreen(num){
     const m4 = parseFloat(document.getElementById('metrosLinea').value) || 0;
     if (m4 <= 0){ showError('Indica los metros de línea'); return false; }
   }
+  if (num === 6 && state.prev && state.prev.cargando){ showError('Comprobando el material previsto de la obra… espera unos segundos y vuelve a pulsar Siguiente'); return false; }
   if (num === 6){ const eP = validarPrevisto() || validarDpn(); if (eP){ showError(eP); return false; } }
   if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
     showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
@@ -3873,8 +3878,9 @@ function necesitaCuadro(){
   if (_esIB()) return cargadorOculto();
   return /CUADRO/i.test(p.especial || '') || state.data.fase === 'trif';
 }
-async function cargarPrevisto(){
+async function cargarPrevisto(intento){
   state.prev = state.prev || { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null };
+  state.prev.cargando = true; delete state.prev.error;
   try {
     const form = new URLSearchParams();
     form.set('payload', JSON.stringify({ accion: 'materialPrevisto', numInst: state.cita.numInst || '', esbrainUuid: state.cita.uuid || '', equipo: state.cita.equipo || '' }));
@@ -3883,7 +3889,11 @@ async function cargarPrevisto(){
     state.prev.items = (r && r.ok && Array.isArray(r.items)) ? r.items : [];
     state.prev.alternativas = (r && r.alternativas) || {};
     state.prev.pedido = (r && r.pedido) || {};
-  } catch (e) { state.prev.error = String((e && e.message) || e); }
+  } catch (e) {
+    if (!intento){ await new Promise(r => setTimeout(r, 3000)); return cargarPrevisto(1); }   // un reintento
+    state.prev.error = String((e && e.message) || e);
+  }
+  state.prev.cargando = false; state.prev.cargado = true;
   pintarPrevisto(); pintarCargador();
 }
 function _escP(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -3927,6 +3937,7 @@ function pintarPrevisto(){
     }
     h += '</div>';
   }
+  if (!h && P.cargando) h = '<div class="hint" style="margin-bottom:10px">Comprobando el material previsto para esta obra…</div>';
   w.innerHTML = h;
   w.style.display = h ? '' : 'none';
   const tit = document.getElementById('previstoTitulo'); if (tit) tit.style.display = h ? '' : 'none';
@@ -4034,6 +4045,7 @@ async function cargarCargadores(){
     lista.sort((a, b) => clave(b) - clave(a));
     state.carg.lista = lista; state.carg.duenos = r.duenos || [];
   } catch (e) {
+    if (!state.carg.reintentado){ state.carg.reintentado = true; await new Promise(r => setTimeout(r, 3000)); return cargarCargadores(); }
     state.carg.lista = []; state.carg.error = String((e && e.message) || e);
   }
   pintarCargador();
@@ -4098,8 +4110,8 @@ checkSuperOnLoad();
 renderSteps();
 renderChecklist();
 initEsbrainUI();   // v1.0.0 ESBRAIN
-if (!state.esIntervencion) cargarCargadores();   // v1.5.0: en segundo plano, no bloquea
-if (!state.esIntervencion) cargarPrevisto();     // material previsto de la obra (almacén + pedido), en segundo plano
+if (!state.esIntervencion){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
+  (async () => { await cargarCargadores(); await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
 prepararControles();                              // v1.5.0: botones − / +
 pintarCitaCompacta();
 setTimeout(() => { if (state.type) state.tipoDelPedido = state.type; marcarEtiquetaTipo(); marcarEtiquetaFase(); }, 150);
