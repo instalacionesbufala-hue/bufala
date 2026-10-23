@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.6.1 (22/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.7.0 (23/10/2026)
+     v1.7.0: MATERIAL PREVISTO, CUADRO Y DPN (César 23/10). En «Materiales y
+     cargador»: material vinculado a la obra en el almacén (acción
+     materialPrevisto, E-068) con «Sí, es este / No, es otro»; cuadro de
+     protecciones si el pedido lo trae en Complementos y extras o es
+     trifásica, con el tipo del pedido marcado; intensidad de cada DPN de
+     10-25 A (10/16/20/25 A; sin DPN en trifásica) → dpnDetalle. Cargador:
+     protecciones también con «+ PROT»; no propone variantes Schuko, Tesla,
+     PRO, 10 m o 22 kW que el pedido no pide; Policharger por la marca.
      v1.6.1: CARGADOR DEL PARTNER (César 22/10). Si el mismo modelo lo tienen
      varios dueños, se descuenta siempre del partner de la obra (ESMOVE aquí) y
      la tarjeta lo dice («se descuenta del stock de Esmove»). La pregunta pasa a
@@ -999,7 +1007,7 @@ html,body{overflow-x:hidden}
     <div class="mc-tipo">Tipo de cable: <span class="chip-tipo" id="pillCableUtp" onclick="selectCableDatos('UTP')">U/UTP</span><span class="chip-tipo" id="pillCableFtp" onclick="selectCableDatos('FTP')">F/UTP</span></div>
   </div>
 
-  <div class="sec-h-mat">CARGADOR INSTALADO · SE DESCUENTA DEL ALMACÉN</div>
+  <div class="sec-h-mat" id="cargadorTitulo">CARGADOR INSTALADO · SE DESCUENTA DEL ALMACÉN</div>
   <div class="carg-card" id="cargadorCard">
     <div class="mc-head"><svg class="mat-ico" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2" width="12" height="16" rx="2"></rect><path d="M12 18v4M10 7l-1 4h3l-1 4"></path></svg><div><div class="carg-nombre" id="cargNombre">—</div><div class="carg-sub" id="cargSub">El del pedido de ESBRAIN</div></div></div>
     <div class="label" style="margin-bottom:6px">¿Es este el modelo que has instalado?</div>
@@ -1012,6 +1020,8 @@ html,body{overflow-x:hidden}
       <div class="hint" id="cargListaMsg"></div>
     </div>
   </div>
+  <div class="sec-h-mat" id="previstoTitulo" style="display:none">MATERIAL PREVISTO PARA ESTA OBRA</div>
+  <div id="previstoWrap" style="display:none"></div>
   <div class="sec-h-mat">¿HAS USADO ALGO MÁS? · TOCA PARA AÑADIR</div>
   <div class="chips-mat" id="chipsMat"></div>
   <button type="button" class="btn-ver-todos" id="btnVerTodos" onclick="verTodosMateriales()">Ver todos los materiales</button>
@@ -1655,7 +1665,8 @@ function validateScreen(num){
     const m4 = parseFloat(document.getElementById('metrosLinea').value) || 0;
     if (m4 <= 0){ showError('Indica los metros de línea'); return false; }
   }
-  if (num === 6 && state.carg.respuesta === null){
+  if (num === 6){ const eP = validarPrevisto() || validarDpn(); if (eP){ showError(eP); return false; } }
+  if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
     showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
   }
   if (num === 6 && state.carg.respuesta === false && !state.carg.sku && (state.carg.lista || []).length){
@@ -2292,7 +2303,8 @@ function resumenBloques(){
   let h = bloque('TIPO', '<div class="rs-val">' + esc(tipoTxt) + '</div>', 1) +
           bloque('LÍNEA', '<div class="rs-val">' + esc(linea) + '</div>', 4) +
           bloque('MATERIALES', mats.map(x => '<div class="rs-mini">' + esc(x) + '</div>').join('') || '<div class="rs-mini">—</div>', 6) +
-          bloque('CARGADOR', '<div class="rs-mini">' + esc(carg) + '</div>', 6);
+          (cargadorOculto() ? '' : bloque('CARGADOR', '<div class="rs-mini">' + esc(carg) + '</div>', 6)) +
+          (function(){ const d = {}; datosPrevisto(d); const dp = dpnDetalle(); const t = [d.cuadroNombre ? 'Cuadro: ' + d.cuadroNombre + (d.cuadroRef ? ' (' + d.cuadroRef + ')' : '') : '', dp ? 'DPN: ' + dp : ''].filter(Boolean); return t.length ? bloque('CUADRO Y PROTECCIONES', t.map(x => '<div class="rs-mini">' + esc(x) + '</div>').join(''), 6) : ''; })();
   const conArchivos = !(typeof ES_ESBRAIN !== 'undefined' && ES_ESBRAIN) && !state.isSuper;
   if (conArchivos){
     const nv = (state.videos || []).length, nf = Object.keys(state.photos || {}).filter(k => state.photos[k]).length;
@@ -2555,10 +2567,13 @@ function recolectarDatos(esFallida){
   if (state.carg.respuesta !== null){
     datos.cargadorSku          = state.carg.sku || '';
     datos.cargadorDueno        = state.carg.dueno || 'ESMOVE';
-    datos.cargadorProtecciones = /PROTECCI/i.test((state.carg.nombre || '') + ' ' + (state.cita.hardware || '') + ' ' + (state.cita.desc || ''));
+    datos.cargadorProtecciones = /PROTECCI|\bPROT\b/i.test((state.carg.nombre || '') + ' ' + (state.cita.hardware || '') + ' ' + (state.cita.desc || ''));
     datos.cargadorFuente       = 'lista';
     if (state.carg.respuesta === false && state.carg.nombre) datos.cargadorNombre = state.carg.nombre;
   }
+  if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
+  datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
+  const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
 
   // Hitos
   datos.hitoMontaje = state.hitos.h1;
@@ -3631,7 +3646,8 @@ const MAT_HABITUALES = ['pvc32', 'corr32'];
 const MAT_RAPIDOS = [
   { id: 'perfTab', txt: 'Perforación tabique' }, { id: 'perfForj', txt: 'Perforación forjado' },
   { id: 'cajaReg', txt: 'Caja registro' },       { id: 'acero32', txt: 'Tubo acero 32 mm' },
-  { id: 'canaleta', txt: 'Canaleta' },          { id: 'mag32', txt: 'Magnetotérmico DPN 32A' }
+  { id: 'canaleta', txt: 'Canaleta' },          { id: 'mag32', txt: 'Magnetotérmico DPN 32A' },
+  { id: 'mag1025', txt: 'DPN 10-25 A' }
 ];
 function prepararMateriales(){
   const corr = document.getElementById('mat_corr32');
@@ -3653,13 +3669,16 @@ function prepararMateriales(){
       row.insertAdjacentHTML('afterbegin', '<svg class="mat-ico" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICO[k] + '</svg>'); };
     document.querySelectorAll('[data-mat] .material-row').forEach(r => ponIco(r, tipoIco(r.closest('[data-mat]').getAttribute('data-mat'))));
     ['bornasMono', 'bornasTrif'].forEach(id => { const i = document.getElementById(id); if (i) ponIco(i.closest('.material-row'), 'borna'); });
-    document.querySelectorAll('[data-mat] .material-input').forEach(i => i.addEventListener('input', () => { i.dataset.touched = '1'; }));
+    document.querySelectorAll('[data-mat] .material-input').forEach(i => i.addEventListener('input', () => { i.dataset.touched = '1'; if (i.id === 'mat_mag1025') pintarDpn(); }));
     const cont = document.getElementById('chipsMat');
     if (cont) cont.innerHTML = MAT_RAPIDOS.map(c => '<button type="button" class="chip-mat" id="chip_' + c.id + '" onclick="anadirMaterial(\'' + c.id + '\')">+ ' + c.txt + '</button>').join('');
   }
   pvcPorDefecto(false);
   organizarMateriales();
+  dpnSoloMono();
+  pintarDpn();
   pintarCargador();
+  pintarPrevisto();
 }
 function organizarMateriales(){
   const todos = !!state.verTodosMat;
@@ -3678,7 +3697,7 @@ function anadirMaterial(id){
   state.matVisibles[id] = true;
   organizarMateriales();
   const inp = document.getElementById('mat_' + id);
-  if (inp){ if (!inp.value) inp.value = '1'; inp.dataset.touched = '1'; inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  if (inp){ if (!inp.value) inp.value = '1'; inp.dataset.touched = '1'; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
 function verTodosMateriales(){ state.verTodosMat = !state.verTodosMat; organizarMateriales(); }
 
@@ -3801,15 +3820,193 @@ function cargadorDelPedido(){
   let mejor = null, pMejor = 0;
   lista.forEach(c => {
     const tc = _tokens((c.nombre || '') + ' ' + (c.ref_proveedor || ''));
-    let pt = tk.filter(t => tc.indexOf(t) >= 0).length;
+    const base = tk.filter(t => tc.indexOf(t) >= 0);
+    let pt = base.length;
     if (pt <= 0) return;
+    if (pt === 1 && base[0].length < 8) return;                  // una sola palabra corta no basta (sí «POLICHARGER»)
+    ['SCHUKO', 'TESLA', 'PRO', '10M', '22KW', 'SIN'].forEach(x => { if ((tc.indexOf(x) >= 0) !== (tk.indexOf(x) >= 0)) pt -= 1.5; });   // variante no pedida, o pedida y que no tiene
+    const vinc = ((state.prev && state.prev.items) || []).find(it => it.tipo === 'cargador' && String(it.sku) === String(c.sku));
+    if (vinc) pt += 5;                                           // vinculado a la obra en el almacén
     const sp = stockDe(c, p);
     if (sp.total > 0 || sp.aBordo > 0) pt += 1;          // lo tiene el partner de la obra
     if (sp.aBordo > 0) pt += 0.5;                        // y va en la furgoneta del equipo
     if (pt > pMejor){ pMejor = pt; mejor = c; }
   });
-  return pMejor >= 2 ? mejor : null;
+  return pMejor >= 1 ? mejor : null;
 }
+// ═══ v1.7.0 / v3.23.0 — MATERIAL PREVISTO, CUADRO Y DPN POR INTENSIDAD ═══
+const CUADRO_TIPOS = [
+  { id: 'MONO',          txt: 'Monofásico' },
+  { id: 'MONO_REARM',    txt: 'Monofásico rearmable' },
+  { id: 'REARM_SCHUKO',  txt: 'Rearmable + Schuko' },
+  { id: 'TRIF',          txt: 'Trifásico' },
+  { id: 'TRIF_SCHUKO',   txt: 'Trifásico + Schuko' }
+];
+function _esIB(){ return typeof state.esInstantbox !== 'undefined' && !!state.esInstantbox; }
+function tipoCuadroDeTexto(t){
+  t = _normTxt(t || '');
+  if (t.indexOf('CUADRO') < 0 && t.indexOf('REARM') < 0) return '';
+  const trif = t.indexOf('TRIF') >= 0, sch = t.indexOf('SCHUKO') >= 0, rea = t.indexOf('REARM') >= 0;
+  if (trif) return sch ? 'TRIF_SCHUKO' : 'TRIF';
+  if (rea && sch) return 'REARM_SCHUKO';
+  if (rea) return 'MONO_REARM';
+  return 'MONO';
+}
+// En InstantBox, un pedido sin cargador lleva cuadro de protecciones (César 23/10).
+function cargadorOculto(){ return _esIB() && (!String(state.cita.hardware || '').trim() || !!(state.prev && state.prev.pedido && state.prev.pedido.sinCargador)); }
+function necesitaCuadro(){
+  const p = (state.prev && state.prev.pedido) || {};
+  if (_esIB()) return cargadorOculto();
+  return /CUADRO/i.test(p.especial || '') || state.data.fase === 'trif';
+}
+async function cargarPrevisto(){
+  state.prev = state.prev || { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null };
+  try {
+    const form = new URLSearchParams();
+    form.set('payload', JSON.stringify({ accion: 'materialPrevisto', numInst: state.cita.numInst || '', esbrainUuid: state.cita.uuid || '', equipo: state.cita.equipo || '' }));
+    const res = await fetch(WEB_APP_URL, { method: 'POST', body: form, redirect: 'follow' });
+    const r = await res.json();
+    state.prev.items = (r && r.ok && Array.isArray(r.items)) ? r.items : [];
+    state.prev.alternativas = (r && r.alternativas) || {};
+    state.prev.pedido = (r && r.pedido) || {};
+  } catch (e) { state.prev.error = String((e && e.message) || e); }
+  pintarPrevisto(); pintarCargador();
+}
+function _escP(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pintarPrevisto(){
+  const w = document.getElementById('previstoWrap'); if (!w) return;
+  const P = state.prev || { items: [] };
+  const cardCarg = document.getElementById('cargadorCard'), hCarg = document.getElementById('cargadorTitulo');
+  const ocultar = cargadorOculto();
+  if (cardCarg) cardCarg.style.display = ocultar ? 'none' : '';
+  if (hCarg) hCarg.style.display = ocultar ? 'none' : '';
+  const items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  let h = '';
+  items.forEach((it, k) => {
+    const r = P.resp[k] || {};
+    const alt = ((P.alternativas || {})[it.tipo] || []);
+    h += '<div class="carg-card" style="margin-bottom:10px"><div class="carg-nombre">' + _escP(it.nombre || it.sku) + '</div>' +
+      '<div class="carg-sub">' + _escP([it.ref, nombreDueno(it.dueno || ''), it.entregadoEl ? 'entregado ' + String(it.entregadoEl).slice(0, 10).split('-').reverse().join('/') : ''].filter(Boolean).join(' · ')) + '</div>' +
+      '<div class="label" style="margin-bottom:6px">¿Has instalado ' + (it.tipo === 'cuadro' ? 'este cuadro' : 'este material') + '?</div>' +
+      '<div class="pills"><div class="pill' + (r.si === true ? ' selected' : '') + '" onclick="prevResp(' + k + ',true)">✓ Sí, es este</div>' +
+      '<div class="pill' + (r.si === false ? ' selected' : '') + '" onclick="prevResp(' + k + ',false)">No, es otro</div></div>';
+    if (r.si === false){
+      if (alt.length) h += '<select class="input" style="margin-top:10px" onchange="prevAlt(' + k + ',this.value)"><option value="">— Elige el que has puesto —</option>' +
+        alt.map((a, j) => '<option value="' + j + '"' + (r.alt === j ? ' selected' : '') + '>' + _escP((a.nombre || a.sku) + (a.ref ? ' · ' + a.ref : '')) + '</option>').join('') + '</select>';
+      h += '<input class="input" style="margin-top:10px; text-align:left; font-size:15px; font-weight:600" placeholder="Describe qué has puesto" value="' + _escP(r.nota || '') + '" oninput="prevNota(' + k + ',this.value)">';
+    }
+    h += '</div>';
+  });
+  const hayCuadro = items.some(it => it.tipo === 'cuadro');
+  if (!hayCuadro && necesitaCuadro()){
+    const C = P.cuadro || (P.cuadro = { tipoPedido: tipoCuadroDeTexto((P.pedido || {}).especial || '') || (state.data.fase === 'trif' ? 'TRIF' : ''), si: null, tipo: '', nota: '' });
+    const nomTipo = id => (CUADRO_TIPOS.find(x => x.id === id) || {}).txt || '';
+    h += '<div class="carg-card" style="margin-bottom:10px"><div class="carg-nombre">Cuadro de protecciones</div>';
+    if (C.tipoPedido){
+      h += '<div class="carg-sub">Según el pedido: ' + _escP(nomTipo(C.tipoPedido)) + '</div><div class="label" style="margin-bottom:6px">¿Has instalado este cuadro?</div>' +
+        '<div class="pills"><div class="pill' + (C.si === true ? ' selected' : '') + '" onclick="cuadroResp(true)">✓ Sí, es este</div>' +
+        '<div class="pill' + (C.si === false ? ' selected' : '') + '" onclick="cuadroResp(false)">No, es otro</div></div>';
+    } else h += '<div class="carg-sub">El pedido no indica el tipo</div><div class="label" style="margin-bottom:6px">¿Qué cuadro has instalado?</div>';
+    if (!C.tipoPedido || C.si === false){
+      h += '<div class="pills" style="margin-top:8px; grid-template-columns:repeat(2,minmax(0,1fr))">' + CUADRO_TIPOS.filter(t => t.id !== C.tipoPedido).map(t => '<div class="pill' + (C.tipo === t.id ? ' selected' : '') + '" style="font-size:14px" onclick="cuadroTipo(\'' + t.id + '\')">' + t.txt + '</div>').join('') + '</div>' +
+        '<input class="input" style="margin-top:10px; text-align:left; font-size:15px; font-weight:600" placeholder="Si no es ninguno, describe qué cuadro has puesto" value="' + _escP(C.nota || '') + '" oninput="cuadroNota(this.value)">';
+    }
+    h += '</div>';
+  }
+  w.innerHTML = h;
+  w.style.display = h ? '' : 'none';
+  const tit = document.getElementById('previstoTitulo'); if (tit) tit.style.display = h ? '' : 'none';
+}
+function prevResp(k, si){ state.prev.resp[k] = Object.assign(state.prev.resp[k] || {}, { si: si }); pintarPrevisto(); }
+function prevAlt(k, j){ state.prev.resp[k].alt = j === '' ? null : +j; }
+function prevNota(k, t){ state.prev.resp[k].nota = t; }
+function cuadroResp(si){ state.prev.cuadro.si = si; if (si) state.prev.cuadro.tipo = ''; pintarPrevisto(); }
+function cuadroTipo(id){ state.prev.cuadro.tipo = id; pintarPrevisto(); }
+function cuadroNota(t){ state.prev.cuadro.nota = t; }
+function validarPrevisto(){
+  const P = state.prev; if (!P) return '';
+  const items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  for (let k = 0; k < items.length; k++){
+    const r = P.resp[k] || {};
+    if (r.si == null) return 'Confirma el material previsto (' + (items[k].nombre || items[k].sku) + ')';
+    if (r.si === false && (r.alt == null) && !String(r.nota || '').trim()) return 'Elige qué has puesto o descríbelo';
+  }
+  const visibleCuadro = !items.some(it => it.tipo === 'cuadro') && necesitaCuadro();
+  if (visibleCuadro && P.cuadro){
+    const C = P.cuadro;
+    if (C.tipoPedido && C.si == null) return 'Confirma el cuadro de protecciones';
+    if ((!C.tipoPedido || C.si === false) && !C.tipo && !String(C.nota || '').trim()) return 'Indica qué cuadro de protecciones has puesto';
+  }
+  return '';
+}
+function datosPrevisto(datos){
+  const P = state.prev; if (!P) return;
+  const items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  const conf = [];
+  items.forEach((it, k) => {
+    const r = P.resp[k] || {}, alt = r.alt != null ? (((P.alternativas || {})[it.tipo] || [])[r.alt] || null) : null;
+    conf.push({ id: it.id || '', tipo: it.tipo, ref: it.ref || '', sku: it.sku || '', confirmado: r.si === true, sustituto: alt ? { ref: alt.ref || '', sku: alt.sku || '' } : null, nota: r.nota || '' });
+    if (it.tipo === 'cuadro'){
+      datos.cuadroRef = r.si ? (it.ref || '') : (alt ? (alt.ref || '') : '');
+      datos.cuadroSku = r.si ? (it.sku || '') : (alt ? (alt.sku || '') : '');
+      datos.cuadroNombre = r.si ? (it.nombre || '') : (alt ? (alt.nombre || '') : (r.nota || ''));
+      datos.cuadroConfirmado = r.si === true;
+      datos.cuadroNota = r.nota || '';
+      datos.cuadroFuente = r.si ? 'confirmado' : (alt ? 'lista' : 'otro');
+    }
+  });
+  if (conf.length) datos.materialConfirmado = JSON.stringify(conf);
+  const visibleCuadro = !items.some(it => it.tipo === 'cuadro') && necesitaCuadro();
+  if (visibleCuadro && P.cuadro){
+    const C = P.cuadro, nomTipo = id => (CUADRO_TIPOS.find(x => x.id === id) || {}).txt || '';
+    const ok = C.tipoPedido && C.si === true;
+    datos.cuadroRef = ''; datos.cuadroSku = '';
+    datos.cuadroNombre = ok ? nomTipo(C.tipoPedido) : (C.tipo ? nomTipo(C.tipo) : (C.nota || ''));
+    datos.cuadroConfirmado = !!ok;
+    datos.cuadroNota = C.nota || '';
+    datos.cuadroFuente = ok ? 'confirmado' : (C.tipo ? 'lista' : 'otro');
+  }
+}
+// ── DPN: intensidad de cada uno (solo monofásica) ──
+const DPN_AMP = [10, 16, 20, 25];
+function pintarDpn(){
+  const inp = document.getElementById('mat_mag1025'); if (!inp) return;
+  const blk = inp.closest('[data-mat]'); if (!blk) return;
+  let box = document.getElementById('dpnIntensidades');
+  if (!box){ box = document.createElement('div'); box.id = 'dpnIntensidades'; box.style.marginTop = '8px'; blk.appendChild(box); }
+  const n = Math.max(0, Math.round(parseFloat(inp.value) || 0));
+  state.dpnAmp = (state.dpnAmp || []).slice(0, n);
+  let h = '';
+  for (let i = 0; i < n; i++){
+    h += '<div style="font-size:13px; font-weight:700; margin:6px 0 4px">DPN ' + (i + 1) + ': intensidad</div><div class="pills">' +
+      DPN_AMP.map(a => '<div class="pill' + (state.dpnAmp[i] === a ? ' selected' : '') + '" style="padding:10px 4px; font-size:15px" onclick="dpnAmp(' + i + ',' + a + ')">' + a + ' A</div>').join('') + '</div>';
+  }
+  box.innerHTML = h;
+}
+function dpnAmp(i, a){ state.dpnAmp = state.dpnAmp || []; state.dpnAmp[i] = a; pintarDpn(); }
+function dpnSoloMono(){
+  const trif = state.data.fase === 'trif';
+  ['mag1025', 'mag32', 'mag40'].forEach(id => {
+    const i = document.getElementById('mat_' + id); if (!i) return;
+    const b = i.closest('[data-mat]'); if (b && trif) b.classList.add('mat-oculto');
+    const ch = document.getElementById('chip_' + id); if (ch && trif) ch.classList.add('mat-oculto');
+  });
+}
+function dpnDetalle(){
+  const cnt = {};
+  const n1 = Math.round(parseFloat((document.getElementById('mat_mag1025') || {}).value) || 0);
+  for (let i = 0; i < n1; i++){ const a = (state.dpnAmp || [])[i]; if (a) cnt[a] = (cnt[a] || 0) + 1; }
+  const n32 = Math.round(parseFloat((document.getElementById('mat_mag32') || {}).value) || 0); if (n32) cnt[32] = (cnt[32] || 0) + n32;
+  const n40 = Math.round(parseFloat((document.getElementById('mat_mag40') || {}).value) || 0); if (n40) cnt[40] = (cnt[40] || 0) + n40;
+  return Object.keys(cnt).map(Number).sort((a, b) => a - b).map(a => a + 'A×' + cnt[a]).join(', ');
+}
+function validarDpn(){
+  if (state.data.fase === 'trif') return '';
+  const n1 = Math.round(parseFloat((document.getElementById('mat_mag1025') || {}).value) || 0);
+  for (let i = 0; i < n1; i++) if (!(state.dpnAmp || [])[i]) return 'Indica la intensidad de cada DPN de 10-25 A';
+  return '';
+}
+
 async function cargarCargadores(){
   try {
     const form = new URLSearchParams();
@@ -3888,6 +4085,7 @@ renderSteps();
 renderChecklist();
 initEsbrainUI();   // v1.0.0 ESBRAIN
 if (!state.esIntervencion) cargarCargadores();   // v1.5.0: en segundo plano, no bloquea
+if (!state.esIntervencion) cargarPrevisto();     // material previsto de la obra (almacén + pedido), en segundo plano
 prepararControles();                              // v1.5.0: botones − / +
 pintarCitaCompacta();
 setTimeout(() => { if (state.type) state.tipoDelPedido = state.type; marcarEtiquetaTipo(); marcarEtiquetaFase(); }, 150);
