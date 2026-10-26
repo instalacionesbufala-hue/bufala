@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.0 (24/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.1 (26/10/2026)
+     v1.8.1: EQUIPO BÚFALA 4. El selector de brigada (solo si el enlace llega
+     sin equipo) ofrece Búfala 4 y pasa a dos filas con los colores
+     corporativos; Búfala 4 entra en la lista de equipos válidos.
      v1.8.0: FIJACIÓN DEL TUBO (obligatoria). En «Materiales y cargador», junto
      al tubo: «Fijación del tubo» con Clavos / Taco y tornillo / Ambos, sin
      opción marcada. Solo aparece si hay metros de tubo fijado (pvc32 + acero32
@@ -812,6 +815,10 @@ html,body{overflow-x:hidden}
   border-radius:12px; font-family:inherit; font-size:15px; font-weight:600; color:#2d2b29; background:#fff; resize:vertical}
 .carg-card, .mat-card, .material-block, .rs-bloque{overflow-wrap:break-word; min-width:0}
 .carg-nombre, .carg-sub, .mc-title, .mc-sub{overflow-wrap:break-word}
+/* v1.8.1: selector de brigada con 4 equipos, en dos filas y colores corporativos */
+.eq-btns{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.eq-btn{border:2px solid #d9cdbd; background:#fff; color:#2d2b29; border-radius:14px; min-height:52px; font-weight:800; font-size:16px; font-family:inherit}
+.eq-btn.selected{background:#2d2b29; border-color:#2d2b29; color:#f6f2ec}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
 </head>
@@ -867,6 +874,7 @@ html,body{overflow-x:hidden}
         <button type="button" class="eq-btn" id="eqBtn1" onclick="elegirEquipo('Búfala 1')">Búfala 1</button>
         <button type="button" class="eq-btn" id="eqBtn2" onclick="elegirEquipo('Búfala 2')">Búfala 2</button>
         <button type="button" class="eq-btn" id="eqBtn3" onclick="elegirEquipo('Búfala 3')">Búfala 3</button>
+        <button type="button" class="eq-btn" id="eqBtn4" onclick="elegirEquipo('Búfala 4')">Búfala 4</button>
       </div>
     </div>
     <div class="row"><span class="row-label">Hardware</span><span class="row-value" id="dataHardware">—</span></div>
@@ -1301,7 +1309,7 @@ const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytit
 // de 90 días. Aquí solo se guarda el pase, nunca la contraseña.
 const SUPER_PASE_KEY = 'bufala_super_v4';
 const ES_ESBRAIN = true;   // v1.0.0: wizard SOLO DATOS del flujo ESBRAIN (sin vídeo/fotos/acta)
-const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3'];   // v1.1.0: guarda de brigada
+const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3', 'Búfala 4'];   // v1.1.0: guarda de brigada
 const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
 const CHUNK_SIZE_RAW  = 4 * 1024 * 1024;   // v3.14.1: 4 MB raw → ~5,3 MB en base64. Un chunk de 12 MB (~16 MB b64) NO pasaba por Apps Script (el primer chunk no llegaba y el vídeo se quedaba a 0%); 4 MB es el tamaño que SÍ subió en producción.
 const STABILIZE_MAX   = 150 * 1024 * 1024; // v3.15.0: leer a memoria (estabilizar) solo vídeos ≤150 MB. Evita OOM en móvil con vídeos enormes; por encima se deja el File original.
@@ -1787,7 +1795,7 @@ function elegirEquipo(nombre){
   state.cita.equipo = nombre;
   state.equipoPendiente = false;
   document.getElementById('dataEquipo').textContent = nombre;
-  ['eqBtn1', 'eqBtn2', 'eqBtn3'].forEach(function (id) {
+  ['eqBtn1', 'eqBtn2', 'eqBtn3', 'eqBtn4'].forEach(function (id) {
     const b = document.getElementById(id);
     if (b) b.classList.toggle('selected', b.textContent === nombre);
   });
