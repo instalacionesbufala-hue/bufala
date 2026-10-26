@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.1 (26/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.2 (26/10/2026)
+     v1.8.2: EQUIPOS DESDE EL PANEL. Vale cualquier «Búfala N» (el panel da de
+     alta los equipos en ⚙️ Configuración) y el selector de brigada, si el
+     enlace llega sin equipo, pide la lista al backend (acción listarEquipos);
+     si no responde, quedan los botones de siempre.
      v1.8.1: EQUIPO BÚFALA 4. El selector de brigada (solo si el enlace llega
      sin equipo) ofrece Búfala 4 y pasa a dos filas con los colores
      corporativos; Búfala 4 entra en la lista de equipos válidos.
@@ -16,14 +20,6 @@
      v1.7.1: ningún texto se sale de su recuadro: las opciones ajustan el
      texto en varias líneas y crecen en alto, los tipos de cuadro van en dos
      columnas iguales y las notas son un cuadro de texto de dos líneas.
-     v1.7.0: MATERIAL PREVISTO, CUADRO Y DPN (César 23/10). En «Materiales y
-     cargador»: material vinculado a la obra en el almacén (acción
-     materialPrevisto, E-068) con «Sí, es este / No, es otro»; cuadro de
-     protecciones si el pedido lo trae en Complementos y extras o es
-     trifásica, con el tipo del pedido marcado; intensidad de cada DPN de
-     10-25 A (10/16/20/25 A; sin DPN en trifásica) → dpnDetalle. Cargador:
-     protecciones también con «+ PROT»; no propone variantes Schuko, Tesla,
-     PRO, 10 m o 22 kW que el pedido no pide; Policharger por la marca.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -653,7 +649,7 @@ html,body{overflow-x:hidden}
     <!-- v1.1.0: guarda de brigada — visible solo si el link llega sin equipo válido -->
     <div id="equipoSelector" class="eq-selector" style="display:none">
       <div class="eq-warn">⚠️ El enlace ha llegado <b>sin brigada asignada</b>. Elige quién hace esta instalación:</div>
-      <div class="eq-btns">
+      <div class="eq-btns" id="eqBtns">
         <button type="button" class="eq-btn" id="eqBtn1" onclick="elegirEquipo('Búfala 1')">Búfala 1</button>
         <button type="button" class="eq-btn" id="eqBtn2" onclick="elegirEquipo('Búfala 2')">Búfala 2</button>
         <button type="button" class="eq-btn" id="eqBtn3" onclick="elegirEquipo('Búfala 3')">Búfala 3</button>
@@ -1092,7 +1088,8 @@ const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytit
 // de 90 días. Aquí solo se guarda el pase, nunca la contraseña.
 const SUPER_PASE_KEY = 'bufala_super_v4';
 const ES_ESBRAIN = true;   // v1.0.0: wizard SOLO DATOS del flujo ESBRAIN (sin vídeo/fotos/acta)
-const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3', 'Búfala 4'];   // v1.1.0: guarda de brigada
+const EQUIPOS_VALIDOS = ['Búfala 1', 'Búfala 2', 'Búfala 3', 'Búfala 4'];   // v1.1.0: guarda de brigada (respaldo del selector)
+function esEquipoValido(n){ return /^Búfala \d+$/.test(String(n || '').trim()); }   // v1.8.2: cualquier «Búfala N»
 const VIDEO_MAX_SIZE  = 400 * 1024 * 1024; // 400 MB máximo por vídeo (se comprime + sube por chunks)
 const CHUNK_SIZE_RAW  = 4 * 1024 * 1024;   // v3.14.1: 4 MB raw → ~5,3 MB en base64. Un chunk de 12 MB (~16 MB b64) NO pasaba por Apps Script (el primer chunk no llegaba y el vídeo se quedaba a 0%); 4 MB es el tamaño que SÍ subió en producción.
 const STABILIZE_MAX   = 150 * 1024 * 1024; // v3.15.0: leer a memoria (estabilizar) solo vídeos ≤150 MB. Evita OOM en móvil con vídeos enormes; por encima se deja el File original.
@@ -1315,7 +1312,7 @@ function parseUrlParams(){
   // v1.1.0: GUARDA DE BRIGADA. Si el link no trae una brigada válida (la
   // instalación estaba sin asignar en ESBRAIN al generarse), se exige
   // elegirla aquí. selectType() bloquea el avance hasta entonces.
-  state.equipoPendiente = EQUIPOS_VALIDOS.indexOf(state.cita.equipo) < 0;
+  state.equipoPendiente = !esEquipoValido(state.cita.equipo);
   if (state.equipoPendiente){
     document.getElementById('dataEquipo').textContent = '⚠️ sin asignar';
     const selEq = document.getElementById('equipoSelector');
@@ -1578,10 +1575,23 @@ function elegirEquipo(nombre){
   state.cita.equipo = nombre;
   state.equipoPendiente = false;
   document.getElementById('dataEquipo').textContent = nombre;
-  ['eqBtn1', 'eqBtn2', 'eqBtn3', 'eqBtn4'].forEach(function (id) {
-    const b = document.getElementById(id);
-    if (b) b.classList.toggle('selected', b.textContent === nombre);
+  document.querySelectorAll('#eqBtns .eq-btn').forEach(function (b) {
+    b.classList.toggle('selected', b.textContent === nombre);
   });
+}
+// v1.8.2: equipos activos desde el backend (⚙️ Configuración, alta en el panel).
+async function cargarEquipos(){
+  try {
+    const form = new URLSearchParams();
+    form.set('payload', JSON.stringify({ accion: 'listarEquipos' }));
+    const r = await (await fetch(WEB_APP_URL, { method: 'POST', body: form, redirect: 'follow' })).json();
+    const lista = (r && r.ok && Array.isArray(r.equipos)) ? r.equipos.filter(esEquipoValido) : [];
+    const cont = document.getElementById('eqBtns');
+    if (cont && lista.length){
+      cont.innerHTML = lista.map(n => '<button type="button" class="eq-btn" onclick="elegirEquipo(\'' + n + '\')">' + n + '</button>').join('');
+      if (state.cita.equipo && esEquipoValido(state.cita.equipo)) elegirEquipo(state.cita.equipo);
+    }
+  } catch (e) { /* se quedan los botones de siempre */ }
 }
 
 // ═══ v1.4.0 — MEDIDOR BIDIRECCIONAL (solo instalaciones SOLAR) ═══
@@ -2339,7 +2349,7 @@ function recolectarDatos(esFallida){
     cliente:   state.cita.cliente || '',
     direccion: state.cita.direccion || '',
     numInst:   state.cita.numInst || '',
-    equipo:    EQUIPOS_VALIDOS.indexOf(state.cita.equipo) >= 0 ? state.cita.equipo : '—',   // v1.1.0
+    equipo:    esEquipoValido(state.cita.equipo) ? state.cita.equipo : '—',   // v1.1.0
     hardware:  state.cita.hardware || '',
     tipoInst:  state.type,
     // v1.4.0: descripción de la cita (siempre) y medidor bidireccional (solo SOLAR; '' si no o si es fallida)
@@ -2532,7 +2542,7 @@ async function submitIntervencion(){
     cliente:   state.cita.cliente || '',
     direccion: state.cita.direccion || '',
     numInst:   state.cita.numInst || ('INT-' + Date.now()),
-    equipo:    EQUIPOS_VALIDOS.indexOf(state.cita.equipo) >= 0 ? state.cita.equipo : '—',   // v1.1.0
+    equipo:    esEquipoValido(state.cita.equipo) ? state.cita.equipo : '—',   // v1.1.0
     hardware:  state.cita.hardware || '',
     esIntervencion: true,
     despFallido: false,
@@ -3938,7 +3948,7 @@ renderSteps();
 renderChecklist();
 initEsbrainUI();   // v1.0.0 ESBRAIN
 if (!state.esIntervencion){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
-  (async () => { await cargarCargadores(); await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
+  (async () => { if (state.equipoPendiente) await cargarEquipos(); await cargarCargadores(); await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
 prepararControles();                              // v1.5.0: botones − / +
 pintarCitaCompacta();
 setTimeout(() => { if (state.type) state.tipoDelPedido = state.type; marcarEtiquetaTipo(); marcarEtiquetaFase(); }, 150);
