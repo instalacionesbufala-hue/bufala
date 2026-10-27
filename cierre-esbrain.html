@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.8.2 (26/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.9.0 (26/10/2026)
+     v1.9.0: CAUSA DE LA VISITA FALLIDA (Dirección General, variable v2.1). El
+     texto libre pasa a desplegable obligatorio con los códigos de la Dirección
+     (envío: causaFallida) y un detalle opcional, obligatorio en INVIABLE. Al
+     escribir el detalle se propone la causa por palabras clave. Las causas
+     propias (NO_TERMINADA, MATERIAL_PROPIO) avisan de que no se factura.
      v1.8.2: EQUIPOS DESDE EL PANEL. Vale cualquier «Búfala N» (el panel da de
      alta los equipos en ⚙️ Configuración) y el selector de brigada, si el
      enlace llega sin equipo, pide la lista al backend (acción listarEquipos);
@@ -17,9 +22,6 @@
      detrás de otra, nunca a la vez (Apps Script atiende de una en una y la
      segunda podía fallar), con un reintento. Si el técnico llega a Materiales
      antes de la respuesta, se le pide esperar unos segundos.
-     v1.7.1: ningún texto se sale de su recuadro: las opciones ajustan el
-     texto en varias líneas y crecen en alto, los tipos de cuadro van en dos
-     columnas iguales y las notas son un cuadro de texto de dos líneas.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -984,8 +986,30 @@ html,body{overflow-x:hidden}
   </div>
 
   <div class="field">
-    <label class="label">Motivo del fallo</label>
-    <textarea class="textarea" id="motivoFallido" placeholder="Describe qué ha pasado..."></textarea>
+    <label class="label" for="causaFallida">Causa de la visita fallida</label>
+    <select class="input" id="causaFallida" onchange="causaElegida()" style="text-align:left; font-size:16px">
+      <option value="">— Elige la causa —</option>
+      <optgroup label="Causas de ESMOVE, del partner o del cliente">
+        <option value="METROS">Más metros de los presupuestados</option>
+        <option value="CAMBIO_PRESUPUESTO">Aumento de presupuesto</option>
+        <option value="ORDEN_TRABAJO">Orden de trabajo errónea o material no previsto en el encargo</option>
+        <option value="INVIABLE">Inviable, insegura o sin permisos (indica el motivo)</option>
+        <option value="CANCELACION_CLIENTE">El cliente cancela</option>
+        <option value="ACCESO">Sin acceso al lugar</option>
+        <option value="EMPLAZAMIENTO">Problema con el emplazamiento</option>
+        <option value="RETRASO_ENCADENADO">Retraso de la obra anterior</option>
+      </optgroup>
+      <optgroup label="Causas propias (no se factura)">
+        <option value="NO_TERMINADA">No terminada (no imputable a ESMOVE ni al partner)</option>
+        <option value="MATERIAL_PROPIO">Nos faltó material propio</option>
+      </optgroup>
+    </select>
+    <div class="hint" id="causaAviso"></div>
+  </div>
+
+  <div class="field">
+    <label class="label" for="motivoFallido" id="lblMotivoFallido">Detalle (opcional)</label>
+    <textarea class="textarea" id="motivoFallido" placeholder="Explica qué ha pasado…" oninput="sugerirCausa()"></textarea>
   </div>
 
   <div class="field">
@@ -1554,8 +1578,10 @@ function validateScreen(num){
     showError('Marca todos los puntos del checklist'); return false;
   }
   if (num === 'failed'){
+    const causa = document.getElementById('causaFallida').value;                    // causa obligatoria
+    if (!causa){ showError('Elige la causa de la visita fallida'); return false; }
     const motivo = document.getElementById('motivoFallido').value.trim();
-    if (!motivo){ showError('Indica el motivo del fallo'); return false; }
+    if (causa === 'INVIABLE' && !motivo){ showError('Indica en el detalle por qué es inviable, insegura o sin permisos'); return false; }
   }
   return true;
 }
@@ -2365,7 +2391,10 @@ function recolectarDatos(esFallida){
   };
 
   if (esFallida){
-    datos.motivoFallido = document.getElementById('motivoFallido').value.trim();
+    datos.causaFallida = document.getElementById('causaFallida').value;          // códigos de la Dirección
+    { const sel = document.getElementById('causaFallida'), det = document.getElementById('motivoFallido').value.trim();
+      const txt = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : '';
+      datos.motivoFallido = txt + (det ? ' — ' + det : ''); }
     return datos;
   }
 
@@ -3869,6 +3898,38 @@ function validarDpn(){
   return '';
 }
 
+
+// ── Causa de la visita fallida (códigos de la Dirección General) ──
+const CAUSAS_PROPIAS = ['NO_TERMINADA', 'MATERIAL_PROPIO'];
+const CAUSA_CLAVES = [
+  ['ORDEN_TRABAJO',       /orden de trabajo|no previst|no estaba en el (pedido|encargo)|falta(ba)? .*(pedido|encargo)/],
+  ['MATERIAL_PROPIO',     /nos falt|faltaba material|sin material|se nos olvid|no llevabamos/],
+  ['NO_TERMINADA',        /no (nos )?dio tiempo|sin terminar|no termin|a medias|queda pendiente/],
+  ['INVIABLE',            /inviable|insegur|peligr|permiso|no autoriz|comunidad no|imposible/],
+  ['CANCELACION_CLIENTE', /cancel|anul|no quiere|desist|ya no le interesa/],
+  ['ACCESO',              /acceso|no (estaba|habia nadie|abri|contest)|ausente|llave|cerrad/],
+  ['METROS',              /metros|tirada|distancia|muy lejos/],
+  ['CAMBIO_PRESUPUESTO',  /presupuest|aument|precio|coste extra|mas caro/],
+  ['EMPLAZAMIENTO',       /emplazamiento|ubicacion|no cabe|plaza|pared|columna/],
+  ['RETRASO_ENCADENADO',  /retraso|obra anterior|se alargo|llegamos tarde/]
+];
+function causaElegida(){
+  state.causaManual = true;
+  pintarCausa();
+}
+function pintarCausa(){
+  const c = document.getElementById('causaFallida').value;
+  document.getElementById('lblMotivoFallido').textContent = c === 'INVIABLE' ? 'Detalle (obligatorio: indica el motivo)' : 'Detalle (opcional)';
+  const av = document.getElementById('causaAviso');
+  av.textContent = CAUSAS_PROPIAS.indexOf(c) >= 0 ? 'Causa propia: esta visita no se factura.' : (state.causaPropuesta && !state.causaManual ? 'Propuesta por lo que has escrito. Cámbiala si no es correcta.' : '');
+}
+function sugerirCausa(){
+  if (state.causaManual) return;
+  const t = _normTxt(document.getElementById('motivoFallido').value).toLowerCase();
+  const hit = CAUSA_CLAVES.find(k => k[1].test(t));
+  if (hit){ document.getElementById('causaFallida').value = hit[0]; state.causaPropuesta = true; }
+  pintarCausa();
+}
 async function cargarCargadores(){
   try {
     const form = new URLSearchParams();
