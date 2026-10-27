@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.24.0 (26/10/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.24.1 (27/10/2026)
+     v3.24.1 — HORA DE FIN: se envía aperturaIso (cuándo se abrió el cierre),
+     que el backend guarda como HORA FIN de InstantBox y directos (variable
+     v2.1). La hora de inicio sale del botón «📍 HE LLEGADO» del calendario.
      v3.24.0 — CAUSA DE LA VISITA FALLIDA (igual que cierre-esbrain v1.9.0):
      desplegable obligatorio con los códigos de la Dirección (causaFallida),
      detalle opcional (obligatorio en INVIABLE) y propuesta por palabras clave.
@@ -8,10 +11,6 @@
      v3.23.0 — MATERIAL PREVISTO, CUADRO Y DPN (igual que cierre-esbrain
      v1.7.0). InstantBox sin cargador en el pedido: no se pregunta por el
      cargador, sí por el cuadro de protecciones entregado al equipo.
-     v3.22.1 — CARGADOR DEL PARTNER (igual que cierre-esbrain v1.6.1): mismo
-     modelo en varios dueños → se descuenta del partner de la obra (InstantBox,
-     Búfala en directos, ESMOVE en el resto), la tarjeta lo indica y el técnico
-     confirma el modelo antes de seguir.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -2608,6 +2607,7 @@ function recolectarDatos(esFallida){
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
+  datos.aperturaIso = state.aperturaIso || '';                           // v3.24.1: hora de fin (apertura del cierre)
 
   // Hitos
   datos.hitoMontaje = state.hitos.h1;
@@ -4123,6 +4123,7 @@ function cargadorElegir(sku){
 // ═══════════════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════════════
+state.aperturaIso = new Date().toISOString();     // v3.24.1: cuándo se abre el cierre (hora de fin)
 parseUrlParams();
 checkSuperOnLoad();
 renderSteps();
