@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.24.1 (27/10/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.25.0 (28/10/2026)
+     v3.25.0 — «CONFORME» (igual que cierre-esbrain v1.10.0): true si el técnico
+     confirma todo lo predeterminado (material vinculado, cuadro y cargador del
+     pedido), false si elige algo distinto, vacío si no había nada o es fallida.
      v3.24.1 — HORA DE FIN: se envía aperturaIso (cuándo se abrió el cierre),
      que el backend guarda como HORA FIN de InstantBox y directos (variable
      v2.1). La hora de inicio sale del botón «📍 HE LLEGADO» del calendario.
@@ -8,9 +11,6 @@
      detalle opcional (obligatorio en INVIABLE) y propuesta por palabras clave.
      v3.23.2 — consultas al backend en serie con reintento (igual que cierre-esbrain v1.7.2).
      v3.23.1 — ningún texto se sale de su recuadro (igual que cierre-esbrain v1.7.1).
-     v3.23.0 — MATERIAL PREVISTO, CUADRO Y DPN (igual que cierre-esbrain
-     v1.7.0). InstantBox sin cargador en el pedido: no se pregunta por el
-     cargador, sí por el cuadro de protecciones entregado al equipo.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -2606,6 +2606,7 @@ function recolectarDatos(esFallida){
   }
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
+  datos.conforme = esFallida ? '' : calcConforme();                      // v3.25.0: material, cuadro y cargador predeterminados
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
   datos.aperturaIso = state.aperturaIso || '';                           // v3.24.1: hora de fin (apertura del cierre)
 
@@ -3949,6 +3950,19 @@ function validarPrevisto(){
     if ((!C.tipoPedido || C.si === false) && !C.tipo && !String(C.nota || '').trim()) return 'Indica qué cuadro de protecciones has puesto';
   }
   return '';
+}
+// ── v1.10.0 / v3.25.0: «conforme» (César 28/10): sí si el técnico confirma todo lo predeterminado
+//    (material vinculado, cuadro del pedido y cargador del pedido); no si elige algo distinto;
+//    vacío si la obra no traía nada predeterminado. El almacén avisa cuando es «no».
+function calcConforme(){
+  let hay = false, ok = true;
+  const P = state.prev || {};
+  const items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  items.forEach((it, k) => { const r = (P.resp || {})[k] || {}; hay = true; if (r.si !== true) ok = false; });
+  const visibleCuadro = !items.some(it => it.tipo === 'cuadro') && necesitaCuadro();
+  if (visibleCuadro && P.cuadro && P.cuadro.tipoPedido){ hay = true; if (P.cuadro.si !== true) ok = false; }
+  if (!cargadorOculto() && state.carg && state.carg.respuesta != null){ hay = true; if (state.carg.respuesta !== true) ok = false; }
+  return hay ? ok : '';
 }
 function datosPrevisto(datos){
   const P = state.prev; if (!P) return;
