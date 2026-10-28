@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.9.0 (26/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.10.0 (28/10/2026)
+     v1.10.0: «CONFORME» (César 28/10, encargo #2 del almacén). Se envía
+     conforme = true si el técnico confirma todo lo predeterminado (material
+     vinculado, cuadro y cargador del pedido), false si elige algo distinto y
+     vacío si no había nada predeterminado o es visita fallida. El técnico no
+     ve nada nuevo; el almacén avisa a César cuando es false.
      v1.9.0: CAUSA DE LA VISITA FALLIDA (Dirección General, variable v2.1). El
      texto libre pasa a desplegable obligatorio con los códigos de la Dirección
      (envío: causaFallida) y un detalle opcional, obligatorio en INVIABLE. Al
@@ -18,10 +23,6 @@
      + acero40 > 0) y no en visita fallida; si los metros vuelven a 0, la
      elección se borra. Envío: fijacionTipo = 'clavo' | 'taco' | 'ambos' ('' si
      no aplica). Sale en el resumen («Fijación: …»).
-     v1.7.2: las consultas al backend (cargadores y material previsto) van una
-     detrás de otra, nunca a la vez (Apps Script atiende de una en una y la
-     segunda podía fallar), con un reintento. Si el técnico llega a Materiales
-     antes de la respuesta, se le pide esperar unos segundos.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -2440,6 +2441,7 @@ function recolectarDatos(esFallida){
   }
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
+  datos.conforme = esFallida ? '' : calcConforme();                      // v1.10.0: material, cuadro y cargador predeterminados
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
   datos.fijacionTipo = fijacionVisible() ? (state.fijacion || '') : '';   // v1.8.0
 
@@ -3829,6 +3831,19 @@ function validarPrevisto(){
     if ((!C.tipoPedido || C.si === false) && !C.tipo && !String(C.nota || '').trim()) return 'Indica qué cuadro de protecciones has puesto';
   }
   return '';
+}
+// ── v1.10.0 / v3.25.0: «conforme» (César 28/10): sí si el técnico confirma todo lo predeterminado
+//    (material vinculado, cuadro del pedido y cargador del pedido); no si elige algo distinto;
+//    vacío si la obra no traía nada predeterminado. El almacén avisa cuando es «no».
+function calcConforme(){
+  let hay = false, ok = true;
+  const P = state.prev || {};
+  const items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  items.forEach((it, k) => { const r = (P.resp || {})[k] || {}; hay = true; if (r.si !== true) ok = false; });
+  const visibleCuadro = !items.some(it => it.tipo === 'cuadro') && necesitaCuadro();
+  if (visibleCuadro && P.cuadro && P.cuadro.tipoPedido){ hay = true; if (P.cuadro.si !== true) ok = false; }
+  if (!cargadorOculto() && state.carg && state.carg.respuesta != null){ hay = true; if (state.carg.respuesta !== true) ok = false; }
+  return hay ? ok : '';
 }
 function datosPrevisto(datos){
   const P = state.prev; if (!P) return;
