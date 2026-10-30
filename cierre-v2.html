@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.25.0 (28/10/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.26.0 (29/10/2026)
+     v3.26.0 — OBRA YA CERRADA (igual que cierre-esbrain v1.11.0): pantalla de
+     aviso al abrir, con salir, corregir el cierre (sustituye al anterior si el
+     presupuesto no está aceptado ni facturado) y nueva visita si fue fallida.
+     Sustituye al bloqueo de InstantBox y al confirm() de doble cierre.
      v3.25.0 — «CONFORME» (igual que cierre-esbrain v1.10.0): true si el técnico
      confirma todo lo predeterminado (material vinculado, cuadro y cargador del
      pedido), false si elige algo distinto, vacío si no había nada o es fallida.
@@ -10,7 +14,6 @@
      desplegable obligatorio con los códigos de la Dirección (causaFallida),
      detalle opcional (obligatorio en INVIABLE) y propuesta por palabras clave.
      v3.23.2 — consultas al backend en serie con reintento (igual que cierre-esbrain v1.7.2).
-     v3.23.1 — ningún texto se sale de su recuadro (igual que cierre-esbrain v1.7.1).
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -1357,57 +1360,60 @@ function parseUrlParams(){
 // caída de red nunca debe impedir un cierre.
 // ═══════════════════════════════════════════════════════════════
 function comprobarCierreDuplicado(numInst){
+  // v1.11.0 / v3.26.0 (César 29/10/2026): al abrir el enlace de una obra que YA
+  // tiene cierre, pantalla de aviso con tres salidas: salir (ha sido un error),
+  // corregir el cierre (lo sustituye; solo si su presupuesto de Holded no está
+  // aceptado ni facturado, lo dice el backend) y, si el anterior fue una visita
+  // fallida, nueva visita. Sin red no se avisa: nunca bloquea un cierre.
   if (!numInst) return;
-  const url = WEB_APP_URL + '?action=existeCierre&numInst=' + encodeURIComponent(numInst);
-  fetch(url)
+  fetch(WEB_APP_URL + '?action=existeCierre&numInst=' + encodeURIComponent(numInst))
     .then(r => r.json())
-    .then(d => {
-      if (!d || !d.existe) return;
-      state.cierrePrevio = d;
-
-      // v3.19.4 — InstantBox: PROHIBIDO cerrar dos veces (César 18/09/2026).
-      // Con InstantBox no hay visitas fallidas, así que un segundo cierre es
-      // siempre un error. Aquí se corta en seco, sin opción de continuar; el
-      // modo administrador (con contraseña) sí puede, por si hay que rehacer
-      // uno de verdad. El backend lo rechaza también, por si alguien se
-      // saltara esta pantalla.
-      if (state.esInstantbox && !state.isSuper){
-        document.body.innerHTML =
-          '<div style="padding:44px 24px; text-align:center; font-family:inherit; max-width:520px; margin:0 auto">' +
-          '<div style="font-size:52px; margin-bottom:18px">⛔</div>' +
-          '<h2 style="margin-bottom:12px">Esta instalación ya está cerrada</h2>' +
-          '<p style="color:#555; line-height:1.6">' +
-          '<b>' + numInst + '</b>' + (d.cliente ? ' · ' + d.cliente : '') + '<br>' +
-          'Cerrada el <b>' + (d.fecha || '?') + '</b>' + (d.equipo ? ' por <b>' + d.equipo + '</b>' : '') + '.' +
-          '</p><p style="color:#555; line-height:1.6; margin-top:14px">' +
-          'En InstantBox no hay visitas fallidas, así que una instalación solo se cierra una vez.<br>' +
-          'Si de verdad hay que rehacer este cierre, <b>avisa a oficina</b>.' +
-          '</p><p style="color:#888; font-size:13px; margin-top:22px">Puedes cerrar esta pestaña.</p></div>';
-        return;
-      }
-      const tag = document.getElementById('dupTag');
-      if (tag) tag.style.display = 'inline-flex';
-      const quePaso = d.fallida ? 'una VISITA FALLIDA' : 'un cierre';
-      const seguir = confirm(
-        '⚠️ ESTA INSTALACIÓN YA TIENE CIERRE\n\n' +
-        'Nº ' + numInst + (d.cliente ? '  ·  ' + d.cliente : '') + '\n' +
-        'Ya se registró ' + quePaso + ' el ' + (d.fecha || '¿?') +
-        (d.equipo ? ' por ' + d.equipo : '') + '.\n\n' +
-        'Si continúas se creará un SEGUNDO registro y habrá que corregirlo\n' +
-        'a mano en el Registro y en las pre-facturas.\n\n' +
-        '¿Seguro que quieres continuar?');
-      if (!seguir) {
-        document.body.innerHTML =
-          '<div style="padding:40px 24px; text-align:center; font-family:inherit">' +
-          '<div style="font-size:48px; margin-bottom:16px">🛑</div>' +
-          '<h2 style="margin-bottom:10px">Cierre cancelado</h2>' +
-          '<p style="color:#666; line-height:1.5">La instalación <b>' + numInst +
-          '</b> ya tenía cierre del ' + (d.fecha || '') + '.<br>' +
-          'Puedes cerrar esta pestaña.<br><br>' +
-          'Si crees que es un error, avisa a oficina.</p></div>';
-      }
-    })
-    .catch(() => {});   // sin red: no se avisa, nunca se bloquea
+    .then(d => { if (d && d.existe && !state.isSuper) { state.cierrePrevio = d; mostrarAvisoCierre(numInst, d); } })
+    .catch(() => {});
+}
+function mostrarAvisoCierre(numInst, d){
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ya = document.getElementById('avisoCierre'); if (ya) ya.remove();
+  const capa = document.createElement('div'); capa.id = 'avisoCierre';
+  capa.style.cssText = 'position:fixed; inset:0; z-index:9999; background:#f6f2ec; overflow:auto; font-family:inherit; color:#2d2b29';
+  const btn = (id, txt, est) => '<button type="button" id="' + id + '" style="display:block; width:100%; padding:16px; margin-top:12px; border-radius:14px; font-size:17px; font-weight:700; cursor:pointer; ' + est + '">' + txt + '</button>';
+  const fueFallida = !!d.fallida;
+  let html = '<div style="max-width:520px; margin:0 auto; padding:28px 20px 40px">' +
+    '<div style="font-size:44px; text-align:center; margin-bottom:10px">⚠️</div>' +
+    '<h2 style="font-size:24px; font-weight:800; text-align:center; margin-bottom:16px">Esta instalación ya está cerrada</h2>' +
+    '<div style="background:#fff; border:1px solid #e3d9cb; border-radius:16px; padding:16px; line-height:1.55">' +
+      '<div style="font-weight:800; font-size:17px">' + esc(d.cliente || (state.cita && state.cita.cliente) || '') + '</div>' +
+      '<div style="color:#5c5650">' + esc(numInst) + '</div>' +
+      '<div style="margin-top:8px">Cerrada el <b>' + esc(d.fecha || '¿?') + '</b>' + (d.equipo ? ' por <b>' + esc(d.equipo) + '</b>' : '') + '</div>' +
+      '<div style="margin-top:6px; display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; font-weight:700; ' +
+        (fueFallida ? 'background:#f9e7e1; color:#a8432a">❌ Visita fallida' : 'background:#e9f2ec; color:#2f6b45">✅ Completada') + '</div>' +
+    '</div>';
+  if (fueFallida) html += btn('acNueva', 'Es una nueva visita', 'background:#2d2b29; color:#f6f2ec; border:0');
+  if (d.corregible === false) {
+    html += '<div style="margin-top:14px; background:#fff; border:1px dashed #a8432a; border-radius:14px; padding:14px; color:#a8432a; line-height:1.5">' +
+            '🔒 ' + esc(d.motivo || 'Este cierre ya no se puede corregir desde aquí. Avisa a oficina.') + '</div>';
+  } else {
+    html += btn('acCorregir', '✏️ Corregir el cierre', 'background:#c9a46e; color:#2d2b29; border:0') +
+            '<div style="font-size:13px; color:#5c5650; margin-top:6px; text-align:center">El cierre nuevo sustituirá al anterior.</div>';
+  }
+  html += btn('acSalir', 'Salir, ha sido un error', 'background:transparent; color:#2d2b29; border:2px solid #2d2b29') + '</div>';
+  capa.innerHTML = html; document.body.appendChild(capa);
+  const quitar = () => capa.remove();
+  const n = document.getElementById('acNueva'); if (n) n.onclick = () => { state.nuevaVisita = true; quitar(); };
+  const c = document.getElementById('acCorregir'); if (c) c.onclick = () => {
+    state.correccion = { fecha: d.fecha || '', fallida: fueFallida };
+    quitar();
+    const b = document.createElement('div'); b.id = 'avisoCorreccion';
+    b.style.cssText = 'position:sticky; top:0; z-index:50; background:#c9a46e; color:#2d2b29; font-weight:700; font-size:14px; padding:8px 14px; text-align:center';
+    b.textContent = '✏️ Corrigiendo el cierre del ' + (d.fecha || '') + ': al enviar, sustituirá al anterior';
+    document.body.insertBefore(b, document.body.firstChild);
+  };
+  document.getElementById('acSalir').onclick = () => {
+    capa.innerHTML = '<div style="max-width:520px; margin:0 auto; padding:60px 24px; text-align:center">' +
+      '<div style="font-size:48px; margin-bottom:14px">👍</div><h2 style="font-size:22px; margin-bottom:10px">No se ha tocado nada</h2>' +
+      '<p style="color:#5c5650; line-height:1.55">El cierre del ' + esc(d.fecha || '') + ' sigue como estaba.<br>Ya puedes cerrar esta pestaña.</p></div>';
+    try { window.close(); } catch (e) {}
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2607,6 +2613,7 @@ function recolectarDatos(esFallida){
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   datos.conforme = esFallida ? '' : calcConforme();                      // v3.25.0: material, cuadro y cargador predeterminados
+  if (state.correccion){ datos.correccion = true; datos.correccionDe = state.correccion; }   // v3.26.0: sustituye al cierre anterior
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
   datos.aperturaIso = state.aperturaIso || '';                           // v3.24.1: hora de fin (apertura del cierre)
 
@@ -2786,7 +2793,7 @@ async function submitIntervencion(){
 async function submitClosure(esFallida){
   // v3.19.2: segundo aviso justo antes de enviar, por si el técnico siguió
   // adelante y ya no lo recuerda.
-  if (state.cierrePrevio && !state._dupConfirmado){
+  if (state.cierrePrevio && !state._dupConfirmado && !state.correccion && !state.nuevaVisita){   // v3.26.0
     const d = state.cierrePrevio;
     if (!confirm('⚠️ Recuerda: ' + (state.cita.numInst || 'esta instalación') +
                  ' ya tenía cierre del ' + (d.fecha || '¿?') +
