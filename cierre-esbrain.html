@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.10.0 (28/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.11.0 (29/10/2026)
+     v1.11.0: OBRA YA CERRADA (César 29/10). Al abrir el enlace se consulta
+     existeCierre; si la obra ya tiene cierre, pantalla de aviso: salir, corregir
+     el cierre (correccion = true: sustituye al anterior si su presupuesto de
+     Holded no está aceptado ni facturado; lo decide el backend) y, si fue visita
+     fallida, nueva visita.
      v1.10.0: «CONFORME» (César 28/10, encargo #2 del almacén). Se envía
      conforme = true si el técnico confirma todo lo predeterminado (material
      vinculado, cuadro y cargador del pedido), false si elige algo distinto y
@@ -17,12 +22,6 @@
      v1.8.1: EQUIPO BÚFALA 4. El selector de brigada (solo si el enlace llega
      sin equipo) ofrece Búfala 4 y pasa a dos filas con los colores
      corporativos; Búfala 4 entra en la lista de equipos válidos.
-     v1.8.0: FIJACIÓN DEL TUBO (obligatoria). En «Materiales y cargador», junto
-     al tubo: «Fijación del tubo» con Clavos / Taco y tornillo / Ambos, sin
-     opción marcada. Solo aparece si hay metros de tubo fijado (pvc32 + acero32
-     + acero40 > 0) y no en visita fallida; si los metros vuelven a 0, la
-     elección se borra. Envío: fijacionTipo = 'clavo' | 'taco' | 'ambos' ('' si
-     no aplica). Sale en el resumen («Fijación: …»).
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -2442,6 +2441,7 @@ function recolectarDatos(esFallida){
   if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   datos.conforme = esFallida ? '' : calcConforme();                      // v1.10.0: material, cuadro y cargador predeterminados
+  if (state.correccion){ datos.correccion = true; datos.correccionDe = state.correccion; }   // v1.11.0: sustituye al cierre anterior
   const _dpn = dpnDetalle(); if (_dpn) datos.dpnDetalle = _dpn;
   datos.fijacionTipo = fijacionVisible() ? (state.fijacion || '') : '';   // v1.8.0
 
@@ -3410,7 +3410,64 @@ function nuevoCierre(){
 // ═══════════════════════════════════════════════════════════════
 // v1.0.0 ESBRAIN — ajustes de interfaz al arrancar
 // ═══════════════════════════════════════════════════════════════
+function comprobarCierreDuplicado(numInst){
+  // v1.11.0 / v3.26.0 (César 29/10/2026): al abrir el enlace de una obra que YA
+  // tiene cierre, pantalla de aviso con tres salidas: salir (ha sido un error),
+  // corregir el cierre (lo sustituye; solo si su presupuesto de Holded no está
+  // aceptado ni facturado, lo dice el backend) y, si el anterior fue una visita
+  // fallida, nueva visita. Sin red no se avisa: nunca bloquea un cierre.
+  if (!numInst) return;
+  fetch(WEB_APP_URL + '?action=existeCierre&numInst=' + encodeURIComponent(numInst))
+    .then(r => r.json())
+    .then(d => { if (d && d.existe && !state.isSuper) { state.cierrePrevio = d; mostrarAvisoCierre(numInst, d); } })
+    .catch(() => {});
+}
+function mostrarAvisoCierre(numInst, d){
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ya = document.getElementById('avisoCierre'); if (ya) ya.remove();
+  const capa = document.createElement('div'); capa.id = 'avisoCierre';
+  capa.style.cssText = 'position:fixed; inset:0; z-index:9999; background:#f6f2ec; overflow:auto; font-family:inherit; color:#2d2b29';
+  const btn = (id, txt, est) => '<button type="button" id="' + id + '" style="display:block; width:100%; padding:16px; margin-top:12px; border-radius:14px; font-size:17px; font-weight:700; cursor:pointer; ' + est + '">' + txt + '</button>';
+  const fueFallida = !!d.fallida;
+  let html = '<div style="max-width:520px; margin:0 auto; padding:28px 20px 40px">' +
+    '<div style="font-size:44px; text-align:center; margin-bottom:10px">⚠️</div>' +
+    '<h2 style="font-size:24px; font-weight:800; text-align:center; margin-bottom:16px">Esta instalación ya está cerrada</h2>' +
+    '<div style="background:#fff; border:1px solid #e3d9cb; border-radius:16px; padding:16px; line-height:1.55">' +
+      '<div style="font-weight:800; font-size:17px">' + esc(d.cliente || (state.cita && state.cita.cliente) || '') + '</div>' +
+      '<div style="color:#5c5650">' + esc(numInst) + '</div>' +
+      '<div style="margin-top:8px">Cerrada el <b>' + esc(d.fecha || '¿?') + '</b>' + (d.equipo ? ' por <b>' + esc(d.equipo) + '</b>' : '') + '</div>' +
+      '<div style="margin-top:6px; display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; font-weight:700; ' +
+        (fueFallida ? 'background:#f9e7e1; color:#a8432a">❌ Visita fallida' : 'background:#e9f2ec; color:#2f6b45">✅ Completada') + '</div>' +
+    '</div>';
+  if (fueFallida) html += btn('acNueva', 'Es una nueva visita', 'background:#2d2b29; color:#f6f2ec; border:0');
+  if (d.corregible === false) {
+    html += '<div style="margin-top:14px; background:#fff; border:1px dashed #a8432a; border-radius:14px; padding:14px; color:#a8432a; line-height:1.5">' +
+            '🔒 ' + esc(d.motivo || 'Este cierre ya no se puede corregir desde aquí. Avisa a oficina.') + '</div>';
+  } else {
+    html += btn('acCorregir', '✏️ Corregir el cierre', 'background:#c9a46e; color:#2d2b29; border:0') +
+            '<div style="font-size:13px; color:#5c5650; margin-top:6px; text-align:center">El cierre nuevo sustituirá al anterior.</div>';
+  }
+  html += btn('acSalir', 'Salir, ha sido un error', 'background:transparent; color:#2d2b29; border:2px solid #2d2b29') + '</div>';
+  capa.innerHTML = html; document.body.appendChild(capa);
+  const quitar = () => capa.remove();
+  const n = document.getElementById('acNueva'); if (n) n.onclick = () => { state.nuevaVisita = true; quitar(); };
+  const c = document.getElementById('acCorregir'); if (c) c.onclick = () => {
+    state.correccion = { fecha: d.fecha || '', fallida: fueFallida };
+    quitar();
+    const b = document.createElement('div'); b.id = 'avisoCorreccion';
+    b.style.cssText = 'position:sticky; top:0; z-index:50; background:#c9a46e; color:#2d2b29; font-weight:700; font-size:14px; padding:8px 14px; text-align:center';
+    b.textContent = '✏️ Corrigiendo el cierre del ' + (d.fecha || '') + ': al enviar, sustituirá al anterior';
+    document.body.insertBefore(b, document.body.firstChild);
+  };
+  document.getElementById('acSalir').onclick = () => {
+    capa.innerHTML = '<div style="max-width:520px; margin:0 auto; padding:60px 24px; text-align:center">' +
+      '<div style="font-size:48px; margin-bottom:14px">👍</div><h2 style="font-size:22px; margin-bottom:10px">No se ha tocado nada</h2>' +
+      '<p style="color:#5c5650; line-height:1.55">El cierre del ' + esc(d.fecha || '') + ' sigue como estaba.<br>Ya puedes cerrar esta pestaña.</p></div>';
+    try { window.close(); } catch (e) {}
+  };
+}
 function initEsbrainUI(){
+  comprobarCierreDuplicado(state.cita && state.cita.numInst);   // v1.11.0: ¿ya tiene cierre?
   // Teléfono del cliente como botón de llamada
   if (state.cita.telefono){
     var tel = state.cita.telefono.replace(/[^\d+ ]/g, '');
