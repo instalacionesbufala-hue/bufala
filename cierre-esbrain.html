@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.11.1 (30/10/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.11.2 (13/11/2026)
+     v1.11.2: desplegable del cargador. Un artículo del almacén con un nombre de
+     215 caracteres hacía la lista más ancha que la pantalla. El nombre mostrado se
+     recorta a 64 (el completo, en el title; sin repetidos: si chocan, con la
+     referencia); la lista va a la izquierda y sin negrita.
      v1.11.1: la consulta de obra ya cerrada tarda ~10 s; mientras, pantalla de
      espera que tapa el wizard (máximo 30 s; sin respuesta, se quita).
      v1.11.0: OBRA YA CERRADA (César 29/10). Al abrir el enlace se consulta
@@ -17,10 +21,6 @@
      (envío: causaFallida) y un detalle opcional, obligatorio en INVIABLE. Al
      escribir el detalle se propone la causa por palabras clave. Las causas
      propias (NO_TERMINADA, MATERIAL_PROPIO) avisan de que no se factura.
-     v1.8.2: EQUIPOS DESDE EL PANEL. Vale cualquier «Búfala N» (el panel da de
-     alta los equipos en ⚙️ Configuración) y el selector de brigada, si el
-     enlace llega sin equipo, pide la lista al backend (acción listarEquipos);
-     si no responde, quedan los botones de siempre.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -509,6 +509,9 @@ body{font-family:Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans
 .pill{border:2px solid #d9cdbd; border-radius:16px; background:#fff; color:#2d2b29; padding:16px 8px; font-size:16px; font-weight:800; text-align:center}
 .pill.selected{background:#2d2b29; border:3px solid #2d2b29; color:#f6f2ec}
 .input{height:60px; border:2px solid #d9cdbd; border-radius:16px; background:#fff; font-size:20px; font-weight:800; text-align:center; color:#2d2b29}
+/* desplegables: el texto elegido no se sale de la casilla y la lista va a la izquierda, sin negrita */
+select.input{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+select.input option{font-size:16px; font-weight:500; text-align:left}
 .hint{color:#5c5650}
 .stepper{display:flex; align-items:center; gap:8px; flex-shrink:0}
 .stepper .st-btn{width:44px; height:44px; border-radius:12px; border:2px solid #d9cdbd; background:#f6f2ec; font-size:22px; font-weight:800; color:#2d2b29; line-height:1}
@@ -3832,6 +3835,15 @@ async function cargarPrevisto(intento){
   state.prev.cargando = false; state.prev.cargado = true;
   pintarPrevisto(); pintarCargador();
 }
+// Nombre de artículo para un desplegable: como mucho 64 caracteres (hoy solo lo supera un
+// cargador con un título de 215). Con menos de 60, dos modelos distintos quedarían iguales.
+function _nomCorto(n){ n = String(n == null ? '' : n).replace(/\s+/g, ' ').trim(); return n.length > 64 ? n.slice(0, 63).trim() + '…' : n; }
+// Etiquetas de una lista sin repetir: si dos quedan iguales al recortar, se les añade la referencia.
+function _etiquetasUnicas(lista, nombreDe, refDe){
+  const base = lista.map(x => _nomCorto(nombreDe(x))), veces = {};
+  base.forEach(b => { veces[b] = (veces[b] || 0) + 1; });
+  return base.map((b, i) => veces[b] > 1 ? b + ' · ' + refDe(lista[i]) : b);
+}
 function _escP(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function pintarPrevisto(){
   const w = document.getElementById('previstoWrap'); if (!w) return;
@@ -3852,7 +3864,7 @@ function pintarPrevisto(){
       '<div class="pill' + (r.si === false ? ' selected' : '') + '" onclick="prevResp(' + k + ',false)">No, es otro</div></div>';
     if (r.si === false){
       if (alt.length) h += '<select class="input" style="margin-top:10px" onchange="prevAlt(' + k + ',this.value)"><option value="">— Elige el que has puesto —</option>' +
-        alt.map((a, j) => '<option value="' + j + '"' + (r.alt === j ? ' selected' : '') + '>' + _escP((a.nombre || a.sku) + (a.ref ? ' · ' + a.ref : '')) + '</option>').join('') + '</select>';
+        alt.map((a, j) => '<option value="' + j + '"' + (r.alt === j ? ' selected' : '') + '>' + _escP(_nomCorto(a.nombre || a.sku) + (a.ref ? ' · ' + a.ref : '')) + '</option>').join('') + '</select>';
       h += '<textarea class="nota-campo" rows="2" placeholder="Describe qué has puesto" oninput="prevNota(' + k + ',this.value)">' + _escP(r.nota || '') + '</textarea>';
     }
     h += '</div>';
@@ -4051,9 +4063,10 @@ function pintarCargador(){
   document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
   const sel = document.getElementById('cargSelect'), msg = document.getElementById('cargListaMsg');
   if (sel && state.carg.lista){
+    const etq = _etiquetasUnicas(state.carg.lista, c => c.nombre || c.sku, c => c.sku);   // nombre recortado, sin repetidos
     const ops = ['<option value="">— Elige el cargador instalado —</option>'].concat(
-      state.carg.lista.map(c => '<option value="' + String(c.sku).replace(/"/g, '&quot;') + '"' + (c.sku === state.carg.sku && state.carg.respuesta === false ? ' selected' : '') + '>' +
-        (c.nombre || c.sku) + etiquetaStock(c) + '</option>'));
+      state.carg.lista.map((c, i) => '<option value="' + String(c.sku).replace(/"/g, '&quot;') + '"' + (c.sku === state.carg.sku && state.carg.respuesta === false ? ' selected' : '') +
+        ' title="' + _escP(c.nombre || c.sku) + '">' + _escP(etq[i] + etiquetaStock(c)) + '</option>'));
     sel.innerHTML = ops.join('');
   }
   if (msg) msg.textContent = state.carg.lista === null ? 'Cargando la lista del almacén…' :
