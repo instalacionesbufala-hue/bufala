@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!--
+  BÚFALA TECH — dashboard.html · retirado el 13/11/2026
+  El dashboard vive ahora en el panel (pestaña «Dashboard»: Operaciones, Dirección e Informes).
+  Esta página solo avisa del cambio. No carga datos, no pide contraseña y no tiene JavaScript.
+  La versión anterior queda en el historial del repositorio.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Búfala Tech · El dashboard está en el panel</title>
+<style>
+  :root {
+    color-scheme: light;
+    --fondo: #F3F4FB;
+    --tinta: #171C3A;
+    --texto: #4E5474;
+    --azul: #3D5AFE;
+    --sobre-azul: #FFFFFF;
+    --linea: #D5D9EE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --fondo: #0F1226;
+      --tinta: #ECEEFB;
+      --texto: #A9AFCF;
+      --azul: #8C9BFF;
+      --sobre-azul: #0F1226;
+      --linea: #2A2F52;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--fondo);
+    color: var(--texto);
+    font: 1.0625rem/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: max(1.5rem, env(safe-area-inset-top, 0px)) 1.5rem max(1.5rem, env(safe-area-inset-bottom, 0px));
+    display: grid;
+    align-content: center;
+    justify-items: start;
+  }
+  main {
+    width: 100%;
+    max-width: 34rem;
+    margin: 0 auto;
+    padding-left: 1.25rem;
+    border-left: 4px solid var(--azul);
+  }
+  h1 {
+    margin: 0 0 1rem;
+    color: var(--tinta);
+    font-size: clamp(1.9rem, 6vw, 2.75rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    font-weight: 750;
+    text-wrap: balance;
+  }
+  p { margin: 0 0 1.5rem; max-width: 30rem; }
+  a.abrir {
+    display: inline-block;
+    padding: 0.8rem 1.4rem;
+    border-radius: 0.6rem;
+    background: var(--azul);
+    color: var(--sobre-azul);
+    font-weight: 650;
+    text-decoration: none;
+  }
+  a.abrir:hover { filter: brightness(1.08); }
+  a.abrir:focus-visible { outline: 3px solid var(--tinta); outline-offset: 3px; }
+  small {
+    display: block;
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--linea);
+    font-size: 0.9rem;
+    max-width: 30rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>El dashboard está ahora en el panel</h1>
+  <p>Esta página ya no se actualiza. Los mismos indicadores, con todos los meses desde mayo de 2026, están en el panel de Búfala Tech, en la pestaña «Dashboard».</p>
+  <a class="abrir" href="https://instalacionesbufala-hue.github.io/panel/#dashboard">Abrir el panel</a>
+  <small>Se entra con tu usuario del panel; la contraseña antigua del dashboard ya no sirve. Si no tienes usuario, pídeselo a la gerencia de Búfala Tech.</small>
+</main>
+</body>
+</html>
