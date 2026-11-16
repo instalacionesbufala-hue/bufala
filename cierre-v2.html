@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.27.1 (13/11/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.27.2 (16/11/2026)
+     v3.27.2 — el wizard nunca hace esperar (igual que cierre-esbrain v1.11.3): sin
+     pantalla de espera al abrir y sin bloqueo por el material previsto.
      v3.27.1 — desplegable del cargador: nombre recortado a 64 caracteres, sin
      repetidos, y lista a la izquierda (igual que cierre-esbrain v1.11.2).
      v3.27.0 — EQUIPO: el de quien cierra. Si el enlace lo trae (calendario del
@@ -11,9 +13,6 @@
      aviso al abrir, con salir, corregir el cierre (sustituye al anterior si el
      presupuesto no está aceptado ni facturado) y nueva visita si fue fallida.
      Sustituye al bloqueo de InstantBox y al confirm() de doble cierre.
-     v3.25.0 — «CONFORME» (igual que cierre-esbrain v1.10.0): true si el técnico
-     confirma todo lo predeterminado (material vinculado, cuadro y cargador del
-     pedido), false si elige algo distinto, vacío si no había nada o es fallida.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -1413,20 +1412,12 @@ function comprobarCierreDuplicado(numInst){
   if (!numInst || state.isSuper) return;
   // v1.11.1 / v3.26.1: la consulta tarda ~10 s; mientras, una pantalla de espera tapa el
   // wizard para que no se toque nada. Máximo 30 s: sin respuesta, se quita (nunca bloquea).
-  const espera = document.createElement('div'); espera.id = 'avisoCierre';
-  espera.style.cssText = 'position:fixed; inset:0; z-index:9999; background:#f6f2ec; color:#2d2b29; font-family:inherit';
-  espera.innerHTML = '<style>@keyframes acGiro{to{transform:rotate(360deg)}}</style>' +
-    '<div style="max-width:520px; margin:0 auto; padding:140px 24px; text-align:center">' +
-    '<div style="width:44px; height:44px; margin:0 auto 22px; border:4px solid #e3d9cb; border-top-color:#c9a46e; border-radius:50%; animation:acGiro .9s linear infinite"></div>' +
-    '<div style="font-size:18px; font-weight:700">Comprobando si esta instalación ya está cerrada…</div>' +
-    '<div style="font-size:14px; color:#5c5650; margin-top:8px">Un momento, son unos segundos.</div></div>';
-  document.body.appendChild(espera);
-  const quitarEspera = () => { const e = document.getElementById('avisoCierre'); if (e === espera) e.remove(); };
-  const tope = setTimeout(quitarEspera, 30000);
+  // v1.11.3 / v3.27.2 (César 16/11): sin pantalla de espera. La consulta va en segundo plano;
+  // si responde que ya está cerrada, sale el aviso; si no responde, el técnico sigue sin más.
   fetch(WEB_APP_URL + '?action=existeCierre&numInst=' + encodeURIComponent(numInst))
     .then(r => r.json())
-    .then(d => { clearTimeout(tope); if (d && d.existe && !state.isSuper) { state.cierrePrevio = d; mostrarAvisoCierre(numInst, d); } else quitarEspera(); })
-    .catch(() => { clearTimeout(tope); quitarEspera(); });
+    .then(d => { if (d && d.existe && !state.isSuper && !state.enviando) { state.cierrePrevio = d; mostrarAvisoCierre(numInst, d); } })
+    .catch(() => {});
 }
 function mostrarAvisoCierre(numInst, d){
   const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1767,7 +1758,7 @@ function validateScreen(num){
     const m4 = parseFloat(document.getElementById('metrosLinea').value) || 0;
     if (m4 <= 0){ showError('Indica los metros de línea'); return false; }
   }
-  if (num === 6 && state.prev && state.prev.cargando){ showError('Comprobando el material previsto de la obra… espera unos segundos y vuelve a pulsar Siguiente'); return false; }
+  // v1.11.3 / v3.27.2 (César 16/11): el wizard nunca hace esperar; si el previsto no ha llegado, se sigue sin él.
   if (num === 6){ const eP = validarPrevisto() || validarDpn(); if (eP){ showError(eP); return false; } }
   if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
     showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
