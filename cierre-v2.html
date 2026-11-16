@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.27.3 (16/11/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.28.0 (16/11/2026)
+     v3.28.0 — ENLACE PREPARADO (igual que cierre-esbrain v1.12.0): si el enlace
+     trae «pre» de hoy (cargadores del equipo y material previsto), se usa al
+     abrir y no se consulta nada; si no, las consultas de siempre, por detrás.
      v3.27.3 — cargador escrito a mano (igual que cierre-esbrain v1.11.4): con
      «No, otro», si la lista del almacén no ha llegado o no trae el modelo, el
      técnico lo escribe; va en cargadorNombre, sin SKU, y la oficina lo revisa.
@@ -10,8 +13,6 @@
      v3.27.0 — EQUIPO: el de quien cierra. Si el enlace lo trae (calendario del
      equipo), sin preguntar; si no, selector obligatorio (equipos activos, listarEquipos);
      franja «Equipo · cambiar». Nunca «Búfala» a secas. Intervención con aperturaIso.
-     v3.26.1 — pantalla de espera mientras se comprueba si la obra ya está
-     cerrada (igual que cierre-esbrain v1.11.1).
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -4214,6 +4215,50 @@ function cargadorEscribir(t){
   pintarCargador();
 }
 
+// ═══ v3.28.0 — ENLACE PREPARADO («pre») ═══
+// El backend deja en el enlace del evento la lista de cargadores del equipo y el
+// material previsto de la obra (cada hora, solo para el día). Si viene y es de hoy,
+// se usa y no se consulta nada al abrir; si no, todo sigue como antes.
+function leerPre(){
+  try {
+    let t = new URL(location).searchParams.get('pre'); if (!t) return null;
+    t = t.replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '=';
+    const bin = atob(t), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const o = JSON.parse(new TextDecoder('utf-8').decode(bytes));
+    const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
+    if (!o || o.v !== 1 || o.d !== hoy) return null;
+    return o;
+  } catch (e) { return null; }
+}
+function aplicarPreCargadores(o){
+  try {
+    if (!o || !Array.isArray(o.c) || !o.c.length || !Array.isArray(o.du)) return false;
+    state.carg.duenos = o.du.map(d => ({ dueno: d[0], nombre: d[1] }));
+    const lista = o.c.map(x => {
+      const m = String(x[3] || '');
+      const porDueno = o.du.map((d, i) => ({ dueno: d[0], almacen: m.charAt(2 * i) === '1' ? 1 : 0, enVehiculos: 0, aBordo: m.charAt(2 * i + 1) === '1' ? 1 : 0 })).filter(d => d.almacen || d.aBordo);
+      return { sku: x[0], nombre: x[1], ref_proveedor: x[2] || '', porDueno: porDueno, aBordo: porDueno.some(d => d.aBordo) ? 1 : 0 };
+    });
+    const p = duenoPorDefecto(), clave = c => { const sp = stockDe(c, p); return (sp.total > 0 || sp.aBordo > 0 ? 2 : 0) + ((c.aBordo || 0) > 0 ? 1 : 0); };
+    lista.sort((a, b) => clave(b) - clave(a));
+    state.carg.lista = lista; state.carg.pre = true;
+    pintarCargador();
+    return true;
+  } catch (e) { return false; }
+}
+function aplicarPreMaterial(o){
+  try {
+    const m = o && o.m; if (!m || m.ok === false || !state.prev) return false;
+    state.prev.items = Array.isArray(m.items) ? m.items : [];
+    state.prev.alternativas = m.alternativas || {};
+    state.prev.pedido = m.pedido || {};
+    state.prev.cargando = false; state.prev.cargado = true; state.prev.pre = true;
+    pintarPrevisto(); pintarCargador();
+    return true;
+  } catch (e) { return false; }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════════════
@@ -4222,7 +4267,8 @@ parseUrlParams();
 checkSuperOnLoad();
 renderSteps();
 if (!state.esIntervencion){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
-  (async () => { await cargarCargadores(); await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
+  const _pre = leerPre(), _preC = !!_pre && aplicarPreCargadores(_pre), _preM = !!_pre && aplicarPreMaterial(_pre);   // v3.28.0: enlace preparado
+  (async () => { if (!_preC) await cargarCargadores(); if (!_preM) await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
 prepararControles();                              // v3.21.0: botones − / +
 pintarCitaCompacta();
 setTimeout(() => { if (state.type) state.tipoDelPedido = state.type; marcarEtiquetaTipo(); marcarEtiquetaFase(); }, 150);
