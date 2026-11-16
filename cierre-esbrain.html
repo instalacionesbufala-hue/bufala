@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.11.3 (16/11/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.11.4 (16/11/2026)
+     v1.11.4: cargador escrito a mano. Si el técnico dice «No, otro» y la lista
+     del almacén no ha llegado (o no trae el modelo), escribe el modelo en un campo
+     de texto; va en cargadorNombre, sin SKU, y la oficina lo revisa.
      v1.11.3: el wizard nunca hace esperar (César 16/11). Sin pantalla de espera al
      abrir (la comprobación de obra cerrada va en segundo plano) y el paso de
      materiales ya no se bloquea si el material previsto no ha llegado.
@@ -14,11 +17,6 @@
      el cierre (correccion = true: sustituye al anterior si su presupuesto de
      Holded no está aceptado ni facturado; lo decide el backend) y, si fue visita
      fallida, nueva visita.
-     v1.10.0: «CONFORME» (César 28/10, encargo #2 del almacén). Se envía
-     conforme = true si el técnico confirma todo lo predeterminado (material
-     vinculado, cuadro y cargador del pedido), false si elige algo distinto y
-     vacío si no había nada predeterminado o es visita fallida. El técnico no
-     ve nada nuevo; el almacén avisa a César cuando es false.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -840,6 +838,7 @@ html,body{overflow-x:hidden}
     <div id="cargOtroWrap" style="display:none; margin-top:10px">
       <select class="input" id="cargSelect" onchange="cargadorElegir(this.value)"></select>
       <div class="hint" id="cargListaMsg"></div>
+      <input class="input" id="cargTexto" type="text" maxlength="80" autocomplete="off" autocapitalize="characters" placeholder="¿No está? Escribe el modelo" style="margin-top:10px; width:100%; font-size:17px; font-weight:600" oninput="cargadorEscribir(this.value)">
     </div>
   </div>
   <div class="sec-h-mat" id="previstoTitulo" style="display:none">MATERIAL PREVISTO PARA ESTA OBRA</div>
@@ -1517,8 +1516,8 @@ function validateScreen(num){
   if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
     showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
   }
-  if (num === 6 && state.carg.respuesta === false && !state.carg.sku && (state.carg.lista || []).length){
-    showError('Elige en la lista el cargador que has instalado'); return false;
+  if (num === 6 && state.carg.respuesta === false && !state.carg.sku && !String(state.carg.nombre || '').trim() && !cargadorOculto()){   // v1.11.4: de la lista o escrito a mano
+    showError((state.carg.lista || []).length ? 'Elige en la lista el cargador que has instalado o escribe el modelo' : 'Escribe el modelo del cargador que has instalado'); return false;
   }
   if (num === 5){
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
@@ -4039,11 +4038,13 @@ function pintarCargador(){
   if (state.carg.respuesta !== false){
     n.textContent = (delPedido && delPedido.nombre) || state.cita.hardware || 'Cargador del pedido';
   }
+  else if (!state.carg.sku && state.carg.texto) n.textContent = state.carg.texto;   // escrito a mano
   const sub = document.getElementById('cargSub');
   const cAct = state.carg.respuesta === false ? (state.carg.lista || []).find(x => String(x.sku) === String(state.carg.sku)) : delPedido;
   const dAct = state.carg.dueno || (cAct ? duenoDe(cAct) : duenoPorDefecto());
   if (sub){
     let t = (state.carg.respuesta === false ? 'Elegido por el técnico' : 'El del pedido') + ' · se descuenta del stock de ' + nombreDueno(dAct);
+    if (state.carg.respuesta === false && !state.carg.sku && state.carg.texto) t = 'Escrito por el técnico · la oficina lo revisará';
     if (cAct && dAct !== duenoPorDefecto()) t += ' (' + nombreDueno(duenoPorDefecto()) + ' no tiene este modelo)';
     if (cAct && dAct === duenoPorDefecto() && !(stockDe(cAct, dAct).total > 0 || stockDe(cAct, dAct).aBordo > 0)) t += ' · ⚠️ sin stock registrado de este modelo: avisa a la oficina';
     if (!cAct && state.carg.lista && state.carg.lista.length && state.carg.respuesta !== false) t += ' · ⚠️ no se ha reconocido el modelo en el almacén: confírmalo o elige otro';
@@ -4052,6 +4053,7 @@ function pintarCargador(){
   document.getElementById('pillCargSi').classList.toggle('selected', state.carg.respuesta === true);
   document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
   const sel = document.getElementById('cargSelect'), msg = document.getElementById('cargListaMsg');
+  if (sel) sel.style.display = (state.carg.lista && state.carg.lista.length) ? '' : 'none';   // sin lista, solo el campo de texto
   if (sel && state.carg.lista){
     const etq = _etiquetasUnicas(state.carg.lista, c => c.nombre || c.sku, c => c.sku);   // nombre recortado, sin repetidos
     const ops = ['<option value="">— Elige el cargador instalado —</option>'].concat(
@@ -4059,8 +4061,8 @@ function pintarCargador(){
         ' title="' + _escP(c.nombre || c.sku) + '">' + _escP(etq[i] + etiquetaStock(c)) + '</option>'));
     sel.innerHTML = ops.join('');
   }
-  if (msg) msg.textContent = state.carg.lista === null ? 'Cargando la lista del almacén…' :
-    (state.carg.lista.length ? '' : '⚠️ No se ha podido cargar la lista del almacén. Puedes enviar el cierre igualmente; la oficina lo revisará.');
+  if (msg) msg.textContent = state.carg.lista === null ? 'Cargando la lista del almacén… Si no quieres esperar, escribe el modelo aquí abajo.' :
+    (state.carg.lista.length ? '' : '⚠️ No se ha podido cargar la lista del almacén. Escribe el modelo aquí abajo; la oficina lo revisará.');
 }
 function cargadorConfirmar(si){
   state.carg.respuesta = !!si;
@@ -4072,7 +4074,7 @@ function cargadorConfirmar(si){
     state.carg.dueno = c ? duenoDe(c) : 'ESMOVE';
     if (wrap) wrap.style.display = 'none';
   } else {
-    state.carg.sku = ''; state.carg.nombre = '';
+    state.carg.sku = ''; state.carg.nombre = state.carg.texto || '';
     if (wrap) wrap.style.display = 'block';
   }
   pintarCargador();
@@ -4082,7 +4084,16 @@ function cargadorElegir(sku){
   state.carg.sku = c ? c.sku : '';
   state.carg.nombre = c ? (c.nombre || c.sku) : '';
   state.carg.dueno = c ? duenoDe(c) : 'ESMOVE';
-  if (c) document.getElementById('cargNombre').textContent = state.carg.nombre;
+  if (c){ document.getElementById('cargNombre').textContent = state.carg.nombre; state.carg.texto = ''; const ct = document.getElementById('cargTexto'); if (ct) ct.value = ''; }
+  else if (state.carg.texto) state.carg.nombre = state.carg.texto;
+  pintarCargador();
+}
+// v1.11.4: modelo escrito a mano (la lista no ha llegado o no lo trae). Sin SKU: la oficina lo revisa.
+function cargadorEscribir(t){
+  t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  state.carg.texto = t;
+  if (t){ state.carg.sku = ''; state.carg.nombre = t; state.carg.dueno = duenoPorDefecto(); }
+  else if (!state.carg.sku) state.carg.nombre = '';
   pintarCargador();
 }
 
