@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.13.0 (17/11/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.14.0 (17/11/2026)
+     v1.14.0: SIN CARGADOR Y DUEÑO DEL CARGADOR (César 17/11; casos E2633473 y
+     E2633861). Tercera respuesta en el paso del cargador, «No he instalado
+     cargador», con motivo obligatorio (traslado, lo pone el cliente o segunda
+     visita): se envían sinCargador y sinCargadorMotivo y ningún dato de cargador.
+     Si el cargador elegido sale de un stock que no es el del partner de la obra,
+     el técnico lo confirma y se envía cargadorDuenoDistinto.
      v1.13.0: CARGADOR DEL PEDIDO (César 17/11; caso E2633526). El modelo que se
      propone como «el del pedido» tiene que encajar con el calendario en marca,
      cable Tesla, Schuko, Pro, largo, fase y protecciones; llevar otro a bordo ya
@@ -17,10 +23,6 @@
      v1.11.3: el wizard nunca hace esperar (César 16/11). Sin pantalla de espera al
      abrir (la comprobación de obra cerrada va en segundo plano) y el paso de
      materiales ya no se bloquea si el material previsto no ha llegado.
-     v1.11.2: desplegable del cargador. Un artículo del almacén con un nombre de
-     215 caracteres hacía la lista más ancha que la pantalla. El nombre mostrado se
-     recorta a 64 (el completo, en el title; sin repetidos: si chocan, con la
-     referencia); la lista va a la izquierda y sin negrita.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -839,6 +841,15 @@ html,body{overflow-x:hidden}
       <div class="pill" id="pillCargSi" onclick="cargadorConfirmar(true)">✓ Sí, este</div>
       <div class="pill" id="pillCargNo" onclick="cargadorConfirmar(false)">No, otro</div>
     </div>
+    <div class="pills" style="margin-top:10px"><div class="pill" id="pillCargSin" onclick="cargadorSin()">No he instalado cargador</div></div>
+    <div id="cargSinWrap" style="display:none; margin-top:10px">
+      <div class="label" style="margin-bottom:6px">¿Por qué no se ha instalado?</div>
+      <div class="pills" style="grid-template-columns:1fr">
+        <div class="pill" id="pillSinTRASLADO" onclick="cargadorSinMotivo('TRASLADO')">Se reutiliza el del cliente (traslado)</div>
+        <div class="pill" id="pillSinCLIENTE" onclick="cargadorSinMotivo('CLIENTE')">Lo pone el cliente</div>
+        <div class="pill" id="pillSinSEGUNDA_VISITA" onclick="cargadorSinMotivo('SEGUNDA_VISITA')">Queda para una segunda visita</div>
+      </div>
+    </div>
     <div id="cargOtroWrap" style="display:none; margin-top:10px">
       <select class="input" id="cargSelect" onchange="cargadorElegir(this.value)"></select>
       <div class="hint" id="cargListaMsg"></div>
@@ -1521,14 +1532,17 @@ function validateScreen(num){
   // v1.11.3 / v3.27.2 (César 16/11): el wizard nunca hace esperar; si el previsto no ha llegado, se sigue sin él.
   if (num === 6){ actualizarFijacion(); if (fijacionVisible() && !state.fijacion){ showError('Indica con qué has fijado las grapas del tubo'); return false; } }
   if (num === 6){ const eP = validarPrevisto() || validarDpn(); if (eP){ showError(eP); return false; } }
-  if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
-    showError('Confirma el cargador instalado (Sí, este / No, otro)'); return false;
+  if (num === 6 && !cargadorOculto() && state.carg.sin && !state.carg.sinMotivo){   // v1.14.0
+    showError('Indica por qué no se ha instalado el cargador'); return false;
   }
-  if (num === 6 && state.carg.respuesta === false && !state.carg.sku && !String(state.carg.nombre || '').trim() && !cargadorOculto()){   // v1.11.4: de la lista o escrito a mano
+  if (num === 6 && state.carg.respuesta === null && !cargadorOculto()){
+    showError('Confirma el cargador instalado (Sí, este / No, otro / No he instalado cargador)'); return false;
+  }
+  if (num === 6 && state.carg.respuesta === false && !state.carg.sin && !state.carg.sku && !String(state.carg.nombre || '').trim() && !cargadorOculto()){   // v1.11.4: de la lista o escrito a mano
     showError((state.carg.lista || []).length ? 'Elige en la lista el cargador que has instalado o escribe el modelo' : 'Escribe el modelo del cargador que has instalado'); return false;
   }
-  if (num === 6 && !cargadorOculto() && cargadorCambiado() && !state.carg.seguro){   // v1.13.0
-    showError('Has elegido un cargador distinto del que indica el calendario: confírmalo pulsando «Sí, he instalado otro»'); return false;
+  if (num === 6 && !cargadorOculto() && (cargadorCambiado() || cargadorDuenoDistinto()) && !state.carg.seguro){   // v1.13.0, v1.14.0
+    showError(cargadorCambiado() ? 'Has elegido un cargador distinto del que indica el calendario: confírmalo pulsando «Sí, he instalado otro»' : 'El cargador elegido no es del stock de ' + nombreDueno(duenoPorDefecto()) + ': confírmalo'); return false;
   }
   if (num === 5){
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
@@ -2172,7 +2186,7 @@ function resumenBloques(){
   const utp = parseFloat((document.getElementById('metrosUtp') || {}).value) || 0;
   if (fijacionVisible() && state.fijacion) mats.push('Fijación: ' + FIJ_TXT[state.fijacion]);   // v1.8.0
   if (utp > 0) mats.push((state.data.cableDatos === 'FTP' ? 'F/UTP ' : 'U/UTP ') + utp + ' m' + (state.data.cableDatos === 'FTP' ? '' : ' · ' + ((document.getElementById('rj45') || {}).value || 0) + ' RJ45'));
-  const carg = (state.carg.nombre || state.cita.hardware || '—') + ' · ' + nombreDueno(state.carg.dueno || (typeof duenoPorDefecto === 'function' ? duenoPorDefecto() : 'ESMOVE'));
+  const carg = state.carg.sin ? 'Sin cargador' : (state.carg.nombre || state.cita.hardware || '—') + ' · ' + nombreDueno(state.carg.dueno || (typeof duenoPorDefecto === 'function' ? duenoPorDefecto() : 'ESMOVE'));
   const bloque = (et, html, pant) => '<div class="rs-bloque" onclick="showScreen(' + pant + ')"><div><div class="rs-et">' + et + '</div>' + html + '</div><span class="rs-cambiar">Cambiar</span></div>';
   let h = bloque('TIPO', '<div class="rs-val">' + esc(tipoTxt) + '</div>', 1) +
           bloque('LÍNEA', '<div class="rs-val">' + esc(linea) + '</div>', 4) +
@@ -2203,7 +2217,7 @@ function updateSummary(){
   if (rl) rl.textContent = (state.data.tipoLinea === 'manguera' ? 'Manguera' : 'Tubo PVC') + ' · ' +
                            (state.data.fase === 'trif' ? 'Trifásica' : 'Monofásica') + ' · ' + (state.data.seccion || '—') + ' mm²';
   const rc = document.getElementById('resumenCargador');
-  if (rc) rc.textContent = (state.carg.nombre || state.cita.hardware || '—') + (state.carg.dueno ? ' · ' + nombreDueno(state.carg.dueno) : '');
+  if (rc) rc.textContent = state.carg.sin ? 'Sin cargador' : (state.carg.nombre || state.cita.hardware || '—') + (state.carg.dueno ? ' · ' + nombreDueno(state.carg.dueno) : '');
   // v1.4.0: medidor bidireccional (solo SOLAR)
   const medRow = document.getElementById('resumenMedidorRow');
   if (medRow){
@@ -2455,8 +2469,13 @@ function recolectarDatos(esFallida){
     datos.cargadorPrevistoSku = _dp ? String(_dp.sku) : '';
     datos.cargadorCatalogo    = _cs ? (_cs.nombre || '') : '';
     datos.cargadorCambiado    = cargadorCambiado();
+    datos.cargadorDuenoDistinto = cargadorDuenoDistinto();                 // v1.14.0: sale de un stock que no es el del partner de la obra
+    if (state.carg.sin){                                                   // v1.14.0: no se ha instalado cargador
+      ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre','cargadorPrevisto','cargadorPrevistoSku','cargadorCatalogo','cargadorCambiado','cargadorDuenoDistinto'].forEach(k => delete datos[k]);
+      datos.sinCargador = true; datos.sinCargadorMotivo = state.carg.sinMotivo || '';
+    }
   }
-  if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre','cargadorPrevisto','cargadorPrevistoSku','cargadorCatalogo','cargadorCambiado'].forEach(k => delete datos[k]); }
+  if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre','cargadorPrevisto','cargadorPrevistoSku','cargadorCatalogo','cargadorCambiado','cargadorDuenoDistinto','sinCargador','sinCargadorMotivo'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   datos.conforme = esFallida ? '' : calcConforme();                      // v1.10.0: material, cuadro y cargador predeterminados
   if (state.correccion){ datos.correccion = true; datos.correccionDe = state.correccion; }   // v1.11.0: sustituye al cierre anterior
@@ -3834,10 +3853,23 @@ function cargadorDelPedido(){
 // v1.13.0: ¿el técnico ha puesto un cargador distinto del que indica el calendario?
 function cargadorCambiado(){
   const dp = cargadorDelPedido();
-  if (!dp || state.carg.respuesta !== false) return false;
+  if (!dp || state.carg.sin || state.carg.respuesta !== false) return false;
   return state.carg.sku ? String(state.carg.sku) !== String(dp.sku) : !!String(state.carg.nombre || '').trim();
 }
 function cargadorSeguro(){ state.carg.seguro = true; pintarCargador(); }
+// v1.14.0: ¿el cargador sale de un stock que no es el del partner de la obra? (caso E2633861)
+function cargadorDuenoDistinto(){
+  if (state.carg.sin || state.carg.respuesta === null || !state.carg.sku) return false;
+  return (state.carg.dueno || duenoPorDefecto()) !== duenoPorDefecto();
+}
+// v1.14.0: «No he instalado cargador» (traslado, lo pone el cliente o segunda visita). No se descuenta ninguno.
+function cargadorSin(){
+  state.carg.sin = !state.carg.sin; state.carg.seguro = false;
+  if (state.carg.sin){ state.carg.respuesta = false; state.carg.sku = ''; state.carg.nombre = ''; state.carg.texto = ''; const ct = document.getElementById('cargTexto'); if (ct) ct.value = ''; }
+  else { state.carg.respuesta = null; state.carg.sinMotivo = ''; }
+  pintarCargador();
+}
+function cargadorSinMotivo(m){ state.carg.sinMotivo = m; pintarCargador(); }
 // ═══ v1.7.0 / v3.23.0 — MATERIAL PREVISTO, CUADRO Y DPN POR INTENSIDAD ═══
 const CUADRO_TIPOS = [
   { id: 'MONO',          txt: 'Monofásico' },
@@ -4115,16 +4147,29 @@ function pintarCargador(){
     if (sinRec && !state.carg.sku && !state.carg.texto) t = '⚠️ Es el que indica el calendario y no está en la lista del almacén: elige el que has instalado';
     sub.textContent = t;
   }
-  const cw = document.getElementById('cargConfWrap'), cambiado = cargadorCambiado();
+  const cw = document.getElementById('cargConfWrap'), cambiado = cargadorCambiado(), otroDueno = cargadorDuenoDistinto();
   if (cw){
-    cw.style.display = cambiado ? 'block' : 'none';
-    if (cambiado){
-      document.getElementById('cargConfTxt').textContent = '⚠️ El calendario indica «' + delPedido.nombre + '» y has elegido «' + (state.carg.nombre || '') + '». ¿Seguro?';
-      document.getElementById('pillCargConf').classList.toggle('selected', !!state.carg.seguro);
+    cw.style.display = (cambiado || otroDueno) ? 'block' : 'none';
+    if (cambiado || otroDueno){
+      const pc = document.getElementById('pillCargConf'), txD = 'es del stock de ' + nombreDueno(state.carg.dueno) + ' y la obra es de ' + nombreDueno(duenoPorDefecto());
+      document.getElementById('cargConfTxt').textContent = cambiado
+        ? '⚠️ El calendario indica «' + delPedido.nombre + '» y has elegido «' + (state.carg.nombre || '') + '»' + (otroDueno ? ', que ' + txD : '') + '. ¿Seguro?'
+        : '⚠️ Este cargador ' + txD + '. ¿Seguro?';
+      pc.textContent = cambiado ? 'Sí, he instalado otro' : 'Sí, es de ' + nombreDueno(state.carg.dueno);
+      pc.classList.toggle('selected', !!state.carg.seguro);
     }
   }
   document.getElementById('pillCargSi').classList.toggle('selected', state.carg.respuesta === true);
-  document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
+  document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false && !state.carg.sin);
+  // v1.14.0: sin cargador
+  const pSin = document.getElementById('pillCargSin'), sinW = document.getElementById('cargSinWrap'), ow = document.getElementById('cargOtroWrap');
+  if (pSin) pSin.classList.toggle('selected', !!state.carg.sin);
+  if (sinW){
+    sinW.style.display = state.carg.sin ? 'block' : 'none';
+    ['TRASLADO','CLIENTE','SEGUNDA_VISITA'].forEach(m => { const p = document.getElementById('pillSin' + m); if (p) p.classList.toggle('selected', state.carg.sinMotivo === m); });
+  }
+  if (ow) ow.style.display = (state.carg.respuesta === false && !state.carg.sin) ? 'block' : 'none';
+  if (state.carg.sin){ n.textContent = 'Sin cargador'; if (sub) sub.textContent = 'No se descuenta ningún cargador del almacén'; }
   const sel = document.getElementById('cargSelect'), msg = document.getElementById('cargListaMsg');
   if (sel) sel.style.display = (state.carg.lista && state.carg.lista.length) ? '' : 'none';   // sin lista, solo el campo de texto
   if (sel && state.carg.lista){
@@ -4138,7 +4183,7 @@ function pintarCargador(){
     (state.carg.lista.length ? '' : '⚠️ No se ha podido cargar la lista del almacén. Escribe el modelo aquí abajo; la oficina lo revisará.');
 }
 function cargadorConfirmar(si){
-  state.carg.respuesta = !!si; state.carg.seguro = false;
+  state.carg.respuesta = !!si; state.carg.seguro = false; state.carg.sin = false; state.carg.sinMotivo = '';
   const wrap = document.getElementById('cargOtroWrap');
   if (si){
     const c = cargadorDelPedido();
