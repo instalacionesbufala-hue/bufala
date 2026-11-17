@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.28.0 (16/11/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.29.0 (17/11/2026)
+     v3.29.0 — CARGADOR DEL PEDIDO (igual que cierre-esbrain v1.13.0): solo se
+     propone un modelo que encaje con el calendario; sin él, el técnico elige; si
+     elige uno distinto, lo confirma; campos cargadorPrevisto, cargadorPrevistoSku,
+     cargadorCatalogo y cargadorCambiado.
      v3.28.0 — ENLACE PREPARADO (igual que cierre-esbrain v1.12.0): si el enlace
      trae «pre» de hoy (cargadores del equipo y material previsto), se usa al
      abrir y no se consulta nada; si no, las consultas de siempre, por detrás.
@@ -10,9 +14,6 @@
      pantalla de espera al abrir y sin bloqueo por el material previsto.
      v3.27.1 — desplegable del cargador: nombre recortado a 64 caracteres, sin
      repetidos, y lista a la izquierda (igual que cierre-esbrain v1.11.2).
-     v3.27.0 — EQUIPO: el de quien cierra. Si el enlace lo trae (calendario del
-     equipo), sin preguntar; si no, selector obligatorio (equipos activos, listarEquipos);
-     franja «Equipo · cambiar». Nunca «Búfala» a secas. Intervención con aperturaIso.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -832,6 +833,10 @@ html,body{overflow-x:hidden}
       <select class="input" id="cargSelect" onchange="cargadorElegir(this.value)"></select>
       <div class="hint" id="cargListaMsg"></div>
       <input class="input" id="cargTexto" type="text" maxlength="80" autocomplete="off" autocapitalize="characters" placeholder="¿No está? Escribe el modelo" style="margin-top:10px; width:100%; font-size:17px; font-weight:600" oninput="cargadorEscribir(this.value)">
+    </div>
+    <div id="cargConfWrap" style="display:none; margin-top:12px">
+      <div class="hint" id="cargConfTxt" style="color:#b45309; font-weight:700"></div>
+      <div class="pills" style="margin-top:8px"><div class="pill" id="pillCargConf" onclick="cargadorSeguro()">Sí, he instalado otro</div></div>
     </div>
   </div>
   <div class="sec-h-mat" id="previstoTitulo" style="display:none">MATERIAL PREVISTO PARA ESTA OBRA</div>
@@ -1767,6 +1772,9 @@ function validateScreen(num){
   if (num === 6 && state.carg.respuesta === false && !state.carg.sku && !String(state.carg.nombre || '').trim() && !cargadorOculto()){   // v3.27.3: de la lista o escrito a mano
     showError((state.carg.lista || []).length ? 'Elige en la lista el cargador que has instalado o escribe el modelo' : 'Escribe el modelo del cargador que has instalado'); return false;
   }
+  if (num === 6 && !cargadorOculto() && cargadorCambiado() && !state.carg.seguro){   // v3.29.0
+    showError('Has elegido un cargador distinto del que indica el calendario: confírmalo pulsando «Sí, he instalado otro»'); return false;
+  }
   if (num === 5){
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
     const m = parseFloat(document.getElementById('metrosLinea').value) || 0;
@@ -2658,8 +2666,16 @@ function recolectarDatos(esFallida){
     datos.cargadorProtecciones = /PROTECCI|\bPROT\b/i.test((state.carg.nombre || '') + ' ' + (state.cita.hardware || ''));
     datos.cargadorFuente       = 'lista';
     if (state.carg.respuesta === false && state.carg.nombre) datos.cargadorNombre = state.carg.nombre;
+    // v3.29.0: lo que pedía el calendario, lo que reconoció el wizard y si el técnico lo ha cambiado
+    const _dp = cargadorDelPedido();
+    if (state.carg.respuesta === true && _dp){ datos.cargadorSku = _dp.sku; datos.cargadorDueno = duenoDe(_dp); }
+    const _cs = (state.carg.lista || []).find(x => String(x.sku) === String(datos.cargadorSku));
+    datos.cargadorPrevisto    = state.cita.hardware || '';
+    datos.cargadorPrevistoSku = _dp ? String(_dp.sku) : '';
+    datos.cargadorCatalogo    = _cs ? (_cs.nombre || '') : '';
+    datos.cargadorCambiado    = cargadorCambiado();
   }
-  if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre'].forEach(k => delete datos[k]); }
+  if (!cargadorOculto()){ /* cargador normal */ } else { ['cargadorSku','cargadorDueno','cargadorProtecciones','cargadorFuente','cargadorNombre','cargadorPrevisto','cargadorPrevistoSku','cargadorCatalogo','cargadorCambiado'].forEach(k => delete datos[k]); }
   datosPrevisto(datos);                                                   // v1.7.0 / v3.23.0
   datos.conforme = esFallida ? '' : calcConforme();                      // v3.25.0: material, cuadro y cargador predeterminados
   if (state.correccion){ datos.correccion = true; datos.correccionDe = state.correccion; }   // v3.26.0: sustituye al cierre anterior
@@ -3879,17 +3895,48 @@ function etiquetaStock(c){
   const otros = (c.porDueno || []).filter(d => ((d.almacen || 0) + (d.enVehiculos || 0) + (d.aBordo || 0)) > 0).map(d => nombreDueno(d.dueno));
   return ' · sin stock de ' + nombreDueno(p) + (otros.length ? ' (lo tiene ' + otros.join(', ') + ')' : '');
 }
+// v3.29.0 — Rasgos que distinguen un modelo de otro. Del calendario, lo que no se dice queda en null
+// (no descarta); del catálogo del almacén, siempre sí o no.
+function _rasgosCarg(txt, esCalendario){
+  const t = _normTxt(txt);
+  const marca = /POLICHARGER/.test(t) ? 'POLI' : /WALL ?CONNECTOR/.test(t) ? 'TWC' : /V2C|TRYDAN/.test(t) ? 'V2C' : '';
+  const r = { marca: marca, tesla: marca !== 'TWC' && /TESLA/.test(t), schuko: /SCHUKO/.test(t), pro: /\bPRO\b/.test(t) };
+  if (esCalendario){
+    r.largo10 = /\bM ?10\b|\b10 ?M\b/.test(t) ? true : (/\bM ?5\b|\b5 ?M\b/.test(t) ? false : null);
+    r.tri = /TRIF|22 ?KW/.test(t) ? true : (/MONOF|7[.,]4 ?KW/.test(t) ? false : null);
+    r.prot = /SIN PROTEC/.test(t) ? false : (/PROT/.test(t) ? true : null);
+  } else {
+    r.largo10 = /\b10 ?M\b/.test(t); r.tri = /22 ?KW|TRIF/.test(t); r.prot = /SIN PROTEC/.test(t) ? false : /PROT/.test(t);
+  }
+  return r;
+}
+// En qué no encaja un modelo del catálogo con lo que pide el calendario ([] = encaja).
+function _difCarg(hw, nombreCat){
+  const a = _rasgosCarg(hw, true), b = _rasgosCarg(nombreCat, false), d = [];
+  if (!a.marca) return ['modelo no reconocido'];
+  if (a.marca !== b.marca) return ['marca'];
+  if (a.marca !== 'V2C') return d;                              // Policharger y Tesla Wall Connector: basta la marca
+  if (a.tesla !== b.tesla) d.push('cable Tesla');
+  if (a.schuko !== b.schuko) d.push('Schuko');
+  if (a.pro !== b.pro) d.push('Pro');
+  if (a.largo10 !== null && a.largo10 !== b.largo10) d.push('largo del cable');
+  if (a.tri !== null && a.tri !== b.tri) d.push('mono/trifásico');
+  if (a.prot !== null && a.prot !== b.prot) d.push('protecciones');
+  return d;
+}
+// v3.29.0: el modelo del pedido es SOLO uno que encaje con el calendario en todo lo que distingue
+// un modelo de otro. Llevar otro a bordo ya no lo convierte en «el del pedido» (caso E2633526,
+// 12/11: el calendario pedía un Trydan normal y se propuso el de cable Tesla). Entre los que
+// encajan, se prefiere el vinculado a la obra, el que tiene el partner y el que va a bordo.
 function cargadorDelPedido(){
   const lista = state.carg.lista || []; if (!lista.length) return null;
-  const tk = _tokens(state.cita.hardware), p = duenoPorDefecto();
-  let mejor = null, pMejor = 0;
+  const hw = state.cita.hardware || ''; if (!_rasgosCarg(hw, true).marca) return null;
+  const tk = _tokens(hw), p = duenoPorDefecto();
+  let mejor = null, pMejor = -1;
   lista.forEach(c => {
+    if (_difCarg(hw, (c.nombre || '') + ' ' + (c.ref_proveedor || '')).length) return;
     const tc = _tokens((c.nombre || '') + ' ' + (c.ref_proveedor || ''));
-    const base = tk.filter(t => tc.indexOf(t) >= 0);
-    let pt = base.length;
-    if (pt <= 0) return;
-    if (pt === 1 && base[0].length < 8) return;                  // una sola palabra corta no basta (sí «POLICHARGER»)
-    ['SCHUKO', 'TESLA', 'PRO', '10M', '22KW', 'SIN'].forEach(x => { if ((tc.indexOf(x) >= 0) !== (tk.indexOf(x) >= 0)) pt -= 1.5; });   // variante no pedida, o pedida y que no tiene
+    let pt = tk.filter(t => tc.indexOf(t) >= 0).length;
     const vinc = ((state.prev && state.prev.items) || []).find(it => it.tipo === 'cargador' && String(it.sku) === String(c.sku));
     if (vinc) pt += 5;                                           // vinculado a la obra en el almacén
     const sp = stockDe(c, p);
@@ -3897,8 +3944,15 @@ function cargadorDelPedido(){
     if (sp.aBordo > 0) pt += 0.5;                        // y va en la furgoneta del equipo
     if (pt > pMejor){ pMejor = pt; mejor = c; }
   });
-  return pMejor >= 1 ? mejor : null;
+  return mejor;
 }
+// v3.29.0: ¿el técnico ha puesto un cargador distinto del que indica el calendario?
+function cargadorCambiado(){
+  const dp = cargadorDelPedido();
+  if (!dp || state.carg.respuesta !== false) return false;
+  return state.carg.sku ? String(state.carg.sku) !== String(dp.sku) : !!String(state.carg.nombre || '').trim();
+}
+function cargadorSeguro(){ state.carg.seguro = true; pintarCargador(); }
 // ═══ v1.7.0 / v3.23.0 — MATERIAL PREVISTO, CUADRO Y DPN POR INTENSIDAD ═══
 const CUADRO_TIPOS = [
   { id: 'MONO',          txt: 'Monofásico' },
@@ -4153,7 +4207,14 @@ async function cargarCargadores(){
 function pintarCargador(){
   const n = document.getElementById('cargNombre'); if (!n) return;
   const delPedido = cargadorDelPedido();
-  if (state.carg.respuesta !== false){
+  // v3.29.0: con la lista cargada y sin modelo que encaje con el calendario, no se propone ninguno: el técnico elige.
+  const sinRec = !delPedido && !!(state.carg.lista && state.carg.lista.length);
+  state.carg.sinReconocer = sinRec;
+  if (sinRec && state.carg.respuesta === null){ state.carg.respuesta = false; state.carg.sku = ''; state.carg.nombre = state.carg.texto || ''; const w0 = document.getElementById('cargOtroWrap'); if (w0) w0.style.display = 'block'; }
+  if (state.carg.respuesta === true && delPedido){ state.carg.sku = delPedido.sku; state.carg.nombre = delPedido.nombre; state.carg.dueno = duenoDe(delPedido); }   // la lista pudo llegar después del «Sí, este»
+  const pillsSN = document.getElementById('pillCargSi').parentElement, lblSN = pillsSN.previousElementSibling;
+  pillsSN.style.display = sinRec ? 'none' : ''; if (lblSN) lblSN.textContent = sinRec ? '¿Qué cargador has instalado?' : '¿Es este el modelo que has instalado?';
+  if (state.carg.respuesta !== false || (sinRec && !state.carg.sku && !state.carg.texto)){
     n.textContent = (delPedido && delPedido.nombre) || state.cita.hardware || 'Cargador del pedido';
   }
   else if (!state.carg.sku && state.carg.texto) n.textContent = state.carg.texto;   // escrito a mano
@@ -4166,7 +4227,16 @@ function pintarCargador(){
     if (cAct && dAct !== duenoPorDefecto()) t += ' (' + nombreDueno(duenoPorDefecto()) + ' no tiene este modelo)';
     if (cAct && dAct === duenoPorDefecto() && !(stockDe(cAct, dAct).total > 0 || stockDe(cAct, dAct).aBordo > 0)) t += ' · ⚠️ sin stock registrado de este modelo: avisa a la oficina';
     if (!cAct && state.carg.lista && state.carg.lista.length && state.carg.respuesta !== false) t += ' · ⚠️ no se ha reconocido el modelo en el almacén: confírmalo o elige otro';
+    if (sinRec && !state.carg.sku && !state.carg.texto) t = '⚠️ Es el que indica el calendario y no está en la lista del almacén: elige el que has instalado';
     sub.textContent = t;
+  }
+  const cw = document.getElementById('cargConfWrap'), cambiado = cargadorCambiado();
+  if (cw){
+    cw.style.display = cambiado ? 'block' : 'none';
+    if (cambiado){
+      document.getElementById('cargConfTxt').textContent = '⚠️ El calendario indica «' + delPedido.nombre + '» y has elegido «' + (state.carg.nombre || '') + '». ¿Seguro?';
+      document.getElementById('pillCargConf').classList.toggle('selected', !!state.carg.seguro);
+    }
   }
   document.getElementById('pillCargSi').classList.toggle('selected', state.carg.respuesta === true);
   document.getElementById('pillCargNo').classList.toggle('selected', state.carg.respuesta === false);
@@ -4183,7 +4253,7 @@ function pintarCargador(){
     (state.carg.lista.length ? '' : '⚠️ No se ha podido cargar la lista del almacén. Escribe el modelo aquí abajo; la oficina lo revisará.');
 }
 function cargadorConfirmar(si){
-  state.carg.respuesta = !!si;
+  state.carg.respuesta = !!si; state.carg.seguro = false;
   const wrap = document.getElementById('cargOtroWrap');
   if (si){
     const c = cargadorDelPedido();
@@ -4198,6 +4268,7 @@ function cargadorConfirmar(si){
   pintarCargador();
 }
 function cargadorElegir(sku){
+  state.carg.seguro = false;
   const c = (state.carg.lista || []).find(x => String(x.sku) === String(sku));
   state.carg.sku = c ? c.sku : '';
   state.carg.nombre = c ? (c.nombre || c.sku) : '';
@@ -4209,7 +4280,7 @@ function cargadorElegir(sku){
 // v3.27.3: modelo escrito a mano (la lista no ha llegado o no lo trae). Sin SKU: la oficina lo revisa.
 function cargadorEscribir(t){
   t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  state.carg.texto = t;
+  state.carg.texto = t; state.carg.seguro = false;
   if (t){ state.carg.sku = ''; state.carg.nombre = t; state.carg.dueno = duenoPorDefecto(); }
   else if (!state.carg.sku) state.carg.nombre = '';
   pintarCargador();
