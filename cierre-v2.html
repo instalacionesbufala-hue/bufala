@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.30.0 (17/11/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.31.0 (19/11/2026)
+     v3.31.0 — CIERRE DE UN TOQUE (igual que cierre-esbrain v1.15.0): una pregunta por
+     pantalla en los pasos 4 y 6, avance solo a los 2 s, resumen que lleva a cada pregunta,
+     campos tipoCable, bornasTipo, cableDatos APANTALLADO y otroMaterial, y #30 (qué
+     cuadro: cuadroSku de la lista o cuadroRef escrito). En InstantBox, la lista de
+     cargadores solo trae los que tiene InstantBox (almacén o a bordo).
      v3.30.0 — SIN CARGADOR Y DUEÑO DEL CARGADOR (igual que cierre-esbrain v1.14.0):
      «No he instalado cargador» con motivo obligatorio (sinCargador,
      sinCargadorMotivo) y confirmación si el cargador sale de un stock que no es
@@ -14,8 +19,6 @@
      v3.27.3 — cargador escrito a mano (igual que cierre-esbrain v1.11.4): con
      «No, otro», si la lista del almacén no ha llegado o no trae el modelo, el
      técnico lo escribe; va en cargadorNombre, sin SKU, y la oficina lo revisa.
-     v3.27.2 — el wizard nunca hace esperar (igual que cierre-esbrain v1.11.3): sin
-     pantalla de espera al abrir y sin bloqueo por el material previsto.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -613,6 +616,16 @@ html,body{overflow-x:hidden}
   border-radius:12px; font-family:inherit; font-size:15px; font-weight:600; color:#2d2b29; background:#fff; resize:vertical}
 .carg-card, .mat-card, .material-block, .rs-bloque{overflow-wrap:break-word; min-width:0}
 .carg-nombre, .carg-sub, .mc-title, .mc-sub{overflow-wrap:break-word}
+/* v3.31.0: cierre de un toque */
+.sp-off{display:none !important}
+.sp-solo-hab [data-mat]:not([data-mat="pvc32"]):not([data-mat="corr32"]), .sp-solo-hab [data-sec]{display:none !important}
+.sp-sin-hab [data-mat="pvc32"], .sp-sin-hab [data-mat="corr32"]{display:none !important}
+#cardDatos .mc-tipo{display:none !important}
+.sp-paso{font-size:13px; font-weight:800; letter-spacing:.06em; color:#8a7f72; text-transform:uppercase}
+.nav-btn-next.sp-cuenta{position:relative; overflow:hidden}
+.nav-btn-next.sp-cuenta::after{content:""; position:absolute; left:0; bottom:0; height:5px; width:100%; background:#c9a46e; transform-origin:left; animation:spBarra 2s linear forwards}
+@keyframes spBarra{from{transform:scaleX(0)} to{transform:scaleX(1)}}
+.sp-pills1{grid-template-columns:1fr !important}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
 </head>
@@ -719,18 +732,18 @@ html,body{overflow-x:hidden}
   <h1 class="title">Línea eléctrica</h1>
   <p class="subtitle">Canalización, fase, sección y metros</p>
 
-  <div class="field">
+  <div class="field" id="sp4canal">
     <label class="label">Canalización
       <button type="button" class="info-btn" onclick="toggleTip(event,'tipoLinea')">i</button>
     </label>
     <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional.</div>
     <div class="pills">
-      <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="9" width="20" height="6" rx="3"></rect><path d="M6 9v6M10 9v6M14 9v6M18 9v6"></path></svg>Bajo tubo PVC<span class="p-sub">7 de cada 10 obras</span></div>
-      <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 14c4 0 4-6 8-6s4 6 8 6h4"></path><circle cx="20" cy="14" r="1.5"></circle></svg>Manguera<span class="p-sub">Sin tubo</span></div>
+      <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="9" width="20" height="6" rx="3"></rect><path d="M6 9v6M10 9v6M14 9v6M18 9v6"></path></svg>Bajo tubo<span class="p-sub">Cable unipolar H07Z1-K</span></div>
+      <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 14c4 0 4-6 8-6s4 6 8 6h4"></path><circle cx="20" cy="14" r="1.5"></circle></svg>Bandeja (pre-instalación)<span class="p-sub">Manguera RZ1-K</span></div>
     </div>
   </div>
 
-  <div class="field">
+  <div class="field" id="sp4fase">
     <label class="label">Fase
       <button type="button" class="info-btn" onclick="toggleTip(event,'fase')">i</button>
     </label>
@@ -746,7 +759,7 @@ html,body{overflow-x:hidden}
   </div>
   <div class="aviso-fase" id="avisoFase" style="display:none"></div>
 
-  <div class="field">
+  <div class="field" id="sp4seccion">
     <label class="label">Sección del cable
       <button type="button" class="info-btn" onclick="toggleTip(event,'seccion')">i</button>
     </label>
@@ -759,7 +772,7 @@ html,body{overflow-x:hidden}
     </div>
   </div>
 
-  <div class="field">
+  <div class="field" id="sp4metros">
     <label class="label">Metros de línea instalados
       <button type="button" class="info-btn" onclick="toggleTip(event,'metros')">i</button>
     </label>
@@ -780,7 +793,7 @@ html,body{overflow-x:hidden}
 <section class="screen" data-screen="6">
   <h1 class="title">Materiales y cargador</h1>
   <p class="subtitle">Ya está puesto lo habitual. Ajusta lo que cambie.</p>
-  <div class="sec-h-mat">LO HABITUAL · YA MARCADO</div>
+  <div class="sec-h-mat" id="sp6habH">TUBO Y CORRUGADO INSTALADOS · PON LOS METROS</div>
   <div class="card" id="canalizacionesCard"></div>
   <div class="bornas-section" id="bornasSection" style="display:none">
     <div class="bornas-title">⭐ Bornas de centralización (Comunitaria)</div>
@@ -816,6 +829,22 @@ html,body{overflow-x:hidden}
     </div>
   </div>
 
+  <div class="carg-card" id="spDatosTipo">
+    <div class="carg-nombre">¿Qué cable de datos has puesto?</div>
+    <div class="carg-sub" id="spDatosSub"></div>
+    <div class="pills sp-pills1" style="margin-top:10px">
+      <div class="pill" data-cd="UTP" onclick="selectCableDatos('UTP')">U/UTP<span class="p-sub">Con 2 RJ45 · V2C y otros</span></div>
+      <div class="pill" data-cd="FTP" onclick="selectCableDatos('FTP')">F/UTP<span class="p-sub">Sin RJ45 · Policharger</span></div>
+      <div class="pill" data-cd="APANTALLADO" onclick="selectCableDatos('APANTALLADO')">Apantallado 2×1,5 mm²<span class="p-sub">Sin RJ45 · Tesla</span></div>
+    </div>
+  </div>
+  <div class="carg-card" id="spBornasTipo">
+    <div class="carg-nombre">¿Qué bornas has puesto?</div>
+    <div class="pills" style="margin-top:10px">
+      <div class="pill" data-bt="wago" onclick="spBornasTipo('wago')">WAGO</div>
+      <div class="pill" data-bt="pnx" onclick="spBornasTipo('pnx')">Phoenix</div>
+    </div>
+  </div>
   <div class="mat-card" id="cardDatos">
     <div class="mc-head"><svg class="mat-ico" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="7" y="3" width="10" height="9" rx="1"></rect><path d="M12 12v9M9 6h6"></path></svg><div><div class="mc-title" id="lblMetrosUtp">Cable de datos U/UTP</div><div class="mc-sub">V2C → U/UTP · Policharger → F/UTP (sin RJ45)</div></div></div>
     <div class="mc-row"><span>Metros</span><input type="number" class="material-input" id="metrosUtp" placeholder="0" oninput="markUtpTouched()"><span class="material-unit">m</span></div>
@@ -852,10 +881,15 @@ html,body{overflow-x:hidden}
   </div>
   <div class="sec-h-mat" id="previstoTitulo" style="display:none">MATERIAL PREVISTO PARA ESTA OBRA</div>
   <div id="previstoWrap" style="display:none"></div>
-  <div class="sec-h-mat">¿HAS USADO ALGO MÁS? · TOCA PARA AÑADIR</div>
+  <div class="sec-h-mat" id="sp6masH">¿HAS USADO ALGO MÁS? · TOCA PARA AÑADIR</div>
   <div class="chips-mat" id="chipsMat"></div>
   <button type="button" class="btn-ver-todos" id="btnVerTodos" onclick="verTodosMateriales()">Ver todos los materiales</button>
   <div class="card" id="proteccionesCard"></div>
+  <div class="carg-card" id="spOtro">
+    <div class="carg-nombre">¿Has instalado algo que no esté en la lista?</div>
+    <div class="carg-sub">Opcional. Escríbelo tal cual; la oficina lo revisa después.</div>
+    <textarea class="nota-campo" id="otroMaterial" rows="3" maxlength="400" placeholder="Ej.: detector de fugas, pinza amperimétrica…"></textarea>
+  </div>
 </section>
 
 <!-- ═══ PANTALLA 7: PROTECCIONES ═══ -->
@@ -1114,7 +1148,7 @@ const PHOTO_DESM_N = 12;                 // foto "Desmonte de Hardware" (ligada 
 // DATOS Y ESTADO
 // ═══════════════════════════════════════════════════════════════
 const CANALIZACIONES = [
-  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Relleno con los metros de la línea · ajústalo si se ha puesto menos tubo', unit:'m', tip:'Tubo PVC rígido de 32 mm usado para canalizar la línea. Anota los metros utilizados.'},
+  {id:'pvc32', name:'Tubo PVC 32mm', sub:'Metros de tubo PVC instalados (0 si no hay)', unit:'m', tip:'Tubo PVC rígido de 32 mm usado para canalizar la línea. Anota los metros utilizados.'},
   {id:'corr32', name:'Tubo corrugado 32mm', sub:'8 de cada 10 obras · suele ser 1–3 m', unit:'m', tip:'Tubo corrugado flexible de 32mm para canalizaciones empotradas o vistas en interior.'},
   {id:'acero32', name:'Tubo acero 32mm', unit:'m', tip:'Tubo de acero galvanizado de 32mm para tramos vistos en garajes o exterior.'},
   {id:'acero40', name:'Tubo acero 40mm', unit:'m', tip:'Tubo de acero galvanizado de 40mm para mayores secciones o múltiples conductores.'},
@@ -3891,6 +3925,11 @@ function nombreDueno(id){
 function _tokens(s){ return _normTxt(s).toUpperCase().split(/[^A-Z0-9]+/).filter(t => t.length >= 2); }
 function duenoPorDefecto(){ return (typeof state.esInstantbox !== 'undefined' && state.esInstantbox) ? 'INSTANTBOX' : ((typeof state.esDirecto !== 'undefined' && state.esDirecto) ? 'propio' : 'ESMOVE'); }
 // Stock que tiene un dueño de un cargador (almacén + furgonetas + a bordo).
+// v3.31.0: en InstantBox solo se ofrecen los cargadores que tiene InstantBox (en el almacén o a bordo).
+function ibFiltrarCargadores(lista){
+  if (!(typeof state.esInstantbox !== 'undefined' && state.esInstantbox)) return lista;
+  return lista.filter(c => { const s = stockDe(c, 'INSTANTBOX'); return s.total > 0 || s.aBordo > 0; });
+}
 function stockDe(c, dueno){
   const d = (c && Array.isArray(c.porDueno)) ? c.porDueno.find(x => x.dueno === dueno) : null;
   return d ? { total: (d.almacen || 0) + (d.enVehiculos || 0), aBordo: d.aBordo || 0 } : { total: 0, aBordo: 0 };
@@ -4076,6 +4115,15 @@ function pintarPrevisto(){
       h += '<div class="pills dos" style="margin-top:8px">' + CUADRO_TIPOS.filter(t => t.id !== C.tipoPedido).map(t => '<div class="pill' + (C.tipo === t.id ? ' selected' : '') + '" onclick="cuadroTipo(\'' + t.id + '\')">' + t.txt + '</div>').join('') + '</div>' +
         '<textarea class="nota-campo" rows="2" placeholder="¿Ninguno? Describe el cuadro que has puesto" oninput="cuadroNota(this.value)">' + _escP(C.nota || '') + '</textarea>';
     }
+    // #30 (almacén, 18/11): con el tipo confirmado, cuál de los cuadros que lleva a bordo o vinculados a la obra.
+    const altC = cuadrosLista(cuadroTipoSel());
+    if (cuadroTipoSel() && altC.length){
+      cuadroProponer(altC);
+      h += '<div class="label" style="margin:12px 0 6px">¿Cuál de los que llevas?</div><div class="pills sp-pills1">' +
+        altC.map((a, j) => '<div class="pill' + (String(C.sku) === String(a.sku) ? ' selected' : '') + '" onclick="cuadroElegir(' + j + ')">' + _escP(_nomCorto(a.nombre || a.sku)) + (a.ref ? '<span class="p-sub">' + _escP(a.ref) + '</span>' : '') + '</div>').join('') +
+        '<div class="pill' + (C.sku === '_OTRO' ? ' selected' : '') + '" onclick="cuadroElegir(-1)">No está en la lista</div></div>';
+      if (C.sku === '_OTRO') h += '<textarea class="nota-campo" rows="2" placeholder="Escribe el cuadro que has puesto (marca y modelo)" oninput="cuadroRefTxt(this.value)">' + _escP(C.ref || '') + '</textarea>';
+    }
     h += '</div>';
   }
   if (!h && P.cargando) h = '<div class="hint" style="margin-bottom:10px">Comprobando el material previsto para esta obra…</div>';
@@ -4086,8 +4134,26 @@ function pintarPrevisto(){
 function prevResp(k, si){ state.prev.resp[k] = Object.assign(state.prev.resp[k] || {}, { si: si }); pintarPrevisto(); }
 function prevAlt(k, j){ state.prev.resp[k].alt = j === '' ? null : +j; }
 function prevNota(k, t){ state.prev.resp[k].nota = t; }
-function cuadroResp(si){ state.prev.cuadro.si = si; if (si) state.prev.cuadro.tipo = ''; pintarPrevisto(); }
-function cuadroTipo(id){ state.prev.cuadro.tipo = id; pintarPrevisto(); }
+function cuadroResp(si){ const C = state.prev.cuadro; if (C.si !== si) C.sku = ''; C.si = si; if (si) C.tipo = ''; pintarPrevisto(); }
+function cuadroTipo(id){ const C = state.prev.cuadro; if (C.tipo !== id) C.sku = ''; C.tipo = id; pintarPrevisto(); }
+// #30: tipo que ha confirmado el técnico (el del pedido o el que elige) y lista de cuadros para elegir cuál.
+function cuadroTipoSel(){ const C = (state.prev || {}).cuadro; if (!C) return ''; return (C.tipoPedido && C.si === true) ? C.tipoPedido : (C.tipo || ''); }
+function cuadrosLista(tipo){
+  const L = ((state.prev || {}).alternativas || {}).cuadro || [], vistos = {};
+  const uno = L.filter(a => a && a.sku != null && !vistos[a.sku] && (vistos[a.sku] = true));
+  const mismo = uno.filter(a => tipoCuadroDeTexto(a.nombre || '') === tipo), otros = uno.filter(a => tipoCuadroDeTexto(a.nombre || '') !== tipo);
+  return mismo.concat(otros);
+}
+// Si el material especial nombra el cuadro y solo uno de los de a bordo es de ese tipo, sale propuesto (una vez).
+function cuadroProponer(altC){
+  const C = state.prev.cuadro; if (!C || C.propuesto || C.sku) return;
+  C.propuesto = true;
+  if (!C.tipoPedido || C.si === false || !/CUADRO/i.test(((state.prev || {}).pedido || {}).especial || '')) return;
+  const m = altC.filter(a => tipoCuadroDeTexto(a.nombre || '') === C.tipoPedido);
+  if (m.length === 1) C.sku = String(m[0].sku);
+}
+function cuadroElegir(j){ const C = state.prev.cuadro, a = cuadrosLista(cuadroTipoSel())[j]; C.sku = (j < 0 || !a) ? '_OTRO' : String(a.sku); pintarPrevisto(); }
+function cuadroRefTxt(t){ state.prev.cuadro.ref = t; }
 function cuadroNota(t){ state.prev.cuadro.nota = t; }
 function validarPrevisto(){
   const P = state.prev; if (!P) return '';
@@ -4102,6 +4168,10 @@ function validarPrevisto(){
     const C = P.cuadro;
     if (C.tipoPedido && C.si == null) return 'Confirma el cuadro de protecciones';
     if ((!C.tipoPedido || C.si === false) && !C.tipo && !String(C.nota || '').trim()) return 'Indica qué cuadro de protecciones has puesto';
+    if (cuadroTipoSel() && cuadrosLista(cuadroTipoSel()).length){                             // #30
+      if (!C.sku) return 'Elige cuál de los cuadros has puesto';
+      if (C.sku === '_OTRO' && !String(C.ref || '').trim()) return 'Escribe el cuadro que has puesto';
+    }
   }
   return '';
 }
@@ -4114,7 +4184,9 @@ function calcConforme(){
   const items = (P.items || []).filter(it => it.tipo !== 'cargador');
   items.forEach((it, k) => { const r = (P.resp || {})[k] || {}; hay = true; if (r.si !== true) ok = false; });
   const visibleCuadro = !items.some(it => it.tipo === 'cuadro') && necesitaCuadro();
-  if (visibleCuadro && P.cuadro && P.cuadro.tipoPedido){ hay = true; if (P.cuadro.si !== true) ok = false; }
+  if (visibleCuadro && P.cuadro && P.cuadro.tipoPedido){ hay = true; if (P.cuadro.si !== true) ok = false;
+    else { const a = (P.cuadro.sku && P.cuadro.sku !== '_OTRO') ? ((P.alternativas || {}).cuadro || []).find(x => String(x.sku) === String(P.cuadro.sku)) : null;   // #30
+      if ((a && tipoCuadroDeTexto(a.nombre || '') !== P.cuadro.tipoPedido) || P.cuadro.sku === '_OTRO') ok = false; } }
   if (!cargadorOculto() && state.carg && state.carg.respuesta != null){ hay = true; if (state.carg.respuesta !== true) ok = false; }
   return hay ? ok : '';
 }
@@ -4139,11 +4211,16 @@ function datosPrevisto(datos){
   if (visibleCuadro && P.cuadro){
     const C = P.cuadro, nomTipo = id => (CUADRO_TIPOS.find(x => x.id === id) || {}).txt || '';
     const ok = C.tipoPedido && C.si === true;
-    datos.cuadroRef = ''; datos.cuadroSku = '';
-    datos.cuadroNombre = ok ? nomTipo(C.tipoPedido) : (C.tipo ? nomTipo(C.tipo) : (C.nota || ''));
-    datos.cuadroConfirmado = !!ok;
+    // #30: cuadroSku = el elegido de la lista; si no está, cuadroRef = lo que escribe el técnico.
+    const a = (C.sku && C.sku !== '_OTRO') ? (((P.alternativas || {}).cuadro || []).find(x => String(x.sku) === String(C.sku)) || null) : null;
+    const txt = C.sku === '_OTRO' ? String(C.ref || '').trim() : (!C.tipo && !ok ? String(C.nota || '').trim() : '');
+    datos.cuadroSku = a ? String(a.sku) : '';
+    datos.cuadroRef = a ? (a.ref || '') : txt;
+    datos.cuadroNombre = a ? (a.nombre || '') : (txt || (ok ? nomTipo(C.tipoPedido) : (C.tipo ? nomTipo(C.tipo) : '')));
+    const okA = ok && (!a || tipoCuadroDeTexto(a.nombre || '') === C.tipoPedido);   // el elegido es del tipo del pedido
+    datos.cuadroConfirmado = !!okA;
     datos.cuadroNota = C.nota || '';
-    datos.cuadroFuente = ok ? 'confirmado' : (C.tipo ? 'lista' : 'otro');
+    datos.cuadroFuente = a ? (okA ? 'confirmado' : 'lista') : (txt ? 'otro' : (ok ? 'confirmado' : 'tipo'));
   }
 }
 // ── DPN: intensidad de cada uno (solo monofásica) ──
@@ -4229,7 +4306,7 @@ async function cargarCargadores(){
     state.carg.duenos = r.duenos || [];
     const p = duenoPorDefecto(), clave = c => { const sp = stockDe(c, p); return (sp.total > 0 || sp.aBordo > 0 ? 2 : 0) + ((c.aBordo || 0) > 0 ? 1 : 0); };
     lista.sort((a, b) => clave(b) - clave(a));
-    state.carg.lista = lista; state.carg.duenos = r.duenos || [];
+    state.carg.lista = ibFiltrarCargadores(lista); state.carg.duenos = r.duenos || [];
   } catch (e) {
     if (!state.carg.reintentado){ state.carg.reintentado = true; await new Promise(r => setTimeout(r, 3000)); return cargarCargadores(); }
     state.carg.lista = []; state.carg.error = String((e && e.message) || e);
@@ -4358,7 +4435,7 @@ function aplicarPreCargadores(o){
     });
     const p = duenoPorDefecto(), clave = c => { const sp = stockDe(c, p); return (sp.total > 0 || sp.aBordo > 0 ? 2 : 0) + ((c.aBordo || 0) > 0 ? 1 : 0); };
     lista.sort((a, b) => clave(b) - clave(a));
-    state.carg.lista = lista; state.carg.pre = true;
+    state.carg.lista = ibFiltrarCargadores(lista); state.carg.pre = true;
     pintarCargador();
     return true;
   } catch (e) { return false; }
@@ -4381,6 +4458,278 @@ function aplicarPreMaterial(o){
 state.aperturaIso = new Date().toISOString();     // v3.24.1: cuándo se abre el cierre (hora de fin)
 parseUrlParams();
 checkSuperOnLoad();
+// ═══════════════════════════════════════════════════════════════
+// v3.31.0: CIERRE DE UN TOQUE (César 17/11; probado en cierre-esbrain-prueba v2.0.0-prueba.1)
+// Una pregunta por pantalla dentro de los pasos 4 (línea) y 6 (materiales).
+// Al tocar una opción válida avanza solo a los 2 s; metros y textos con
+// «Siguiente»; «Atrás» siempre.
+// ═══════════════════════════════════════════════════════════════
+const SP_ESPERA = 2000;
+function _sp$(id){ return document.getElementById(id); }
+function _spNum(id){ return parseFloat((_sp$(id) || {}).value) || 0; }
+const SP_CABLE_TXT = { UTP: 'U/UTP', FTP: 'F/UTP', APANTALLADO: 'Apantallado 2×1,5 mm²' };
+
+function _spErrCarg(){
+  if (cargadorOculto()) return '';
+  if (state.carg.sin) return state.carg.sinMotivo ? '' : 'Indica por qué no se ha instalado el cargador';
+  if (state.carg.respuesta === null) return 'Confirma el cargador instalado';
+  if (state.carg.respuesta === false && !state.carg.sku && !String(state.carg.nombre || '').trim())
+    return (state.carg.lista || []).length ? 'Elige en la lista el cargador que has instalado o escribe el modelo' : 'Escribe el modelo del cargador que has instalado';
+  if ((cargadorCambiado() || cargadorDuenoDistinto()) && !state.carg.seguro)
+    return cargadorCambiado() ? 'Es distinto del que indica el calendario: confírmalo con «Sí, he instalado otro»' : 'El cargador elegido no es del stock de ' + nombreDueno(duenoPorDefecto()) + ': confírmalo';
+  return '';
+}
+function _spErrPrev(k){
+  const P = state.prev || {}, items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  if (k >= items.length) return validarPrevisto();          // tarjeta del cuadro
+  const r = (P.resp || {})[k] || {};
+  if (r.si == null) return 'Confirma este material';
+  if (r.si === false && r.alt == null && !String(r.nota || '').trim()) return 'Elige qué has puesto o descríbelo';
+  return '';
+}
+function _spFijVis(){ return typeof fijacionVisible === 'function' && fijacionVisible(); }
+function _spBornas(){ return _spNum('bornasMono') + _spNum('bornasTrif'); }
+
+function spDef(n){
+  if (n === 4) return [
+    { id: 'canal',   t: '¿Cómo va la línea?',        els: ['sp4canal'], auto: true, err: () => state.data.tipoLinea ? '' : 'Elige cómo va la línea' },
+    { id: 'fase',    t: '¿Monofásica o trifásica?',  els: ['sp4fase', 'avisoFase'], auto: true, err: () => state.data.fase ? '' : 'Elige la fase' },
+    { id: 'metros',  t: '¿Cuántos metros de línea?', els: ['sp4metros'], err: () => _spNum('metrosLinea') > 0 ? '' : 'Indica los metros de línea' },
+    { id: 'seccion', t: 'Sección del cable',         els: ['sp4seccion', 'hintSeccionAuto'], auto: true, err: () => state.data.seccion ? '' : 'Elige la sección del cable' }
+  ];
+  if (n !== 6) return null;
+  const L = [];
+  if (!cargadorOculto()) L.push({ id: 'carg', t: 'Cargador', els: ['cargadorTitulo', 'cargadorCard'], auto: true, err: _spErrCarg });
+  const pw = _sp$('previstoWrap');
+  if (pw) Array.from(pw.children).forEach((ch, k) => {
+    if (ch.classList.contains('hint')) return;                // «Comprobando…»: no se espera
+    L.push({ id: 'prev' + k, t: 'Material previsto', els: ['previstoTitulo', () => _sp$('previstoWrap').children[k]], auto: true, err: () => _spErrPrev(k) });
+  });
+  L.push({ id: 'pvc', t: 'Tubo y corrugado', els: ['sp6habH', 'canalizacionesCard'], err: () => {
+    if (state.data.tipoLinea !== 'tubo') return '';
+    return (_spNum('mat_pvc32') + _spNum('mat_corr32') + _spNum('mat_acero32') + _spNum('mat_acero40')) > 0 ? '' : 'Bajo tubo: indica los metros de tubo o de corrugado';
+  } });
+  if (_spFijVis()) L.push({ id: 'fij', t: 'Fijación del tubo', els: ['fijacionCard'], auto: true, err: () => state.fijacion ? '' : 'Indica con qué has fijado las grapas del tubo' });
+  L.push({ id: 'datosTipo', t: 'Cable de datos', els: ['spDatosTipo'], auto: true, err: () => '' });
+  L.push({ id: 'datosM', t: 'Metros de cable de datos', els: ['cardDatos'], err: () => String((_sp$('metrosUtp') || {}).value || '') === '' ? 'Indica los metros de cable de datos (0 si no has puesto)' : '' });
+  if (state.type === 'comunitaria'){
+    L.push({ id: 'bornas', t: 'Bornas de centralización', els: ['bornasSection'], err: () => '' });
+    if (_spBornas() > 0) L.push({ id: 'bornasTipo', t: '¿Qué bornas has puesto?', els: ['spBornasTipo'], auto: true, err: () => state.data.bornasTipo ? '' : 'Indica qué bornas has puesto' });
+  }
+  L.push({ id: 'extras', t: '¿Algo más?', els: ['canalizacionesCard', 'sp6masH', 'chipsMat', 'btnVerTodos', 'proteccionesCard', 'spOtro'], err: () => validarDpn() });
+  return L;
+}
+
+function spAplicar(){
+  const sp = state.sp; if (!sp) return;
+  const sec = document.querySelector('[data-screen="' + sp.n + '"]'), L = spDef(sp.n);
+  if (!sec || !L || !L.length) return;
+  const cur = L.find(s => s.id === sp.id) || L[Math.min(sp.i || 0, L.length - 1)];
+  sp.id = cur.id; sp.i = L.indexOf(cur);
+  const gest = Array.from(sec.children).filter(el => !el.matches('h1.title, p.subtitle'));
+  const pw = _sp$('previstoWrap'); if (sp.n === 6 && pw) gest.push.apply(gest, Array.from(pw.children));
+  gest.forEach(el => el.classList.add('sp-off'));
+  cur.els.forEach(x => { let el = typeof x === 'function' ? x() : _sp$(x); while (el && el !== sec){ el.classList.remove('sp-off'); el = el.parentElement; } });
+  const cc = _sp$('canalizacionesCard');
+  if (cc){ cc.classList.toggle('sp-solo-hab', cur.id === 'pvc'); cc.classList.toggle('sp-sin-hab', cur.id === 'extras'); }
+  sec.querySelector('h1.title').textContent = cur.t;
+  sec.querySelector('p.subtitle').innerHTML = '<span class="sp-paso">Pregunta ' + (sp.i + 1) + ' de ' + L.length + '</span>' + (cur.auto ? ' · toca para elegir' : '');
+  if (cur.id === 'datosTipo') spCableDefecto();
+  if (cur.id === 'bornasTipo') spPintarBornasTipo();
+  _sp$('validationMsg').classList.remove('active');
+  window.scrollTo(0, 0);
+}
+
+// ── Navegación ──
+const _spShowOrig = showScreen, _spNextOrig = nextScreen, _spPrevOrig = prevScreen;
+showScreen = function(num, desde){
+  spCancelar();
+  const atras = !!state.spAtras; state.spAtras = false;
+  state.sp = null;
+  _spShowOrig(num);
+  if (num === 4 || num === 6){
+    const L = spDef(num) || [];
+    state.sp = { n: num, id: desde || (atras && L.length ? L[L.length - 1].id : (L[0] || {}).id), i: 0 };
+    spAplicar();
+  }
+};
+nextScreen = function(){
+  spCancelar();
+  const n = state.currentScreen, sp = state.sp, V = state.spVolver;
+  if (sp && sp.n === n){
+    const L = spDef(n); let idx = L.findIndex(s => s.id === sp.id); if (idx < 0) idx = 0;
+    const cur = L[idx], e = cur.err();
+    if (e){ showError(e); return; }
+    const fin = V && V.n === n && V.hasta === cur.id;
+    if (!fin && idx < L.length - 1){ sp.id = L[idx + 1].id; spAplicar(); return; }
+    if (!fin){
+      const j = L.findIndex(s => s.err());
+      if (j >= 0){ const m = L[j].err(); sp.id = L[j].id; spAplicar(); showError(m); return; }
+      if (!validateScreen(n)) return;
+    }
+  }
+  if (V && V.n === n){
+    if (!(sp && sp.n === n) && !validateScreen(n)) return;
+    state.spVolver = null; spIrResumen(); return;
+  }
+  _spNextOrig();
+};
+prevScreen = function(){
+  spCancelar();
+  const n = state.currentScreen, sp = state.sp;
+  if (state.spVolver){ state.spVolver = null; spIrResumen(); return; }
+  if (sp && sp.n === n){
+    const L = spDef(n), idx = L.findIndex(s => s.id === sp.id);
+    if (idx > 0){ sp.id = L[idx - 1].id; spAplicar(); return; }
+  }
+  state.spAtras = true;
+  _spPrevOrig();
+};
+function spPrimerInvalido(){
+  if (!state.materialesPreparados) return null;
+  try { _spPintPrevOrig(); } catch (e) {}
+  for (const n of [4, 6]){
+    const L = spDef(n) || [];
+    for (const s of L){ const e = s.err(); if (e) return { n: n, id: s.id, e: e }; }
+  }
+  const eP = validarPrevisto(); if (eP) return { n: 6, id: 'carg', e: eP };
+  return null;
+}
+function spIrResumen(){
+  const inv = spPrimerInvalido();
+  if (inv){ state.spVolver = { n: inv.n, hasta: inv.id }; showScreen(inv.n, inv.id); showError(inv.e); return; }
+  showScreen(12);
+}
+function spEditar(n, desde, hasta){
+  state.spVolver = { n: n, hasta: hasta || desde || '' };
+  showScreen(n, desde || undefined);
+}
+
+// ── Avance automático ──
+function spCuenta(){
+  spCancelar();
+  const b = _sp$('btnNext'); let s = Math.ceil(SP_ESPERA / 1000);
+  b.textContent = 'Siguiente · ' + s; b.classList.add('sp-cuenta');
+  state.spT = setInterval(() => {
+    s--;
+    if (s <= 0){ spCancelar(); nextScreen(); }
+    else b.textContent = 'Siguiente · ' + s;
+  }, 1000);
+}
+function spCancelar(){
+  if (state.spT){ clearInterval(state.spT); state.spT = null; }
+  const b = _sp$('btnNext'); if (!b) return;
+  if (b.classList.contains('sp-cuenta')){ b.classList.remove('sp-cuenta'); b.textContent = 'Siguiente'; }
+}
+function spTrasToque(){
+  const n = state.currentScreen;
+  if (n === 1){ if (state.type && state.type !== 'fallida' && !state.equipoPendiente) spCuenta(); return; }
+  if (n === 'solar'){ if (state.data.medidorBidireccional) spCuenta(); return; }
+  const sp = state.sp; if (!sp || sp.n !== n) return;
+  const cur = (spDef(n) || []).find(s => s.id === sp.id);
+  if (cur && cur.auto && !cur.err()) spCuenta(); else spCancelar();
+}
+document.addEventListener('click', ev => {
+  const t = ev.target && ev.target.closest && ev.target.closest('.pill, .type-btn');
+  if (!t || !t.closest('.screen.active')) return;
+  if (t.dataset && t.dataset.cd) state.spCableTocado = true;
+  spCancelar();
+  setTimeout(spTrasToque, 30);
+}, true);   // en captura: el previsto se repinta al tocar y la opción sale del DOM
+document.addEventListener('input', ev => { if (ev.target && ev.target.closest && ev.target.closest('.screen.active')) spCancelar(); });
+
+// ── Al pintar el previsto, se reaplica la pregunta actual ──
+const _spPintPrevOrig = pintarPrevisto;
+pintarPrevisto = function(){ _spPintPrevOrig(); if (state.sp && state.sp.n === 6 && state.currentScreen === 6) spAplicar(); };
+
+// ── Tubo y corrugado: sin valor deducido ──
+pvcPorDefecto = function(){ if (typeof actualizarFijacion === 'function') actualizarFijacion(); };
+
+// ── Cable de datos: U/UTP, F/UTP o apantallado (Tesla) ──
+selectCableDatos = function(tipo){
+  tipo = (tipo === 'FTP' || tipo === 'APANTALLADO') ? tipo : 'UTP';
+  state.data.cableDatos = tipo;
+  document.querySelectorAll('#spDatosTipo [data-cd]').forEach(p => p.classList.toggle('selected', p.getAttribute('data-cd') === tipo));
+  const lbl = _sp$('lblMetrosUtp'); if (lbl) lbl.textContent = tipo === 'APANTALLADO' ? 'Cable apantallado 2×1,5 mm²' : 'Cable de datos ' + SP_CABLE_TXT[tipo];
+  const campo = _sp$('campoRj45'), rj = _sp$('rj45');
+  if (campo) campo.style.display = tipo === 'UTP' ? '' : 'none';
+  if (rj){ if (tipo !== 'UTP') rj.value = 0; else if (!(parseInt(rj.value, 10) > 0)) rj.value = 2; }
+};
+function spCableDefecto(){
+  const dp = state.carg.respuesta === true && typeof cargadorDelPedido === 'function' ? cargadorDelPedido() : null;
+  const nom = String((dp && dp.nombre) || (!state.carg.sin && state.carg.nombre) || state.cita.hardware || '').toUpperCase();
+  const def = /POLICHARGER/.test(nom) ? 'FTP' : (/WALL ?CONNECTOR/.test(nom) || (/TESLA/.test(nom) && !/V2C|TRYDAN/.test(nom))) ? 'APANTALLADO' : 'UTP';
+  selectCableDatos(state.spCableTocado ? state.data.cableDatos : def);
+  const sub = _sp$('spDatosSub');
+  if (sub) sub.textContent = nom ? 'Para este cargador lo normal es ' + SP_CABLE_TXT[def] + '. Toca para confirmar o elige otro.' : 'Toca el que has puesto.';
+}
+
+// ── Bornas: WAGO o Phoenix ──
+function spBornasTipo(v){ state.data.bornasTipo = v; spPintarBornasTipo(); }
+function spPintarBornasTipo(){ document.querySelectorAll('#spBornasTipo [data-bt]').forEach(p => p.classList.toggle('selected', p.getAttribute('data-bt') === state.data.bornasTipo)); }
+
+// ── Datos que se envían: campos nuevos ──
+const _spRecOrig = recolectarDatos;
+recolectarDatos = function(esFallida){
+  const d = _spRecOrig(esFallida);
+  if (esFallida) return d;
+  d.cableDatos   = state.data.cableDatos || 'UTP';
+  d.rj45         = d.cableDatos === 'UTP' ? _spNum('rj45') : 0;
+  d.tipoCable    = state.data.tipoLinea === 'manguera' ? 'RZ1-K' : 'H07Z1-K';
+  d.bornasTipo   = _spBornas() > 0 ? (state.data.bornasTipo || '') : '';
+  d.otroMaterial = String((_sp$('otroMaterial') || {}).value || '').trim();
+  return d;
+};
+
+// ── Resumen: cada dato lleva a su pregunta y vuelve ──
+resumenBloques = function(){
+  const cont = _sp$('resumenBloques'); if (!cont) return;
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const val = t => '<div class="rs-val">' + esc(t) + '</div>', mini = t => '<div class="rs-mini">' + esc(t) + '</div>';
+  const fila = (et, html, n, desde, hasta) => '<div class="rs-bloque" onclick="spEditar(' + n + ',\'' + (desde || '') + '\',\'' + (hasta || desde || '') + '\')"><div><div class="rs-et">' + et + '</div>' + html + '</div><span class="rs-cambiar">Cambiar</span></div>';
+  const tipoTxt = { comunitaria: 'Comunitaria', unifamiliar: 'Unifamiliar', nuevoSuministro: 'Nuevo suministro' }[state.type] || '—';
+  let h = fila('TIPO', val(tipoTxt), 1);
+  h += fila('LÍNEA', val(state.data.tipoLinea === 'manguera' ? 'Bandeja (pre-instalación) · RZ1-K' : 'Bajo tubo · H07Z1-K'), 4, 'canal');
+  h += fila('FASE', val(state.data.fase === 'trif' ? 'Trifásica' : state.data.fase === 'mono' ? 'Monofásica' : '—'), 4, 'fase');
+  h += fila('METROS DE LÍNEA', val(_spNum('metrosLinea') + ' m'), 4, 'metros');
+  h += fila('SECCIÓN', val((state.data.seccion || '—') + ' mm²'), 4, 'seccion');
+  if (!cargadorOculto()){
+    const carg = state.carg.sin ? 'Sin cargador' + (state.carg.sinMotivo ? ' · ' + ({ TRASLADO: 'traslado', CLIENTE: 'lo pone el cliente', SEGUNDA_VISITA: 'segunda visita' }[state.carg.sinMotivo] || state.carg.sinMotivo) : '')
+      : (state.carg.nombre || state.cita.hardware || '—') + ' · ' + nombreDueno(state.carg.dueno || duenoPorDefecto());
+    h += fila('CARGADOR', mini(carg), 6, 'carg');
+  }
+  const P = state.prev || {}, items = (P.items || []).filter(it => it.tipo !== 'cargador');
+  items.forEach((it, k) => { const r = (P.resp || {})[k] || {};
+    h += fila('MATERIAL PREVISTO', mini((r.si === true ? '✓ ' : r.si === false ? '✗ otro · ' : '— ') + (it.nombre || it.sku)), 6, 'prev' + k); });
+  { const d = {}; datosPrevisto(d); if (d.cuadroNombre) h += fila('CUADRO', mini(d.cuadroNombre + (d.cuadroRef ? ' (' + d.cuadroRef + ')' : '')), 6, 'prev' + items.length); }
+  h += fila('TUBO Y CORRUGADO', mini('Tubo PVC 32 · ' + _spNum('mat_pvc32') + ' m') + mini('Corrugado · ' + _spNum('mat_corr32') + ' m'), 6, 'pvc');
+  if (_spFijVis()) h += fila('FIJACIÓN', val(FIJ_TXT[state.fijacion] || '—'), 6, 'fij');
+  const cd = state.data.cableDatos || 'UTP';
+  h += fila('CABLE DE DATOS', val(SP_CABLE_TXT[cd] + ' · ' + _spNum('metrosUtp') + ' m' + (cd === 'UTP' ? ' · ' + _spNum('rj45') + ' RJ45' : '')), 6, 'datosTipo', 'datosM');
+  if (state.type === 'comunitaria'){
+    const bt = { wago: 'WAGO', pnx: 'Phoenix' }[state.data.bornasTipo] || '';
+    h += fila('BORNAS', mini('Mono · ' + _spNum('bornasMono') + ' kit') + mini('Trif · ' + _spNum('bornasTrif') + ' kit') + (bt && _spBornas() > 0 ? mini(bt) : ''), 6, 'bornas', _spBornas() > 0 ? 'bornasTipo' : 'bornas');
+  }
+  const mats = [];
+  document.querySelectorAll('[data-mat] .material-input').forEach(i => {
+    const b = i.closest('[data-mat]'), id = b.getAttribute('data-mat'), v = parseFloat(i.value) || 0;
+    if (v <= 0 || id === 'pvc32' || id === 'corr32') return;
+    const n = b.querySelector('.material-name'), un = (b.querySelector('.material-unit') || {}).textContent || '';
+    mats.push((n && n.firstChild ? String(n.firstChild.textContent).trim() : id) + ' · ' + v + ' ' + un);
+  });
+  const dp = dpnDetalle(); if (dp) mats.push('DPN: ' + dp);
+  const otro = String((_sp$('otroMaterial') || {}).value || '').trim(); if (otro) mats.push('Escrito: ' + otro);
+  h += fila('ALGO MÁS', mats.length ? mats.map(mini).join('') : mini('Nada más'), 6, 'extras');
+  cont.innerHTML = h;
+};
+
+// ── Antes de enviar: si falta algo, se lleva a esa pregunta ──
+const _spSubmitOrig = submitClosure;
+submitClosure = function(esFallida){
+  if (!esFallida){ const inv = spPrimerInvalido(); if (inv){ state.spVolver = { n: inv.n, hasta: inv.id }; showScreen(inv.n, inv.id); showError(inv.e); return; } }
+  return _spSubmitOrig.apply(this, arguments);
+};
+
 renderSteps();
 if (!state.esIntervencion){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
   const _pre = leerPre(), _preC = !!_pre && aplicarPreCargadores(_pre), _preM = !!_pre && aplicarPreMaterial(_pre);   // v3.28.0: enlace preparado
