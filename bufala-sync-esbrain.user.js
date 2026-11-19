@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Búfala · Sync ESBRAIN automático
 // @namespace    https://instalacionesbufala-hue.github.io/bufala
-// @version      2.8.0
+// @version      2.9.0
 // @description  Sincroniza las instalaciones de ESBRAIN con el sistema Búfala. Se ejecuta solo, recarga la página cada 15 minutos y no necesita que nadie pulse nada.
 // @author       Búfala Tech S.L.
 // @match        https://esbrain.esmove.es/*
@@ -33,7 +33,7 @@
   'use strict';
 
   var W = 'https://script.google.com/macros/s/AKfycbxMMeyP9g75p1lxytithxeFfQVbe0cXV3aFHlJObfI05ewIN1mtTxPYBNPYp--BPKc9tw/exec';
-  var VER = '2.8.0';   // v2.8.0: potencia_contratada (kW) de cada ficha
+  var VER = '2.9.0';   // v2.9.0: también los CAMBIO_PRESUPUESTO del historial (repuntes de ESMOVE) · v2.8.0: potencia_contratada (kW)
   // v2.7.0 · CLAVE DE SINCRONIZACIÓN. El backend solo acepta envíos con la clave
   // que César fija en el editor (guardarClaveEsbrain). Se escribe UNA vez aquí y
   // queda guardada en Tampermonkey, fuera de este fichero (que es público).
@@ -234,8 +234,9 @@
       timestamp_inicio: d.timestamp_inicio || '',
       timestamp_completada: d.timestamp_completada || '',
       // v2.5.0: reagendaciones, bloqueos y cancelaciones del historial (para el Informe Semanal)
+      // v2.9.0: y los repuntes de presupuesto (CAMBIO_PRESUPUESTO), para casar cierres hechos con el nº anterior
       eventos: (d.historial || []).filter(function (h) {
-        return /^(REPROGRAMADA|BLOQUEO_TECNICO|INSTALACION_CANCELADA|DESASIGNACION)$/.test(h.tipo_evento || '');
+        return /^(REPROGRAMADA|BLOQUEO_TECNICO|INSTALACION_CANCELADA|DESASIGNACION|CAMBIO_PRESUPUESTO)$/.test(h.tipo_evento || '');
       }).map(function (h) {
         return { id: h.id, tipo: h.tipo_evento, descripcion: String(h.descripcion || '').slice(0, 400), fecha: h.created_at || '' };
       }),
