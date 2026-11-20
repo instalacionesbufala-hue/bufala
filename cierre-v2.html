@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre v2 · build v3.31.0 (19/11/2026)
+<!-- BÚFALA — Wizard de cierre v2 · build v3.32.0 (20/11/2026)
+     v3.32.0 — GARANTÍA (encargo #36): con tipo=garantia (enlace del alta del panel) se va
+     directo a la pantalla de la visita fallida, rotulada «Garantía», con sus cuatro causas
+     (PROPIA, CLIENTE, SUMINISTRO, ESMOVE), obligatorias, y lo encontrado (obligatorio).
+     Fotos y vídeos como en la fallida. Sin material ni cargador: no consulta nada al abrir.
+     Envía despFallido, esGarantia, causaGarantia y obraOriginal (sin causaFallida).
      v3.31.0 — CIERRE DE UN TOQUE (igual que cierre-esbrain v1.15.0): una pregunta por
      pantalla en los pasos 4 y 6, avance solo a los 2 s, resumen que lleva a cada pregunta,
      campos tipoCable, bornasTipo, cableDatos APANTALLADO y otroMaterial, y #30 (qué
@@ -16,9 +21,6 @@
      v3.28.0 — ENLACE PREPARADO (igual que cierre-esbrain v1.12.0): si el enlace
      trae «pre» de hoy (cargadores del equipo y material previsto), se usa al
      abrir y no se consulta nada; si no, las consultas de siempre, por detrás.
-     v3.27.3 — cargador escrito a mano (igual que cierre-esbrain v1.11.4): con
-     «No, otro», si la lista del almacén no ha llegado o no trae el modelo, el
-     técnico lo escribe; va en cargadorNombre, sin SKU, y la oficina lo revisa.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -1341,6 +1343,9 @@ function parseUrlParams(){
   // v3.16.0: flujo INTERVENCIÓN SAT — el link del calendario llega con
   // &tipo=intervencion. Una sola pantalla, sin fotos/acta/vídeo, sin Drive.
   state.esIntervencion = (state.cita.tipo === 'intervencion');
+  // v3.32.0: GARANTÍA (encargo #36) — pantalla de la fallida con sus propias causas
+  state.esGarantia = (state.cita.tipo === 'garantia');
+  state.cita.obraOriginal = p.get('obra') || '';
 
   // v3.18.0: flujo INSTANTBOX — el link de la captura llega con
   // &partner=instantbox (+ fase/tramo/vivienda capturados del pedido, si el
@@ -4730,8 +4735,73 @@ submitClosure = function(esFallida){
   return _spSubmitOrig.apply(this, arguments);
 };
 
+// ═══ v3.32.0 — GARANTÍA (encargo #36) ═══
+// Pantalla de la visita fallida rotulada «Garantía», con su lista de causas y el texto de
+// lo encontrado, ambos obligatorios. Sin material ni cargador. Sin precios.
+const CAUSAS_GARANTIA = [
+  ['PROPIA',     'Propia: fallo de nuestra instalación'],
+  ['CLIENTE',    'Cliente: uso, manipulación o falsa alarma'],
+  ['SUMINISTRO', 'Suministro eléctrico: distribuidora, potencia o red'],
+  ['ESMOVE',     'ESMOVE: cargador, pinza, control box o protecciones']
+];
+function _gEsc(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function prepararGarantia(){
+  state.type = 'fallida'; state.causaManual = true; state.desmontajeHw = false;
+  const sc = document.querySelector('[data-screen="failed"]'); if (!sc) return;
+  const t = sc.querySelector('.title'), st = sc.querySelector('.subtitle');
+  if (t) t.textContent = '🛡️ Garantía';
+  if (st) st.textContent = 'Indica la causa y lo que has encontrado';
+  const fi = document.getElementById('failInfoText');
+  if (fi) fi.innerHTML = 'Se registrará como <b>GARANTÍA</b>' + (state.cita.obraOriginal ? ' de la obra <b>' + _gEsc(state.cita.obraOriginal) + '</b>' : '') +
+    '. En una garantía no se gasta material. Si has cambiado pinza, control box o protecciones, la causa es <b>ESMOVE</b>.';
+  const lb = sc.querySelector('label[for="causaFallida"]'); if (lb) lb.textContent = 'Causa de la garantía';
+  const sel = document.getElementById('causaFallida');
+  sel.innerHTML = '<option value="">— Elige la causa —</option>' + CAUSAS_GARANTIA.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('');
+  sel.onchange = pintarCausaGarantia;
+  const mo = document.getElementById('motivoFallido');
+  mo.removeAttribute('oninput'); mo.oninput = null; mo.placeholder = 'Qué has encontrado y qué has hecho…';
+  document.getElementById('lblMotivoFallido').textContent = 'Qué has encontrado (obligatorio)';
+  pintarCausaGarantia();
+}
+function pintarCausaGarantia(){
+  const c = document.getElementById('causaFallida').value, av = document.getElementById('causaAviso');
+  if (av) av.textContent = c === 'PROPIA' ? 'Causa propia: esta visita no se factura.' : (c ? 'Causa ajena: se factura la visita.' : '');
+}
+const _gValOrig = validateScreen;
+validateScreen = function(num){
+  if (state.esGarantia && num === 'failed'){
+    if (!document.getElementById('causaFallida').value){ showError('Elige la causa de la garantía'); return false; }
+    if (!document.getElementById('motivoFallido').value.trim()){ showError('Escribe qué has encontrado'); return false; }
+    return true;
+  }
+  return _gValOrig(num);
+};
+const _gShowOrig = showScreen;
+showScreen = function(num, desde){
+  _gShowOrig(num, desde);
+  if (state.esGarantia && num === 'failed'){
+    document.getElementById('btnNext').textContent = '✓ Enviar garantía';
+    document.getElementById('btnPrev').style.visibility = 'hidden';
+  }
+};
+const _gPrevOrig = prevScreen;
+prevScreen = function(){ if (state.esGarantia && state.currentScreen === 'failed') return; _gPrevOrig(); };
+const _gRecOrig = recolectarDatos;
+recolectarDatos = function(esFallida){
+  const d = _gRecOrig(esFallida);
+  if (state.esGarantia){
+    d.esGarantia = true; d.despFallido = true;
+    d.causaGarantia = d.causaFallida || document.getElementById('causaFallida').value || '';
+    delete d.causaFallida;
+    d.obraOriginal = state.cita.obraOriginal || '';
+    d.tipoInst = '';
+    d.aperturaIso = state.aperturaIso || '';
+  }
+  return d;
+};
+
 renderSteps();
-if (!state.esIntervencion){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
+if (!state.esIntervencion && !state.esGarantia){ state.prev = { items: [], alternativas: {}, pedido: {}, resp: {}, cuadro: null, cargando: true };
   const _pre = leerPre(), _preC = !!_pre && aplicarPreCargadores(_pre), _preM = !!_pre && aplicarPreMaterial(_pre);   // v3.28.0: enlace preparado
   (async () => { if (!_preC) await cargarCargadores(); if (!_preM) await cargarPrevisto(); })(); }   // en serie: Apps Script atiende de una en una
 prepararControles();                              // v3.21.0: botones − / +
@@ -4748,6 +4818,12 @@ if (state.esIntervencion){
   if (pcInterv) pcInterv.style.display = 'none';
   showScreen('sat');
   document.getElementById('navBar').style.display = 'none';
+} else if (state.esGarantia){
+  // v3.32.0: GARANTÍA — directo a la pantalla de la fallida, rotulada
+  prepararGarantia();
+  const pcG = document.querySelector('.progress-container');
+  if (pcG) pcG.style.display = 'none';
+  showScreen('failed');
 } else {
   showScreen(1);
 }
