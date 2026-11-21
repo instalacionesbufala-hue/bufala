@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.15.0 (19/11/2026)
+<!-- BÚFALA — Wizard de cierre ESBRAIN · cierre-esbrain.html v1.16.0 (21/11/2026)
+     v1.16.0: TIPO DE CABLE (spec-tipo-de-cable v0.4, César 21/11). La pregunta de la línea
+     pasa a «¿Qué cable has usado?»: Unipolares (H07Z1-K) o Manguera (RZ1-K), sin nada marcado
+     por defecto. Si la ficha lo dice (parámetro «lin» que deja el backend o, si falta, la
+     línea del pedido de ESBRAIN: CON PRE → manguera, SIN PRE → unipolares), viene propuesto;
+     elegir lo contrario hay que confirmarlo. Tubo (PVC + corrugado) obligatorio con
+     cualquier cable; con unipolares y tubo por debajo del 95 % de la línea, antes de
+     enviar pregunta si las cantidades son correctas. Campos nuevos: linDetectado,
+     linFuente, linConfirmadoDistinto, tuboPct y tuboConfirmado.
      v1.15.0: CIERRE DE UN TOQUE (César 17/11; probado como cierre-esbrain-prueba
      v2.0.0-prueba.1). Una pregunta por pantalla en los pasos 4 y 6; al tocar una opción
      avanza sola a los 2 s; metros y textos con «Siguiente»; «Atrás» siempre. «Bajo tubo»
@@ -26,9 +34,6 @@
      (lista de cargadores del equipo y material previsto de la obra, que el
      backend deja cada hora) y es de hoy, se usa al abrir y no se consulta nada.
      Sin «pre», de otro día o ilegible: las consultas de siempre, por detrás.
-     v1.11.4: cargador escrito a mano. Si el técnico dice «No, otro» y la lista
-     del almacén no ha llegado (o no trae el modelo), escribe el modelo en un campo
-     de texto; va en cargadorNombre, sin SKU, y la oficina lo revisa.
      … versiones anteriores: HISTORIAL.md (repo privado panel-src). ⚠️ Aquí, máximo 5 entradas. -->
 <html lang="es">
 <head>
@@ -734,16 +739,24 @@ html,body{overflow-x:hidden}
 <!-- ═══ PANTALLA 4: TIPO LÍNEA + FASE ═══ -->
 <section class="screen" data-screen="4">
   <h1 class="title">Línea eléctrica</h1>
-  <p class="subtitle">Canalización, fase, sección y metros</p>
+  <p class="subtitle">Cable, fase, sección y metros</p>
 
   <div class="field" id="sp4canal">
-    <label class="label">Canalización
+    <label class="label">Cable de la línea
       <button type="button" class="info-btn" onclick="toggleTip(event,'tipoLinea')">i</button>
     </label>
-    <div class="tooltip" id="tip-tipoLinea">Bajo tubo PVC: cable instalado dentro de tubo corrugado o rígido. Manguera: cable conjunto monobloque sin tubo adicional.</div>
+    <div class="tooltip" id="tip-tipoLinea">Unipolares: cables sueltos H07Z1-K (3 en monofásica, 5 en trifásica). Manguera: un solo cable RZ1-K con los conductores dentro.</div>
+    <div class="hint" id="linDetHint" style="display:none; margin-bottom:10px"></div>
     <div class="pills">
-      <div class="pill" onclick="selectPill(this,'tipoLinea','tubo')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="9" width="20" height="6" rx="3"></rect><path d="M6 9v6M10 9v6M14 9v6M18 9v6"></path></svg>Bajo tubo<span class="p-sub">Cable unipolar H07Z1-K</span></div>
-      <div class="pill" onclick="selectPill(this,'tipoLinea','manguera')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 14c4 0 4-6 8-6s4 6 8 6h4"></path><circle cx="20" cy="14" r="1.5"></circle></svg>Bandeja (pre-instalación)<span class="p-sub">Manguera RZ1-K</span></div>
+      <div class="pill" data-lin="tubo" onclick="selectPill(this,'tipoLinea','tubo')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="9" width="20" height="6" rx="3"></rect><path d="M6 9v6M10 9v6M14 9v6M18 9v6"></path></svg>Unipolares<span class="p-sub">H07Z1-K</span></div>
+      <div class="pill" data-lin="manguera" onclick="selectPill(this,'tipoLinea','manguera')"><svg class="p-ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 14c4 0 4-6 8-6s4 6 8 6h4"></path><circle cx="20" cy="14" r="1.5"></circle></svg>Manguera<span class="p-sub">RZ1-K</span></div>
+    </div>
+    <div id="linConfWrap" style="display:none; margin-top:12px">
+      <div class="hint" id="linConfTxt" style="color:#b45309; font-weight:700"></div>
+      <div class="pills" style="margin-top:8px">
+        <div class="pill" id="pillLinConf" onclick="linSeguro()">Sí, he usado …</div>
+        <div class="pill" id="pillLinCorr" onclick="linCorregir()">No, corregir</div>
+      </div>
     </div>
   </div>
 
@@ -1146,6 +1159,17 @@ html,body{overflow-x:hidden}
     <div class="modal-actions">
       <button type="button" class="modal-cancel" onclick="closeSuperModal()">Cancelar</button>
       <button type="button" class="modal-confirm" onclick="checkSuperPassword()">Activar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tuboModal">
+  <div class="modal">
+    <div class="modal-title">¿Son correctas las cantidades de tubo?</div>
+    <div class="modal-text" id="tuboModalTxt"></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-cancel" onclick="tuboCorregir()">Corregir</button>
+      <button type="button" class="modal-confirm" onclick="tuboSiCorrectas()">Sí, son correctas</button>
     </div>
   </div>
 </div>
@@ -1559,7 +1583,7 @@ function validateScreen(num){
   if (num === 1 && !state.type){ showError('Selecciona un tipo de instalación'); return false; }
   if (num === 'solar' && !state.data.medidorBidireccional){ showError('Indica si se ha instalado el medidor bidireccional'); return false; }   // v1.4.0
   if (num === 4){
-    if (!state.data.tipoLinea){ showError('Selecciona el tipo de línea'); return false; }
+    { const eL = _linErr(); if (eL){ showError(eL); return false; } }
     if (!state.data.fase){ showError('Selecciona la fase'); return false; }
     // v1.5.0: sección y metros están ahora en esta pantalla
     if (!state.data.seccion){ showError('Selecciona la sección del cable'); return false; }
@@ -2096,6 +2120,7 @@ function selectPill(el, key, value){
   el.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
   state.data[key] = value;
+  if (key === 'tipoLinea'){ state.linSeguro = false; if (typeof pintarLin === 'function') pintarLin(); }
 }
 
 function selectFase(value, el){
@@ -2693,6 +2718,7 @@ async function submitIntervencion(){
 }
 
 async function submitClosure(esFallida){
+  if (!esFallida && !linTuboPreguntar()) return;   // v1.16.0: tubo bajo con unipolares
   // Validar vídeos antes
   const errVideo = validarTamanoVideos();
   if (errVideo){
@@ -3625,7 +3651,7 @@ function avisoFase(){
 function prepararLinea(){
   if (state.lineaPreparada) return;
   state.lineaPreparada = true;
-  if (!state.data.tipoLinea){ const el = marcarPill("'tipoLinea','tubo'"); if (el) selectPill(el, 'tipoLinea', 'tubo'); }
+  linProponer();   // v1.16.0: sin «Bajo tubo» por defecto; propuesta solo si la ficha lo dice
   const fp = faseDelPedido();
   if (fp && !state.data.fase){ const el = marcarPill("selectFase('" + fp + "'"); if (el) selectFase(fp, el); }
   const inp = document.getElementById('metrosLinea');
@@ -4338,6 +4364,69 @@ function aplicarPreMaterial(o){
 // ═══════════════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════════════
+
+// ═══ v1.16.0 — TIPO DE CABLE (spec-tipo-de-cable v0.4) ═══
+// Con preinstalación (bandeja) siempre manguera; bajo tubo, unipolares (César 21/11). La ficha propone; el técnico
+// elige y, si elige lo contrario, lo confirma. Valores internos de siempre: tipoLinea 'tubo' (unipolares) o 'manguera'.
+const LIN_TUBO_MIN = 95;                                         // % mínimo de tubo (PVC + corrugado) sobre la línea con unipolares
+const LIN_NOM = { tubo: 'unipolares', manguera: 'manguera' };
+function linDetectado(){
+  if (state.linDet) return state.linDet;
+  let l = ''; try { l = new URL(location).searchParams.get('lin') || ''; } catch (e) {}
+  let det = l === 'm' ? 'manguera' : l === 'u' ? 'tubo' : '', fuente = det ? 'ficha' : '';
+  if (!det){                                                   // sin «lin»: la línea del pedido de ESBRAIN
+    const d = _normTxt(state.cita.desc || '');
+    if (/\bCON PRE/.test(d)) det = 'manguera'; else if (/\bSIN PRE/.test(d)) det = 'tubo';
+    if (det) fuente = 'esbrain';
+  }
+  const txt = det === 'manguera' ? 'con preinstalación → manguera (RZ1-K)' : det === 'tubo' ? 'sin preinstalación → unipolares (H07Z1-K)' : '';
+  state.linDet = { det: det, fuente: fuente, txt: txt };
+  return state.linDet;
+}
+function linDistinto(){ const L = linDetectado(); return !!(L.det && state.data.tipoLinea && state.data.tipoLinea !== L.det); }
+function _linErr(){
+  if (!state.data.tipoLinea) return 'Elige el cable que has usado';
+  if (linDistinto() && !state.linSeguro) return 'La ficha indica ' + LIN_NOM[linDetectado().det] + ': confírmalo con «Sí, he usado ' + LIN_NOM[state.data.tipoLinea] + '» o corrígelo';
+  return '';
+}
+function linProponer(){
+  const L = linDetectado();
+  if (!state.data.tipoLinea && L.det){ const el = document.querySelector('#sp4canal [data-lin="' + L.det + '"]'); if (el) selectPill(el, 'tipoLinea', L.det); }
+  pintarLin();
+}
+function pintarLin(){
+  const L = linDetectado(), h = document.getElementById('linDetHint');
+  if (h){ h.style.display = L.det ? 'block' : 'none'; h.textContent = L.det ? 'Según la ficha: ' + L.txt + '. Confírmalo.' : ''; }
+  const w = document.getElementById('linConfWrap'), dist = linDistinto();
+  if (!w) return;
+  w.style.display = dist ? 'block' : 'none';
+  if (!dist) return;
+  document.getElementById('linConfTxt').textContent = '⚠️ La ficha indica ' + LIN_NOM[L.det] + '. ¿Seguro que has usado ' + LIN_NOM[state.data.tipoLinea] + '?';
+  const pc = document.getElementById('pillLinConf');
+  pc.textContent = 'Sí, he usado ' + LIN_NOM[state.data.tipoLinea];
+  pc.classList.toggle('selected', !!state.linSeguro);
+}
+function linSeguro(){ state.linSeguro = true; pintarLin(); }
+function linCorregir(){ const el = document.querySelector('#sp4canal [data-lin="' + linDetectado().det + '"]'); if (el) selectPill(el, 'tipoLinea', linDetectado().det); }
+// Tubo: PVC + corrugado (y acero, si lo hay) frente a los metros de línea.
+function linTuboM(){ return _spNum('mat_pvc32') + _spNum('mat_corr32') + _spNum('mat_acero32') + _spNum('mat_acero40'); }
+function linTuboPct(){ const m = _spNum('metrosLinea'); return m > 0 ? Math.round(linTuboM() / m * 100) : null; }
+function linTuboFalta(){ if (state.data.tipoLinea !== 'tubo') return false; const p = linTuboPct(); return p !== null && p < LIN_TUBO_MIN; }
+function linTuboPreguntar(){                                    // true = se puede enviar
+  if (!linTuboFalta() || state.tuboConfirmado) return true;
+  const f = n => String(Math.round(n * 10) / 10).replace('.', ',');
+  document.getElementById('tuboModalTxt').textContent = 'Has apuntado ' + f(linTuboM()) + ' m de tubo (PVC + corrugado) para ' + f(_spNum('metrosLinea')) +
+    ' m de línea con unipolares (' + linTuboPct() + ' %). Con unipolares el tubo cubre toda la línea. ¿Son correctas las cantidades o tienes que corregirlas?';
+  document.getElementById('tuboModal').classList.add('active');
+  return false;
+}
+function tuboSiCorrectas(){ state.tuboConfirmado = true; document.getElementById('tuboModal').classList.remove('active'); submitClosure(false); }
+function tuboCorregir(){ document.getElementById('tuboModal').classList.remove('active'); spEditar(6, 'pvc'); }
+document.addEventListener('input', ev => {                      // si cambian los metros, la confirmación ya no vale
+  const id = ev.target && ev.target.id;
+  if (/^(metrosLinea|mat_pvc32|mat_corr32|mat_acero32|mat_acero40)$/.test(id || '')) state.tuboConfirmado = false;
+});
+
 parseUrlParams();
 checkSuperOnLoad();
 // ═══════════════════════════════════════════════════════════════
@@ -4374,7 +4463,7 @@ function _spBornas(){ return _spNum('bornasMono') + _spNum('bornasTrif'); }
 
 function spDef(n){
   if (n === 4) return [
-    { id: 'canal',   t: '¿Cómo va la línea?',        els: ['sp4canal'], auto: true, err: () => state.data.tipoLinea ? '' : 'Elige cómo va la línea' },
+    { id: 'canal',   t: '¿Qué cable has usado?',     els: ['sp4canal'], auto: true, err: () => _linErr() },
     { id: 'fase',    t: '¿Monofásica o trifásica?',  els: ['sp4fase', 'avisoFase'], auto: true, err: () => state.data.fase ? '' : 'Elige la fase' },
     { id: 'metros',  t: '¿Cuántos metros de línea?', els: ['sp4metros'], err: () => _spNum('metrosLinea') > 0 ? '' : 'Indica los metros de línea' },
     { id: 'seccion', t: 'Sección del cable',         els: ['sp4seccion', 'hintSeccionAuto'], auto: true, err: () => state.data.seccion ? '' : 'Elige la sección del cable' }
@@ -4388,8 +4477,7 @@ function spDef(n){
     L.push({ id: 'prev' + k, t: 'Material previsto', els: ['previstoTitulo', () => _sp$('previstoWrap').children[k]], auto: true, err: () => _spErrPrev(k) });
   });
   L.push({ id: 'pvc', t: 'Tubo y corrugado', els: ['sp6habH', 'canalizacionesCard'], err: () => {
-    if (state.data.tipoLinea !== 'tubo') return '';
-    return (_spNum('mat_pvc32') + _spNum('mat_corr32') + _spNum('mat_acero32') + _spNum('mat_acero40')) > 0 ? '' : 'Bajo tubo: indica los metros de tubo o de corrugado';
+    return linTuboM() > 0 ? '' : 'Indica los metros de tubo PVC y de corrugado que has gastado';   // obligatorio con cualquier cable
   } });
   if (_spFijVis()) L.push({ id: 'fij', t: 'Fijación del tubo', els: ['fijacionCard'], auto: true, err: () => state.fijacion ? '' : 'Indica con qué has fijado las grapas del tubo' });
   L.push({ id: 'datosTipo', t: 'Cable de datos', els: ['spDatosTipo'], auto: true, err: () => '' });
@@ -4558,6 +4646,12 @@ recolectarDatos = function(esFallida){
   d.cableDatos   = state.data.cableDatos || 'UTP';
   d.rj45         = d.cableDatos === 'UTP' ? _spNum('rj45') : 0;
   d.tipoCable    = state.data.tipoLinea === 'manguera' ? 'RZ1-K' : 'H07Z1-K';
+  const _L = linDetectado(), _pct = state.data.tipoLinea === 'tubo' ? linTuboPct() : null;
+  d.linDetectado = _L.det === 'manguera' ? 'manguera' : _L.det === 'tubo' ? 'unipolares' : '';
+  d.linFuente = _L.fuente;
+  d.linConfirmadoDistinto = linDistinto() && !!state.linSeguro;
+  d.tuboPct = _pct === null ? '' : _pct;
+  d.tuboConfirmado = !!state.tuboConfirmado && linTuboFalta();
   d.bornasTipo   = _spBornas() > 0 ? (state.data.bornasTipo || '') : '';
   d.otroMaterial = String((_sp$('otroMaterial') || {}).value || '').trim();
   return d;
@@ -4571,7 +4665,7 @@ resumenBloques = function(){
   const fila = (et, html, n, desde, hasta) => '<div class="rs-bloque" onclick="spEditar(' + n + ',\'' + (desde || '') + '\',\'' + (hasta || desde || '') + '\')"><div><div class="rs-et">' + et + '</div>' + html + '</div><span class="rs-cambiar">Cambiar</span></div>';
   const tipoTxt = { comunitaria: 'Comunitaria', unifamiliar: 'Unifamiliar', nuevoSuministro: 'Nuevo suministro' }[state.type] || '—';
   let h = fila('TIPO', val(tipoTxt), 1);
-  h += fila('LÍNEA', val(state.data.tipoLinea === 'manguera' ? 'Bandeja (pre-instalación) · RZ1-K' : 'Bajo tubo · H07Z1-K'), 4, 'canal');
+  h += fila('CABLE', val(state.data.tipoLinea === 'manguera' ? 'Manguera · RZ1-K' : state.data.tipoLinea === 'tubo' ? 'Unipolares · H07Z1-K' : '—'), 4, 'canal');
   h += fila('FASE', val(state.data.fase === 'trif' ? 'Trifásica' : state.data.fase === 'mono' ? 'Monofásica' : '—'), 4, 'fase');
   h += fila('METROS DE LÍNEA', val(_spNum('metrosLinea') + ' m'), 4, 'metros');
   h += fila('SECCIÓN', val((state.data.seccion || '—') + ' mm²'), 4, 'seccion');
